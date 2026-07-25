@@ -1,0 +1,307 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// 1. ENUMS (Strict definitions for roles and types)
+// ==========================================
+
+enum SystemRole {
+  Owner
+  Cashier
+  Sales
+  Storekeeper
+  OperatorDriver
+  ProjectManager
+  Foreman
+}
+
+enum BudgetType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum ItemCategory {
+  CONSUMABLE
+  TOOL
+}
+
+enum StoreTxType {
+  ISSUE
+  RESTOCK
+  RETURN
+}
+
+enum MachineryStatus {
+  IDLE
+  WORKING
+  MAINTENANCE
+}
+
+enum EmploymentType {
+  PERMANENT
+  DAILY_LABORER
+}
+
+// ==========================================
+// 2. USERS & COMPANIES
+// ==========================================
+
+model User {
+  id        Int        @id @default(autoincrement())
+  name      String
+  email     String     @unique
+  password  String
+  phone     String?
+  role      SystemRole @default(Owner)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Relations
+  ownedCompanies     Company[] // Companies this user owns
+  companyMemberships CompanyMember[] // Companies this user works for
+  personalExpenses   PersonalExpense[]
+  personalBudgets    PersonalBudget[]
+  personalSavings    PersonalSaving[]
+  registeredIncomes  CompanyIncome[]
+  registeredExpenses CompanyExpense[]
+  storeTransactions  StoreTransaction[]
+  machineryOps       MachineryOperator[]
+  projectUpdates     ProjectUpdate[]
+  notifications      Notification[]
+}
+
+model Company {
+  id        Int      @id @default(autoincrement())
+  name      String
+  industry  String?
+  currency  String   @default("USD")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  ownerId           Int                @map("owner_id")
+  owner             User               @relation(fields: [ownerId], references: [id])
+  members           CompanyMember[]
+  incomes           CompanyIncome[]
+  expenses          CompanyExpense[]
+  employees         Employee[]
+  machineries       Machinery[]
+  storeItems        StoreItem[]
+  projects          Project[]
+  storeTransactions StoreTransaction[]
+}
+
+model CompanyMember {
+  id        Int        @id @default(autoincrement())
+  userId    Int        @map("user_id")
+  companyId Int        @map("company_id")
+  role      SystemRole // Role specific to this company
+
+  user    User    @relation(fields: [userId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([userId, companyId])
+}
+
+// ==========================================
+// 3. PERSONAL FINANCE (Owner Only)
+// ==========================================
+
+model PersonalBudget {
+  id        Int        @id @default(autoincrement())
+  userId    Int        @map("user_id")
+  type      BudgetType // DAILY, WEEKLY, MONTHLY
+  amount    Float
+  startDate DateTime
+  createdAt DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model PersonalExpense {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  amount        Float
+  category      String? // Can be null for quick entry
+  note          String?
+  date          DateTime @default(now())
+  isCategorized Boolean  @default(false) // For quick record & categorize later
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model PersonalSaving {
+  id              Int        @id @default(autoincrement())
+  userId          Int        @map("user_id")
+  targetAmount    Float      @map("target_amount")
+  currentAmount   Float      @default(0) @map("current_amount")
+  thresholdAmount Float      @map("threshold_amount") // Minimum to save per period
+  frequency       BudgetType // DAILY, WEEKLY, MONTHLY commitment
+  startDate       DateTime   @map("start_date")
+  createdAt       DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// ==========================================
+// 4. COMPANY FINANCE & STAFF
+// ==========================================
+
+model CompanyIncome {
+  id           Int      @id @default(autoincrement())
+  companyId    Int      @map("company_id")
+  registeredBy Int      @map("registered_by")
+  amount       Float
+  category     String // e.g., "Sales", "Milestone 1", "Rental"
+  date         DateTime @default(now())
+  note         String?
+  projectId    Int?     @map("project_id") // Optional link to a project
+  machineryId  Int?     @map("machinery_id") // Optional link to machinery
+  createdAt    DateTime @default(now())
+
+  company   Company    @relation(fields: [companyId], references: [id])
+  user      User       @relation(fields: [registeredBy], references: [id])
+  machinery Machinery? @relation(fields: [machineryId], references: [id])
+  project   Project?   @relation(fields: [projectId], references: [id])
+}
+
+model CompanyExpense {
+  id           Int      @id @default(autoincrement())
+  companyId    Int      @map("company_id")
+  registeredBy Int      @map("registered_by")
+  amount       Float
+  category     String // e.g., "Fuel", "Salary", "Restock"
+  date         DateTime @default(now())
+  note         String?
+  projectId    Int?     @map("project_id")
+  machineryId  Int?     @map("machinery_id")
+  createdAt    DateTime @default(now())
+
+  company   Company    @relation(fields: [companyId], references: [id])
+  user      User       @relation(fields: [registeredBy], references: [id])
+  machinery Machinery? @relation(fields: [machineryId], references: [id])
+  project   Project?   @relation(fields: [projectId], references: [id])
+}
+
+model Employee {
+  id             Int            @id @default(autoincrement())
+  companyId      Int            @map("company_id")
+  name           String
+  employmentType EmploymentType @map("employment_type") // PERMANENT or DAILY_LABORER
+  wage           Float? // Daily wage or monthly salary
+  nextPayDate    DateTime?      @map("next_pay_date") // For permanent salary notifications
+  createdAt      DateTime       @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+}
+
+// ==========================================
+// 5. MACHINERY & VEHICLES
+// ==========================================
+
+model Machinery {
+  id        Int             @id @default(autoincrement())
+  companyId Int             @map("company_id")
+  name      String
+  category  String // e.g., "Heavy Machinery", "Vehicle"
+  status    MachineryStatus @default(IDLE)
+  createdAt DateTime        @default(now())
+
+  company   Company             @relation(fields: [companyId], references: [id])
+  operators MachineryOperator[]
+  expenses  CompanyExpense[]    @relation("MachineryExpenses")
+  incomes   CompanyIncome[]     @relation("MachineryIncomes")
+}
+
+model MachineryOperator {
+  id          Int     @id @default(autoincrement())
+  machineryId Int     @map("machinery_id")
+  userId      Int     @map("user_id") // The Operator/Driver account
+  isHelper    Boolean @default(false)
+
+  machinery Machinery @relation(fields: [machineryId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+}
+
+// ==========================================
+// 6. STORE & INVENTORY
+// ==========================================
+
+model StoreItem {
+  id                Int          @id @default(autoincrement())
+  companyId         Int          @map("company_id")
+  name              String
+  category          ItemCategory // CONSUMABLE or TOOL
+  quantity          Float        @default(0) // Float for things like liters of oil
+  lowStockThreshold Float        @default(5) @map("low_stock_threshold")
+  createdAt         DateTime     @default(now())
+
+  company      Company            @relation(fields: [companyId], references: [id])
+  transactions StoreTransaction[]
+}
+
+model StoreTransaction {
+  id             Int         @id @default(autoincrement())
+  itemId         Int         @map("item_id")
+  companyId      Int         @map("company_id")
+  type           StoreTxType // ISSUE, RESTOCK, RETURN
+  quantity       Float
+  issuedToUserId Int?        @map("issued_to_user_id") // If checked out by staff
+  date           DateTime    @default(now())
+  status         String      @default("APPROVED") // For request approval workflow
+  createdAt      DateTime    @default(now())
+
+  item    StoreItem @relation(fields: [itemId], references: [id])
+  company Company   @relation(fields: [companyId], references: [id])
+  user    User?     @relation(fields: [issuedToUserId], references: [id])
+}
+
+// ==========================================
+// 7. PROJECTS & NOTIFICATIONS
+// ==========================================
+
+model Project {
+  id        Int      @id @default(autoincrement())
+  companyId Int      @map("company_id")
+  name      String
+  progress  Float    @default(0) // Percentage 0-100
+  createdAt DateTime @default(now())
+
+  company  Company          @relation(fields: [companyId], references: [id])
+  updates  ProjectUpdate[]
+  expenses CompanyExpense[] @relation("ProjectExpenses")
+  incomes  CompanyIncome[]  @relation("ProjectIncomes")
+}
+
+model ProjectUpdate {
+  id          Int      @id @default(autoincrement())
+  projectId   Int      @map("project_id")
+  userId      Int      @map("user_id") // PM or Foreman who updated it
+  note        String
+  newProgress Float    @map("new_progress")
+  date        DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  title     String
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
