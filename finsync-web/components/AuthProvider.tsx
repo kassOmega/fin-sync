@@ -13,16 +13,24 @@ export default function AuthProvider({
     useAuthStore();
 
   useEffect(() => {
-    // Only run this check once the store has hydrated from localStorage
-    if (hasHydrated && token) {
+    // 1. Tell the app we have mounted on the client and read localStorage
+    if (!hasHydrated) {
+      setHasHydrated(true);
+    }
+
+    // 2. If we have a token, verify it and fetch the user profile
+    if (token) {
       api
-        .get("/users/me")
+        .get("/users/me", {
+          headers: {
+            // Explicitly attach the token to avoid interceptor race conditions
+            Authorization: `Bearer ${token}`,
+          },
+        })
         .then((res) => setAuth(res.data, token))
         .catch(() => logout());
-    } else if (hasHydrated && !token) {
-      // If hydrated and no token, ensure we don't block UI if on a public route
     }
-  }, [hasHydrated]);
+  }, []); // Run exactly once on mount
 
   return <>{children}</>;
 }

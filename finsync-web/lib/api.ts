@@ -1,3 +1,4 @@
+import { useAuthStore } from "@/store/authStore";
 import axios from "axios";
 
 const api = axios.create({
@@ -9,7 +10,7 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
-    const token = localStorage.getItem("finsync_token");
+    const token = useAuthStore.getState().token;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -20,10 +21,17 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && typeof window !== "undefined") {
-      localStorage.removeItem("finsync_token");
-      localStorage.removeItem("finsync-auth-storage");
-      window.location.href = "/login";
+    const isAuthEndpoint =
+      error.config?.url?.includes("/auth/") ||
+      error.config?.url?.includes("/users/me");
+
+    // Only auto-logout on 401 if it wasn't an auth/verification request itself
+    if (
+      error.response?.status === 401 &&
+      typeof window !== "undefined" &&
+      !isAuthEndpoint
+    ) {
+      useAuthStore.getState().logout();
     }
     return Promise.reject(error);
   },

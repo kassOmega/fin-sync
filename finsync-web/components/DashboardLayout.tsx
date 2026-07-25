@@ -5,12 +5,9 @@ import { useAuthStore } from "@/store/authStore";
 import {
   Bell,
   Building2,
-  Forklift,
   LayoutDashboard,
   LogOut,
   Menu,
-  Package,
-  Users,
   Wallet,
   X,
 } from "lucide-react";
@@ -29,6 +26,7 @@ export default function DashboardLayout({
 
   if (!user) return null;
 
+  // Only Global Links in Root Layout
   const navItems = [
     {
       name: "Dashboard",
@@ -55,35 +53,6 @@ export default function DashboardLayout({
       roles: [SystemRole.Owner],
     },
     {
-      name: "My Company",
-      href: "/dashboard/company",
-      icon: Building2,
-      roles: [
-        SystemRole.Cashier,
-        SystemRole.Storekeeper,
-        SystemRole.OperatorDriver,
-        SystemRole.ProjectManager,
-      ],
-    },
-    {
-      name: "Staff",
-      href: "/dashboard/staff",
-      icon: Users,
-      roles: [SystemRole.Owner],
-    },
-    {
-      name: "Machineries",
-      href: "/dashboard/machineries",
-      icon: Forklift,
-      roles: [SystemRole.Owner, SystemRole.OperatorDriver],
-    },
-    {
-      name: "Store",
-      href: "/dashboard/store",
-      icon: Package,
-      roles: [SystemRole.Owner, SystemRole.Storekeeper],
-    },
-    {
       name: "Notifications",
       href: "/dashboard/notifications",
       icon: Bell,
@@ -101,6 +70,7 @@ export default function DashboardLayout({
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-100">
+      {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-gray-600 bg-opacity-75 lg:hidden"
@@ -108,6 +78,7 @@ export default function DashboardLayout({
         />
       )}
 
+      {/* Root Sidebar */}
       <div
         className={`fixed lg:relative lg:translate-x-0 z-50 w-64 h-full bg-gray-900 text-white transition-transform duration-300 ease-in-out ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
@@ -143,7 +114,9 @@ export default function DashboardLayout({
         </div>
       </div>
 
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Header */}
         <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-6">
           <button
             onClick={() => setSidebarOpen(true)}
@@ -163,6 +136,7 @@ export default function DashboardLayout({
           </div>
         </header>
 
+        {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-8">{children}</main>
       </div>
     </div>

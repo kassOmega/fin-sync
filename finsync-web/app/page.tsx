@@ -1,26 +1,18 @@
 "use client";
 
-import { useAuthStore } from "@/store/authStore";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-
 export default function Home() {
-  const router = useRouter();
-  const token = useAuthStore((state) => state.token);
-
-  useEffect(() => {
-    // If the user has a token, send them to the dashboard
-    // Otherwise, send them to the login page
-    if (token) {
-      router.push("/dashboard");
-    } else {
-      router.push("/login");
-    }
-  }, [token, router]);
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-8">
+      <h1 className="text-3xl font-bold">FinSync App Running!</h1>
+      <p className="mt-4 text-gray-400">
+        If you see this, rendering is working.
+      </p>
+      <a
+        href="/login"
+        className="mt-6 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500"
+      >
+        Go to Login
+      </a>
     </div>
   );
 }

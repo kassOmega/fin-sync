@@ -18,14 +18,8 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       hasHydrated: false,
-      setAuth: (user, token) => {
-        set({ user, token });
-        localStorage.setItem("finsync_token", token);
-      },
-      logout: () => {
-        set({ user: null, token: null });
-        localStorage.removeItem("finsync_token");
-      },
+      setAuth: (user, token) => set({ user, token }),
+      logout: () => set({ user: null, token: null }),
       setHasHydrated: (state) => set({ hasHydrated: state }),
       hasRole: (roles) => {
         const user = get().user;
@@ -34,14 +28,13 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: "finsync-auth-storage", // name of the item in the storage (must be unique)
-      storage: createJSONStorage(() => localStorage), // use localStorage
+      name: "finsync-auth-storage",
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) =>
+        ({ user: state.user, token: state.token }) as AuthState,
+      // Automatically update hasHydrated when Zustand finishes reading localStorage
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
-        // Sync token to the key that api.ts interceptor expects
-        if (state?.token) {
-          localStorage.setItem("finsync_token", state.token);
-        }
       },
     },
   ),
