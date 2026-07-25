@@ -6,11 +6,10 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ==========================================
-// 1. ENUMS (Strict definitions for roles and types)
+// 1. ENUMS
 // ==========================================
 
 enum SystemRole {
@@ -66,8 +65,8 @@ model User {
   updatedAt DateTime   @updatedAt
 
   // Relations
-  ownedCompanies     Company[] // Companies this user owns
-  companyMemberships CompanyMember[] // Companies this user works for
+  ownedCompanies     Company[]           @relation("CompanyOwner")
+  companyMemberships CompanyMember[]
   personalExpenses   PersonalExpense[]
   personalBudgets    PersonalBudget[]
   personalSavings    PersonalSaving[]
@@ -77,6 +76,7 @@ model User {
   machineryOps       MachineryOperator[]
   projectUpdates     ProjectUpdate[]
   notifications      Notification[]
+  storeRequests      StoreRequest[]
 }
 
 model Company {
@@ -89,7 +89,7 @@ model Company {
 
   // Relations
   ownerId           Int                @map("owner_id")
-  owner             User               @relation(fields: [ownerId], references: [id])
+  owner             User               @relation("CompanyOwner", fields: [ownerId], references: [id])
   members           CompanyMember[]
   incomes           CompanyIncome[]
   expenses          CompanyExpense[]
@@ -98,13 +98,14 @@ model Company {
   storeItems        StoreItem[]
   projects          Project[]
   storeTransactions StoreTransaction[]
+  storeRequests     StoreRequest[]
 }
 
 model CompanyMember {
   id        Int        @id @default(autoincrement())
   userId    Int        @map("user_id")
   companyId Int        @map("company_id")
-  role      SystemRole // Role specific to this company
+  role      SystemRole
 
   user    User    @relation(fields: [userId], references: [id])
   company Company @relation(fields: [companyId], references: [id])
@@ -113,16 +114,17 @@ model CompanyMember {
 }
 
 // ==========================================
-// 3. PERSONAL FINANCE (Owner Only)
+// 3. PERSONAL FINANCE
 // ==========================================
 
 model PersonalBudget {
-  id        Int        @id @default(autoincrement())
-  userId    Int        @map("user_id")
-  type      BudgetType // DAILY, WEEKLY, MONTHLY
-  amount    Float
-  startDate DateTime
-  createdAt DateTime   @default(now())
+  id                Int        @id @default(autoincrement())
+  userId            Int        @map("user_id")
+  type              BudgetType
+  amount            Float
+  startDate         DateTime
+  createdAt         DateTime   @default(now())
+  carriedOverAmount Float      @default(0)
 
   user User @relation(fields: [userId], references: [id])
 }
@@ -131,10 +133,10 @@ model PersonalExpense {
   id            Int      @id @default(autoincrement())
   userId        Int      @map("user_id")
   amount        Float
-  category      String? // Can be null for quick entry
+  category      String?
   note          String?
   date          DateTime @default(now())
-  isCategorized Boolean  @default(false) // For quick record & categorize later
+  isCategorized Boolean  @default(false)
   createdAt     DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
@@ -145,8 +147,8 @@ model PersonalSaving {
   userId          Int        @map("user_id")
   targetAmount    Float      @map("target_amount")
   currentAmount   Float      @default(0) @map("current_amount")
-  thresholdAmount Float      @map("threshold_amount") // Minimum to save per period
-  frequency       BudgetType // DAILY, WEEKLY, MONTHLY commitment
+  thresholdAmount Float      @map("threshold_amount")
+  frequency       BudgetType
   startDate       DateTime   @map("start_date")
   createdAt       DateTime   @default(now())
 
@@ -162,11 +164,11 @@ model CompanyIncome {
   companyId    Int      @map("company_id")
   registeredBy Int      @map("registered_by")
   amount       Float
-  category     String // e.g., "Sales", "Milestone 1", "Rental"
+  category     String
   date         DateTime @default(now())
   note         String?
-  projectId    Int?     @map("project_id") // Optional link to a project
-  machineryId  Int?     @map("machinery_id") // Optional link to machinery
+  projectId    Int?     @map("project_id")
+  machineryId  Int?     @map("machinery_id")
   createdAt    DateTime @default(now())
 
   company   Company    @relation(fields: [companyId], references: [id])
@@ -180,7 +182,7 @@ model CompanyExpense {
   companyId    Int      @map("company_id")
   registeredBy Int      @map("registered_by")
   amount       Float
-  category     String // e.g., "Fuel", "Salary", "Restock"
+  category     String
   date         DateTime @default(now())
   note         String?
   projectId    Int?     @map("project_id")
@@ -197,9 +199,9 @@ model Employee {
   id             Int            @id @default(autoincrement())
   companyId      Int            @map("company_id")
   name           String
-  employmentType EmploymentType @map("employment_type") // PERMANENT or DAILY_LABORER
-  wage           Float? // Daily wage or monthly salary
-  nextPayDate    DateTime?      @map("next_pay_date") // For permanent salary notifications
+  employmentType EmploymentType @map("employment_type")
+  wage           Float?
+  nextPayDate    DateTime?      @map("next_pay_date")
   createdAt      DateTime       @default(now())
 
   company Company @relation(fields: [companyId], references: [id])
@@ -210,23 +212,24 @@ model Employee {
 // ==========================================
 
 model Machinery {
-  id        Int             @id @default(autoincrement())
-  companyId Int             @map("company_id")
-  name      String
-  category  String // e.g., "Heavy Machinery", "Vehicle"
-  status    MachineryStatus @default(IDLE)
-  createdAt DateTime        @default(now())
-
-  company   Company             @relation(fields: [companyId], references: [id])
-  operators MachineryOperator[]
-  expenses  CompanyExpense[]    @relation("MachineryExpenses")
-  incomes   CompanyIncome[]     @relation("MachineryIncomes")
+  id                   Int                 @id @default(autoincrement())
+  companyId            Int                 @map("company_id")
+  name                 String
+  category             String
+  status               MachineryStatus     @default(IDLE)
+  createdAt            DateTime            @default(now())
+  company              Company             @relation(fields: [companyId], references: [id])
+  operators            MachineryOperator[]
+  expenses             CompanyExpense[]
+  incomes              CompanyIncome[]
+  runningHours         Float               @default(0)
+  lastMaintenanceHours Float               @default(0)
 }
 
 model MachineryOperator {
   id          Int     @id @default(autoincrement())
   machineryId Int     @map("machinery_id")
-  userId      Int     @map("user_id") // The Operator/Driver account
+  userId      Int     @map("user_id")
   isHelper    Boolean @default(false)
 
   machinery Machinery @relation(fields: [machineryId], references: [id])
@@ -241,29 +244,44 @@ model StoreItem {
   id                Int          @id @default(autoincrement())
   companyId         Int          @map("company_id")
   name              String
-  category          ItemCategory // CONSUMABLE or TOOL
-  quantity          Float        @default(0) // Float for things like liters of oil
+  category          ItemCategory
+  quantity          Float        @default(0)
   lowStockThreshold Float        @default(5) @map("low_stock_threshold")
   createdAt         DateTime     @default(now())
 
-  company      Company            @relation(fields: [companyId], references: [id])
-  transactions StoreTransaction[]
+  company       Company            @relation(fields: [companyId], references: [id])
+  transactions  StoreTransaction[]
+  storeRequests StoreRequest[]
 }
 
 model StoreTransaction {
   id             Int         @id @default(autoincrement())
   itemId         Int         @map("item_id")
   companyId      Int         @map("company_id")
-  type           StoreTxType // ISSUE, RESTOCK, RETURN
+  type           StoreTxType
   quantity       Float
-  issuedToUserId Int?        @map("issued_to_user_id") // If checked out by staff
+  issuedToUserId Int?        @map("issued_to_user_id")
   date           DateTime    @default(now())
-  status         String      @default("APPROVED") // For request approval workflow
+  status         String      @default("APPROVED")
   createdAt      DateTime    @default(now())
 
   item    StoreItem @relation(fields: [itemId], references: [id])
   company Company   @relation(fields: [companyId], references: [id])
   user    User?     @relation(fields: [issuedToUserId], references: [id])
+}
+
+model StoreRequest {
+  id        Int      @id @default(autoincrement())
+  itemId    Int      @map("item_id")
+  companyId Int      @map("company_id")
+  userId    Int      @map("user_id") // Who requested it
+  quantity  Float
+  status    String   @default("PENDING") // PENDING, APPROVED, ISSUED, REJECTED
+  createdAt DateTime @default(now())
+
+  item    StoreItem @relation(fields: [itemId], references: [id])
+  company Company   @relation(fields: [companyId], references: [id])
+  user    User      @relation(fields: [userId], references: [id])
 }
 
 // ==========================================
@@ -274,19 +292,19 @@ model Project {
   id        Int      @id @default(autoincrement())
   companyId Int      @map("company_id")
   name      String
-  progress  Float    @default(0) // Percentage 0-100
+  progress  Float    @default(0)
   createdAt DateTime @default(now())
 
   company  Company          @relation(fields: [companyId], references: [id])
   updates  ProjectUpdate[]
-  expenses CompanyExpense[] @relation("ProjectExpenses")
-  incomes  CompanyIncome[]  @relation("ProjectIncomes")
+  expenses CompanyExpense[]
+  incomes  CompanyIncome[]
 }
 
 model ProjectUpdate {
   id          Int      @id @default(autoincrement())
   projectId   Int      @map("project_id")
-  userId      Int      @map("user_id") // PM or Foreman who updated it
+  userId      Int      @map("user_id")
   note        String
   newProgress Float    @map("new_progress")
   date        DateTime @default(now())
