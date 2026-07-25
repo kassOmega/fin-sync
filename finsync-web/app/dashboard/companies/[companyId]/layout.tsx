@@ -1,98 +1,75 @@
 "use client";
 
 import api from "@/lib/api";
-import {
-  ArrowLeft,
-  BarChart3,
-  Building2,
-  Forklift,
-  Package,
-  Users,
-  Wallet,
-} from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useParams, usePathname } from "next/navigation"; // Import useParams
 import { useEffect, useState } from "react";
 
-export default function CompanyLayout({ children, params }) {
+export default function CompanyLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
-  const companyId = params.companyId;
-  const [company, setCompany] = useState(null);
+  const params = useParams(); // Use the hook
+  const companyId = params.companyId as string; // Extract companyId safely
+  const [company, setCompany] = useState<any>(null);
 
   useEffect(() => {
-    api.get(`/companies/${companyId}`).then((res) => setCompany(res.data));
+    if (companyId) {
+      api.get(`/companies/${companyId}`).then((res) => setCompany(res.data));
+    }
   }, [companyId]);
 
   const navItems = [
-    {
-      name: "Overview",
-      href: `/dashboard/companies/${companyId}`,
-      icon: Building2,
-    },
-    {
-      name: "Incomes",
-      href: `/dashboard/companies/${companyId}/incomes`,
-      icon: Wallet,
-    },
-    {
-      name: "Expenses",
-      href: `/dashboard/companies/${companyId}/expenses`,
-      icon: Wallet,
-    },
-    {
-      name: "Staff",
-      href: `/dashboard/companies/${companyId}/staff`,
-      icon: Users,
-    },
-    {
-      name: "Machineries",
-      href: `/dashboard/companies/${companyId}/machineries`,
-      icon: Forklift,
-    },
-    {
-      name: "Store",
-      href: `/dashboard/companies/${companyId}/store`,
-      icon: Package,
-    },
-    {
-      name: "Reports",
-      href: `/dashboard/companies/${companyId}/reports`,
-      icon: BarChart3,
-    },
+    { name: "Overview", href: `` },
+    { name: "Incomes", href: `/incomes` },
+    { name: "Expenses", href: `/expenses` },
+    { name: "Staff", href: `/staff` },
+    { name: "Projects", href: `/projects` },
+    { name: "Machineries", href: `/machineries` },
+    { name: "Store", href: `/store` },
+    { name: "Reports", href: `/reports` },
   ];
 
   return (
-    <div className="flex h-full -m-4 lg:-m-8">
-      {/* Company Sub-Sidebar */}
-      <aside className="w-64 bg-gray-800 text-white flex-col hidden md:flex">
-        <div className="p-4 border-b border-gray-700">
+    <div className="flex flex-col h-full -m-4 lg:-m-8 gap-8">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="px-4 lg:px-8 py-4 flex items-center space-x-4">
           <Link
             href="/dashboard/companies"
-            className="flex items-center text-gray-400 hover:text-white text-sm mb-2"
+            className="p-2 hover:bg-gray-100 rounded-md"
           >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Companies
+            <ArrowLeft className="h-5 w-5 text-gray-600" />
           </Link>
-          <h2 className="font-bold text-lg truncate">
-            {company?.name || "Company"}
-          </h2>
+          <div>
+            <h1 className="text-xl font-bold text-gray-800">
+              {company?.name || "Loading..."}
+            </h1>
+            {company?.industry && (
+              <p className="text-xs text-gray-500">{company.industry}</p>
+            )}
+          </div>
         </div>
-        <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
+        {/* Horizontal Navbar */}
+        <nav className="flex overflow-x-auto px-4 lg:px-8 border-t border-gray-100">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const href = `/dashboard/companies/${companyId}${item.href}`;
+            const isActive =
+              item.href === "" ? pathname === href : pathname.startsWith(href);
             return (
               <Link
                 key={item.name}
-                href={item.href}
-                className={`flex items-center px-2 py-2 text-sm rounded-md ${isActive ? "bg-gray-900 text-white" : "text-gray-300 hover:bg-gray-700"}`}
+                href={href}
+                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${isActive ? "border-indigo-600 text-indigo-600" : "border-transparent text-gray-500 hover:text-gray-800"}`}
               >
-                <item.icon className="h-5 w-5 mr-3" /> {item.name}
+                {item.name}
               </Link>
             );
           })}
         </nav>
-      </aside>
-
-      {/* Main Content for Company */}
+      </header>
       <main className="flex-1 overflow-y-auto p-4 lg:p-8 bg-gray-50">
         {children}
       </main>

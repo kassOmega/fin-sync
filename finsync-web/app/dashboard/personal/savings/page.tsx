@@ -1,7 +1,8 @@
 "use client";
 
 import api from "@/lib/api";
-import { Plus, Target, TrendingUp } from "lucide-react";
+import { ArrowLeft, Plus, Target, TrendingUp } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -31,18 +32,41 @@ export default function PersonalSavingsPage() {
     e.preventDefault();
     try {
       await api.post("/savings", { ...savingData, startDate: new Date() });
-      toast.success("Savings goal created!");
+      toast.success("Goal created!");
       setIsModalOpen(false);
       fetchSavings();
     } catch (error) {
-      toast.error("Failed to create savings goal");
+      toast.error("Failed");
+    }
+  };
+
+  const handleAddFunds = async (id, currentAmount) => {
+    const amount = prompt("Enter amount to add:");
+    if (amount) {
+      try {
+        await api.patch(`/savings/${id}`, {
+          currentAmount: currentAmount + parseFloat(amount),
+        });
+        toast.success("Funds added!");
+        fetchSavings();
+      } catch (error) {
+        toast.error("Failed to add funds");
+      }
     }
   };
 
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Savings Goals</h1>
+        <div className="flex items-center space-x-4">
+          <Link
+            href="/dashboard/personal"
+            className="p-2 bg-white rounded-md border border-gray-200 hover:bg-gray-50"
+          >
+            <ArrowLeft className="h-5 w-5 text-gray-600" />
+          </Link>
+          <h1 className="text-2xl font-bold text-gray-800">Savings Goals</h1>
+        </div>
         <button
           onClick={() => setIsModalOpen(true)}
           className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
@@ -54,7 +78,7 @@ export default function PersonalSavingsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {savings.length === 0 ? (
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 text-center text-gray-500 col-span-full">
-            No savings goals yet. Create one to start tracking!
+            No savings goals yet.
           </div>
         ) : (
           savings.map((goal) => {
@@ -84,8 +108,7 @@ export default function PersonalSavingsPage() {
                   </div>
                   <TrendingUp className="h-5 w-5 text-gray-400" />
                 </div>
-
-                <div className="space-y-2">
+                <div className="space-y-2 mb-4">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Progress</span>
                     <span className="font-medium text-gray-900">
@@ -99,6 +122,12 @@ export default function PersonalSavingsPage() {
                     ></div>
                   </div>
                 </div>
+                <button
+                  onClick={() => handleAddFunds(goal.id, goal.currentAmount)}
+                  className="w-full px-4 py-2 bg-green-50 text-green-700 rounded-md hover:bg-green-100 text-sm font-medium"
+                >
+                  Add Funds to Savings
+                </button>
               </div>
             );
           })
@@ -124,7 +153,7 @@ export default function PersonalSavingsPage() {
                       targetAmount: e.target.value,
                     })
                   }
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
                 />
               </div>
               <div>
@@ -141,7 +170,7 @@ export default function PersonalSavingsPage() {
                       thresholdAmount: e.target.value,
                     })
                   }
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
                 />
               </div>
               <div>
@@ -153,7 +182,7 @@ export default function PersonalSavingsPage() {
                   onChange={(e) =>
                     setSavingData({ ...savingData, frequency: e.target.value })
                   }
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
                 >
                   <option value="DAILY">Daily</option>
                   <option value="WEEKLY">Weekly</option>
@@ -172,7 +201,7 @@ export default function PersonalSavingsPage() {
                   type="submit"
                   className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
                 >
-                  Create Goal
+                  Create
                 </button>
               </div>
             </form>

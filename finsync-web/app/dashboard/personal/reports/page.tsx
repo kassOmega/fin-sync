@@ -1,7 +1,8 @@
 "use client";
 
 import api from "@/lib/api";
-import { Frown, Smile, TrendingUp } from "lucide-react";
+import { ArrowLeft, Frown, Smile, TrendingUp } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   Cell,
@@ -23,16 +24,16 @@ const COLORS = [
 
 export default function PersonalReportsPage() {
   const [report, setReport] = useState(null);
+  const [budgets, setBudgets] = useState([]);
 
   useEffect(() => {
     api.get("/personal/reports").then((res) => setReport(res.data));
+    api.get("/budgets").then((res) => setBudgets(res.data));
   }, []);
 
   if (!report)
     return (
-      <div className="p-8 text-center text-gray-500">
-        Generating personal report...
-      </div>
+      <div className="p-8 text-center text-gray-500">Generating report...</div>
     );
 
   const pieData = Object.entries(report.expensesByCategory).map(
@@ -48,8 +49,7 @@ export default function PersonalReportsPage() {
     Inspiring: {
       color: "bg-blue-100 text-blue-800",
       icon: TrendingUp,
-      message:
-        "You are getting close to your limit. Keep pushing to stay under budget!",
+      message: "You are getting close to your limit. Keep pushing!",
     },
     Complaining: {
       color: "bg-red-100 text-red-800",
@@ -62,10 +62,19 @@ export default function PersonalReportsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">
-        Personal Finance Report
-      </h1>
+      <div className="flex items-center space-x-4">
+        <Link
+          href="/dashboard/personal"
+          className="p-2 bg-white rounded-md border border-gray-200 hover:bg-gray-50"
+        >
+          <ArrowLeft className="h-5 w-5 text-gray-600" />
+        </Link>
+        <h1 className="text-2xl font-bold text-gray-800">
+          Personal Finance Report
+        </h1>
+      </div>
 
+      {/* Budget Performance & Motivational Tag */}
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-2 md:mb-0">
@@ -99,9 +108,29 @@ export default function PersonalReportsPage() {
           </div>
         </div>
 
-        <p className="text-sm text-gray-600 italic">{currentTag.message}</p>
+        {/* Budget Frequencies */}
+        <div className="mt-4 border-t pt-4">
+          <h4 className="text-sm font-medium text-gray-700 mb-2">
+            Active Budget Periods:
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {budgets.map((b) => (
+              <span
+                key={b.id}
+                className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium"
+              >
+                {b.type} (${b.amount})
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <p className="text-sm text-gray-600 italic mt-4">
+          {currentTag.message}
+        </p>
       </div>
 
+      {/* Expense Breakdown Chart */}
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
           Expenses by Category

@@ -13,6 +13,8 @@ api.interceptors.request.use((config) => {
     const token = useAuthStore.getState().token;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      console.warn("No token found in Zustand store.");
     }
   }
   return config;
@@ -21,17 +23,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const isAuthEndpoint =
-      error.config?.url?.includes("/auth/") ||
-      error.config?.url?.includes("/users/me");
-
-    // Only auto-logout on 401 if it wasn't an auth/verification request itself
-    if (
-      error.response?.status === 401 &&
-      typeof window !== "undefined" &&
-      !isAuthEndpoint
-    ) {
+    if (error.response?.status === 401 && typeof window !== "undefined") {
+      console.error("401 Unauthorized - Logging out");
       useAuthStore.getState().logout();
+      if (!window.location.href.includes("/login")) {
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   },

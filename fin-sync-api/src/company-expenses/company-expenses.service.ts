@@ -28,14 +28,13 @@ export class CompanyExpensesService {
   }
 
   async findAll(companyId: number, user: any) {
-    if (user.role === SystemRole.Cashier) {
-      return this.prisma.companyExpense.findMany({
-        where: { companyId, registeredBy: user.id },
-        orderBy: { date: 'desc' },
-      });
-    }
+    const where =
+      user.role === SystemRole.Cashier
+        ? { companyId, registeredBy: user.id }
+        : { companyId };
     return this.prisma.companyExpense.findMany({
-      where: { companyId },
+      where,
+      include: { user: { select: { name: true } } }, // <-- Add this
       orderBy: { date: 'desc' },
     });
   }

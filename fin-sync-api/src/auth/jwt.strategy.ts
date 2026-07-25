@@ -4,7 +4,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface JwtPayload {
-  sub: number; // User ID
+  sub: number;
   email: string;
   role: string;
 }
@@ -15,11 +15,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'SUPER_SECRET_DEV_KEY',
+      secretOrKey: 'SUPER_SECRET_DEV_KEY', // Must match AuthModule exactly
     });
   }
 
-  // This runs automatically when a user tries to access a protected route
   async validate(payload: JwtPayload) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
@@ -30,6 +29,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User no longer exists');
     }
 
-    return user; // This gets attached to the request as req.user
+    return user;
   }
 }

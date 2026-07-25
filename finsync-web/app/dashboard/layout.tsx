@@ -5,30 +5,19 @@ import { useAuthStore } from "@/store/authStore";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-export default function ProtectedLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function Layout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { token, user, hasHydrated } = useAuthStore();
 
-  // 🔍 Add debug logging here
-  console.log("ProtectedLayout State:", {
-    hasHydrated,
-    token: !!token,
-    user: !!user,
-  });
-
   useEffect(() => {
-    if (hasHydrated && !token) {
-      console.log("Redirecting to /login...");
+    // If hydrated, but token or user is missing -> go to login
+    if (hasHydrated && (!token || !user)) {
       router.push("/login");
     }
-  }, [hasHydrated, token, router]);
+  }, [hasHydrated, token, user, router]);
 
-  if (!hasHydrated || (token && !user)) {
-    console.log("Rendering Loading Spinner...");
+  // Show loading spinner while hydrating
+  if (!hasHydrated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
@@ -36,8 +25,8 @@ export default function ProtectedLayout({
     );
   }
 
+  // If token or user is missing, render null while redirect happens
   if (!token || !user) {
-    console.log("Rendering Null (Blank DOM)...");
     return null;
   }
 

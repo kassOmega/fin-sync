@@ -1,6 +1,8 @@
 "use client";
 
 import api from "@/lib/api";
+import { BarChart3 } from "lucide-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -65,7 +67,6 @@ export default function CompanyReportsPage() {
       <h1 className="text-2xl font-bold text-gray-800">
         Financial Reports & Forecasting
       </h1>
-
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
@@ -89,7 +90,36 @@ export default function CompanyReportsPage() {
           </p>
         </div>
       </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <Link
+          href={`/dashboard/companies/${companyId}/reports/projects`}
+          className="bg-white p-6 rounded-lg shadow border border-gray-200 hover:border-indigo-500 flex items-center justify-between"
+        >
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">
+              Projects Cumulative Report
+            </h3>
+            <p className="text-sm text-gray-500">
+              Compare profit/loss across all projects
+            </p>
+          </div>
+          <BarChart3 className="h-8 w-8 text-indigo-600" />
+        </Link>
+        <Link
+          href={`/dashboard/companies/${companyId}/reports/machineries`}
+          className="bg-white p-6 rounded-lg shadow border border-gray-200 hover:border-indigo-500 flex items-center justify-between"
+        >
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">
+              Machineries Cumulative Report
+            </h3>
+            <p className="text-sm text-gray-500">
+              Compare ROI across all machineries
+            </p>
+          </div>
+          <BarChart3 className="h-8 w-8 text-indigo-600" />
+        </Link>
+      </div>
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Income vs Expense Bar Chart */}
@@ -153,7 +183,6 @@ export default function CompanyReportsPage() {
           )}
         </div>
       </div>
-
       {/* AI/Algorithmic Forecasting Graph */}
       <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
         <div className="flex justify-between items-center mb-4">

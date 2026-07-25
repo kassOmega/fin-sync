@@ -25,6 +25,7 @@ export class CompanyIncomesService {
   async findAll(companyId: number) {
     return this.prisma.companyIncome.findMany({
       where: { companyId },
+      include: { user: { select: { name: true } } }, // <-- Add this
       orderBy: { date: 'desc' },
     });
   }

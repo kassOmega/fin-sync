@@ -39,4 +39,28 @@ export class ReportsController {
   getCompanyForecast(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.service.getCompanyForecast(companyId);
   }
+  // Add these routes to the class
+  @Get('machineries/:machineryId/reports')
+  @Roles(SystemRole.Owner)
+  getMachineryReport(@Param('machineryId', ParseIntPipe) machineryId: number) {
+    return this.service.getMachineryReport(machineryId);
+  }
+
+  @Get('projects/:projectId/reports')
+  @Roles(SystemRole.Owner)
+  getProjectReport(@Param('projectId', ParseIntPipe) projectId: number) {
+    return this.service.getProjectReport(projectId);
+  }
+
+  @Get('companies/:companyId/reports/projects')
+  @Roles(SystemRole.Owner)
+  getAllProjectsReport(@Param('companyId', ParseIntPipe) companyId: number) {
+    return this.service.getAllProjectsReport(companyId);
+  }
+
+  @Get('companies/:companyId/reports/machineries')
+  @Roles(SystemRole.Owner)
+  getAllMachineriesReport(@Param('companyId', ParseIntPipe) companyId: number) {
+    return this.service.getAllMachineriesReport(companyId);
+  }
 }

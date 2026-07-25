@@ -1,76 +1,64 @@
 "use client";
 
 import api from "@/lib/api";
-import { useOfflineQueueStore } from "@/store/offlineQueueStore";
-import { Eye, Pencil, Plus, Trash2, WifiOff } from "lucide-react";
+import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
-export default function CompanyExpensesPage() {
+export default function CompanyIncomesPage() {
   const { companyId } = useParams();
-  const addToQueue = useOfflineQueueStore((state) => state.addToQueue);
-  const [expenses, setExpenses] = useState([]);
+  const [incomes, setIncomes] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingExp, setEditingExp] = useState(null);
-  const [viewingExp, setViewingExp] = useState(null);
+  const [editingIncome, setEditingIncome] = useState(null);
+  const [viewingIncome, setViewingIncome] = useState(null);
   const [formData, setFormData] = useState({
     amount: "",
-    category: "Fuel",
+    category: "Sales",
     note: "",
   });
 
-  const fetchExpenses = async () => {
+  const fetchIncomes = async () => {
     try {
-      const res = await api.get(`/companies/${companyId}/expenses`);
-      setExpenses(res.data);
+      const res = await api.get(`/companies/${companyId}/incomes`);
+      setIncomes(res.data);
     } catch {
-      toast.error("Failed to load expenses");
+      toast.error("Failed to load incomes");
     }
   };
 
   useEffect(() => {
-    fetchExpenses();
+    fetchIncomes();
   }, [companyId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      if (editingExp) {
+      if (editingIncome) {
         await api.patch(
-          `/companies/${companyId}/expenses/${editingExp.id}`,
+          `/companies/${companyId}/incomes/${editingIncome.id}`,
           formData,
         );
-        toast.success("Expense updated");
+        toast.success("Income updated");
       } else {
-        await api.post(`/companies/${companyId}/expenses`, formData);
-        toast.success("Expense logged");
+        await api.post(`/companies/${companyId}/incomes`, formData);
+        toast.success("Income added");
       }
       setIsModalOpen(false);
-      setEditingExp(null);
-      setFormData({ amount: "", category: "Fuel", note: "" });
-      fetchExpenses();
-    } catch (error) {
-      if (!navigator.onLine && !editingExp) {
-        addToQueue({
-          ...formData,
-          amount: parseFloat(formData.amount),
-          companyId: parseInt(companyId),
-        });
-        setIsModalOpen(false);
-        setFormData({ amount: "", category: "Fuel", note: "" });
-      } else {
-        toast.error("Failed to save expense");
-      }
+      setEditingIncome(null);
+      setFormData({ amount: "", category: "Sales", note: "" });
+      fetchIncomes();
+    } catch {
+      toast.error("Failed to save income");
     }
   };
 
   const handleDelete = async (id) => {
-    if (confirm("Delete this expense?")) {
+    if (confirm("Delete this income record?")) {
       try {
-        await api.delete(`/companies/${companyId}/expenses/${id}`);
+        await api.delete(`/companies/${companyId}/incomes/${id}`);
         toast.success("Deleted");
-        fetchExpenses();
+        fetchIncomes();
       } catch {
         toast.error("Failed to delete");
       }
@@ -80,16 +68,16 @@ export default function CompanyExpensesPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Company Expenses</h1>
+        <h1 className="text-2xl font-bold text-gray-800">Company Incomes</h1>
         <button
           onClick={() => {
-            setEditingExp(null);
-            setFormData({ amount: "", category: "Fuel", note: "" });
+            setEditingIncome(null);
+            setFormData({ amount: "", category: "Sales", note: "" });
             setIsModalOpen(true);
           }}
           className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
         >
-          <Plus className="h-5 w-5 mr-1" /> Add Expense
+          <Plus className="h-5 w-5 mr-1" /> Add Income
         </button>
       </div>
 
@@ -112,31 +100,31 @@ export default function CompanyExpensesPage() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {expenses.map((exp) => (
-              <tr key={exp.id} className="hover:bg-gray-50">
+            {incomes.map((inc) => (
+              <tr key={inc.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {new Date(exp.date).toLocaleDateString()}
+                  {new Date(inc.date).toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {exp.category}
+                  {inc.category}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
-                  ${exp.amount}
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                  ${inc.amount}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button
-                    onClick={() => setViewingExp(exp)}
+                    onClick={() => setViewingIncome(inc)}
                     className="text-gray-400 hover:text-gray-600 mx-1"
                   >
                     <Eye className="h-5 w-5" />
                   </button>
                   <button
                     onClick={() => {
-                      setEditingExp(exp);
+                      setEditingIncome(inc);
                       setFormData({
-                        amount: exp.amount,
-                        category: exp.category,
-                        note: exp.note || "",
+                        amount: inc.amount,
+                        category: inc.category,
+                        note: inc.note || "",
                       });
                       setIsModalOpen(true);
                     }}
@@ -145,7 +133,7 @@ export default function CompanyExpensesPage() {
                     <Pencil className="h-5 w-5" />
                   </button>
                   <button
-                    onClick={() => handleDelete(exp.id)}
+                    onClick={() => handleDelete(inc.id)}
                     className="text-red-500 hover:text-red-700 mx-1"
                   >
                     <Trash2 className="h-5 w-5" />
@@ -157,40 +145,41 @@ export default function CompanyExpensesPage() {
         </table>
       </div>
 
-      {viewingExp && (
+      {viewingIncome && (
         <div
           className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-          onClick={() => setViewingExp(null)}
+          onClick={() => setViewingIncome(null)}
         >
           <div
             className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl text-gray-900"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-xl font-bold mb-4">Expense Details</h2>
+            <h2 className="text-xl font-bold mb-4">Income Details</h2>
             <div className="space-y-3">
               <p>
                 <strong>Amount:</strong>{" "}
-                <span className="text-red-600 font-bold">
-                  ${viewingExp.amount}
+                <span className="text-green-600 font-bold">
+                  ${viewingIncome.amount}
                 </span>
               </p>
               <p>
-                <strong>Category:</strong> {viewingExp.category}
+                <strong>Category:</strong> {viewingIncome.category}
               </p>
               <p>
                 <strong>Date:</strong>{" "}
-                {new Date(viewingExp.date).toLocaleString()}
+                {new Date(viewingIncome.date).toLocaleString()}
               </p>
               <p>
                 <strong>Registered By:</strong>{" "}
-                {viewingExp.user?.name || "Unknown"}
+                {viewingIncome.user?.name || "Unknown"}
               </p>
               <p>
-                <strong>Note:</strong> {viewingExp.note || "No note provided"}
+                <strong>Note:</strong>{" "}
+                {viewingIncome.note || "No note provided"}
               </p>
             </div>
             <button
-              onClick={() => setViewingExp(null)}
+              onClick={() => setViewingIncome(null)}
               className="mt-6 w-full px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200"
             >
               Close
@@ -203,7 +192,7 @@ export default function CompanyExpensesPage() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl text-gray-900">
             <h2 className="text-xl font-bold mb-4">
-              {editingExp ? "Edit Expense" : "Add Expense"}
+              {editingIncome ? "Edit Income" : "Add Income"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -232,12 +221,10 @@ export default function CompanyExpensesPage() {
                   }
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
                 >
-                  <option>Fuel</option>
-                  <option>Salary</option>
-                  <option>Materials</option>
-                  <option>Rent</option>
-                  <option>Utilities</option>
-                  <option>Maintenance</option>
+                  <option>Sales</option>
+                  <option>Milestone</option>
+                  <option>Service</option>
+                  <option>Rental</option>
                   <option>Misc</option>
                 </select>
               </div>
@@ -253,12 +240,6 @@ export default function CompanyExpensesPage() {
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
                 />
               </div>
-              {!navigator.onLine && (
-                <div className="flex items-center text-amber-600 text-sm bg-amber-50 p-2 rounded-md">
-                  <WifiOff className="h-4 w-4 mr-2" /> You are offline. This
-                  will be synced later.
-                </div>
-              )}
               <div className="flex justify-end space-x-2 pt-4">
                 <button
                   type="button"

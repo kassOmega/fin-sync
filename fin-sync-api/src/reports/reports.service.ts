@@ -68,6 +68,105 @@ export class ReportsService {
 
     return { totalBudget, totalSpent, remaining, tag, expensesByCategory };
   }
+  // Add these methods to the class
+  async getMachineryReport(machineryId: number) {
+    const expenses = await this.prisma.companyExpense.findMany({
+      where: { machineryId },
+    });
+    const incomes = await this.prisma.companyIncome.findMany({
+      where: { machineryId },
+    });
+    const totalIncome = incomes.reduce((s, i) => s + i.amount, 0);
+    const totalExpense = expenses.reduce((s, e) => s + e.amount, 0);
+    return {
+      totalIncome,
+      totalExpense,
+      profit: totalIncome - totalExpense,
+      incomes,
+      expenses,
+    };
+  }
+
+  async getProjectReport(projectId: number) {
+    const expenses = await this.prisma.companyExpense.findMany({
+      where: { projectId },
+    });
+    const incomes = await this.prisma.companyIncome.findMany({
+      where: { projectId },
+    });
+    const totalIncome = incomes.reduce((s, i) => s + i.amount, 0);
+    const totalExpense = expenses.reduce((s, e) => s + e.amount, 0);
+    return {
+      totalIncome,
+      totalExpense,
+      profit: totalIncome - totalExpense,
+      incomes,
+      expenses,
+    };
+  }
+
+  // Cumulative Report for ALL Projects in a Company
+  async getAllProjectsReport(companyId: number) {
+    const projects = await this.prisma.project.findMany({
+      where: { companyId },
+      include: { expenses: true, incomes: true },
+    });
+
+    const chartData = projects.map((p) => {
+      const totalIncome = p.incomes.reduce((s, i) => s + i.amount, 0);
+      const totalExpense = p.expenses.reduce((s, e) => s + e.amount, 0);
+      return {
+        name: p.name,
+        Income: totalIncome,
+        Expenses: totalExpense,
+        Profit: totalIncome - totalExpense,
+      };
+    });
+
+    const totalIncomeAll = chartData.reduce((s, p) => s + p.Income, 0);
+    const totalExpenseAll = chartData.reduce((s, p) => s + p.Expenses, 0);
+
+    return {
+      summary: {
+        totalIncome: totalIncomeAll,
+        totalExpense: totalExpenseAll,
+        totalProfit: totalIncomeAll - totalExpenseAll,
+      },
+      chartData,
+    };
+  }
+
+  // Cumulative Report for ALL Machineries in a Company
+  async getAllMachineriesReport(companyId: number) {
+    const machineries = await this.prisma.machinery.findMany({
+      where: { companyId },
+      include: { expenses: true, incomes: true },
+    });
+
+    const chartData = machineries.map((m) => {
+      const totalIncome = m.incomes.reduce((s, i) => s + i.amount, 0);
+      const totalExpense = m.expenses.reduce((s, e) => s + e.amount, 0);
+      return {
+        name: m.name,
+        Income: totalIncome,
+        Expenses: totalExpense,
+        Profit: totalIncome - totalExpense,
+        Hours: m.runningHours,
+      };
+    });
+
+    const totalIncomeAll = chartData.reduce((s, m) => s + m.Income, 0);
+    const totalExpenseAll = chartData.reduce((s, m) => s + m.Expenses, 0);
+
+    return {
+      summary: {
+        totalIncome: totalIncomeAll,
+        totalExpense: totalExpenseAll,
+        totalProfit: totalIncomeAll - totalExpenseAll,
+      },
+      chartData,
+    };
+  }
 
   // Predict future cash flow based on 3-month average
   async getCompanyForecast(companyId: number) {

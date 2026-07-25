@@ -1,28 +1,27 @@
 "use client";
 
 import api from "@/lib/api";
-import { Plus, Tag } from "lucide-react";
+import { ArrowLeft, Plus, Tag } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 export default function PersonalExpensesPage() {
-  const [uncategorized, setUncategorized] = useState([]);
+  const [expenses, setExpenses] = useState([]);
   const [quickAmount, setQuickAmount] = useState("");
   const [quickNote, setQuickNote] = useState("");
 
-  const fetchUncategorized = async () => {
+  const fetchExpenses = async () => {
     try {
-      const res = await api.get("/personal-expenses", {
-        params: { isCategorized: "false" },
-      });
-      setUncategorized(res.data);
+      const res = await api.get("/personal-expenses");
+      setExpenses(res.data);
     } catch (error) {
       console.error("Failed to fetch expenses");
     }
   };
 
   useEffect(() => {
-    fetchUncategorized();
+    fetchExpenses();
   }, []);
 
   const handleQuickExpense = async (e) => {
@@ -33,10 +32,10 @@ export default function PersonalExpensesPage() {
         note: quickNote,
         isCategorized: false,
       });
-      toast.success("Expense recorded! Categorize it later.");
+      toast.success("Expense recorded!");
       setQuickAmount("");
       setQuickNote("");
-      fetchUncategorized();
+      fetchExpenses();
     } catch (error) {
       toast.error("Failed to save expense");
     }
@@ -48,8 +47,8 @@ export default function PersonalExpensesPage() {
         category,
         isCategorized: true,
       });
-      toast.success("Expense categorized!");
-      fetchUncategorized();
+      toast.success("Categorized!");
+      fetchExpenses();
     } catch (error) {
       toast.error("Failed to categorize");
     }
@@ -57,10 +56,17 @@ export default function PersonalExpensesPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-gray-800">Personal Expenses</h1>
+      <div className="flex items-center space-x-4">
+        <Link
+          href="/dashboard/personal"
+          className="p-2 bg-white rounded-md border border-gray-200 hover:bg-gray-50"
+        >
+          <ArrowLeft className="h-5 w-5 text-gray-600" />
+        </Link>
+        <h1 className="text-2xl font-bold text-gray-800">Personal Expenses</h1>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Quick Expense Entry */}
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">
             Quick Expense Entry
@@ -76,7 +82,7 @@ export default function PersonalExpensesPage() {
                 required
                 value={quickAmount}
                 onChange={(e) => setQuickAmount(e.target.value)}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
               />
             </div>
             <div>
@@ -87,53 +93,70 @@ export default function PersonalExpensesPage() {
                 type="text"
                 value={quickNote}
                 onChange={(e) => setQuickNote(e.target.value)}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
               />
             </div>
             <button
               type="submit"
               className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
             >
-              <Plus className="h-5 w-5 mr-1" /> Save Now (Categorize Later)
+              <Plus className="h-5 w-5 mr-1" /> Save Now
             </button>
           </form>
         </div>
 
-        {/* Uncategorized Expenses List */}
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">
-            Categorize Pending Expenses
+            All Expenses
           </h3>
           <div className="space-y-3 max-h-96 overflow-y-auto">
-            {uncategorized.length === 0 ? (
+            {expenses.length === 0 ? (
               <p className="text-gray-500 text-sm text-center py-4">
-                All expenses are categorized!
+                No expenses yet.
               </p>
             ) : (
-              uncategorized.map((exp) => (
+              expenses.map((exp) => (
                 <div
                   key={exp.id}
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-md"
                 >
                   <div>
-                    <p className="font-medium text-gray-900">${exp.amount}</p>
+                    <p className="font-medium text-gray-900">
+                      ${exp.amount}{" "}
+                      <span className="text-xs text-gray-500">
+                        ({new Date(exp.date).toLocaleDateString()})
+                      </span>
+                    </p>
                     <p className="text-xs text-gray-500">
                       {exp.note || "No note"}
                     </p>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Tag className="h-4 w-4 text-gray-400" />
-                    <select
-                      onChange={(e) => handleCategorize(exp.id, e.target.value)}
-                      className="text-sm border border-gray-300 rounded-md p-1 bg-white"
-                    >
-                      <option value="">Select...</option>
-                      <option value="family">Family</option>
-                      <option value="clothing">Clothing</option>
-                      <option value="food">Food</option>
-                      <option value="transport">Transport</option>
-                      <option value="misc">Miscellaneous</option>
-                    </select>
+                    {exp.isCategorized ? (
+                      <span className="text-xs px-2 py-1 bg-indigo-50 text-indigo-700 rounded-full">
+                        {exp.category}
+                      </span>
+                    ) : (
+                      <>
+                        <Tag className="h-4 w-4 text-gray-400" />
+                        <select
+                          onChange={(e) =>
+                            handleCategorize(exp.id, e.target.value)
+                          }
+                          defaultValue=""
+                          className="text-sm border border-gray-300 rounded-md p-1 bg-white text-gray-900"
+                        >
+                          <option value="" disabled>
+                            Select...
+                          </option>
+                          <option value="family">Family</option>
+                          <option value="clothing">Clothing</option>
+                          <option value="food">Food</option>
+                          <option value="transport">Transport</option>
+                          <option value="misc">Misc</option>
+                        </select>
+                      </>
+                    )}
                   </div>
                 </div>
               ))

@@ -32,10 +32,6 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) =>
         ({ user: state.user, token: state.token }) as AuthState,
-      // Automatically update hasHydrated when Zustand finishes reading localStorage
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
-      },
     },
   ),
 );

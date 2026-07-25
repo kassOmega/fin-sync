@@ -7,8 +7,8 @@ import { JwtStrategy } from './jwt.strategy';
 @Module({
   imports: [
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'SUPER_SECRET_DEV_KEY', // Change this in production!
-      signOptions: { expiresIn: '7d' }, // Token expires in 7 days
+      secret: 'SUPER_SECRET_DEV_KEY', // Hardcoded for now
+      signOptions: { expiresIn: '7d' },
     }),
   ],
   controllers: [AuthController],
