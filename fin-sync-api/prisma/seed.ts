@@ -24,6 +24,8 @@ const pool = new Pool({
   ssl: {
     rejectUnauthorized: false,
   },
+  // Force the pool to use the 'finsync' schema
+  options: '-c search_path=finsync,public',
 });
 const adapter = new PrismaPg(pool);
 
