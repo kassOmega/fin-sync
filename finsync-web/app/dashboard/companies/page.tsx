@@ -6,8 +6,18 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
+interface Company {
+  id: number;
+  name: string;
+  industry?: string;
+  _count?: {
+    members: number;
+    expenses: number;
+  };
+}
+
 export default function CompaniesPage() {
-  const [companies, setCompanies] = useState([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState("");
@@ -26,7 +36,7 @@ export default function CompaniesPage() {
     fetchCompanies();
   }, []);
 
-  const handleCreate = async (e) => {
+  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     try {

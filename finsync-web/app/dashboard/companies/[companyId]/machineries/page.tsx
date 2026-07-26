@@ -17,17 +17,41 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
+interface Machine {
+  id: number | string;
+  name: string;
+  category: string;
+  ownershipType: string;
+  projectId?: number | null;
+  project?: { id: number; name: string };
+  runningHours: number;
+  lastMaintenanceHours: number;
+}
+
+interface Project {
+  id: number;
+  name: string;
+}
+
+interface MachineReport {
+  totalIncome: number;
+  totalExpense: number;
+  profit: number;
+}
+
 export default function MachineriesPage() {
   const params = useParams();
   const companyId = params.companyId as string;
 
   const { hasRole } = useAuthStore();
-  const [machines, setMachines] = useState([]);
-  const [projects, setProjects] = useState([]);
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingMachine, setEditingMachine] = useState(null);
-  const [viewingMachine, setViewingMachine] = useState(null);
-  const [machineReport, setMachineReport] = useState(null);
+  const [editingMachine, setEditingMachine] = useState<Machine | null>(null);
+  const [viewingMachine, setViewingMachine] = useState<Machine | null>(null);
+  const [machineReport, setMachineReport] = useState<MachineReport | null>(
+    null,
+  );
   const [formData, setFormData] = useState({
     name: "",
     category: "Heavy Machinery",
@@ -60,7 +84,7 @@ export default function MachineriesPage() {
     fetchProjects();
   }, [companyId]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
       const payload = {
@@ -91,7 +115,7 @@ export default function MachineriesPage() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: number | string) => {
     if (confirm("Delete this machinery?")) {
       try {
         await api.delete(`/companies/${companyId}/machineries/${id}`);
@@ -103,7 +127,7 @@ export default function MachineriesPage() {
     }
   };
 
-  const handleLogHours = async (id, hours) => {
+  const handleLogHours = async (id: number | string, hours: string) => {
     try {
       const res = await api.post(
         `/companies/${companyId}/machineries/${id}/log-hours`,
@@ -120,7 +144,7 @@ export default function MachineriesPage() {
     }
   };
 
-  const handleCompleteMaintenance = async (id) => {
+  const handleCompleteMaintenance = async (id: number | string) => {
     try {
       await api.post(
         `/companies/${companyId}/machineries/${id}/complete-maintenance`,
@@ -132,7 +156,7 @@ export default function MachineriesPage() {
     }
   };
 
-  const handleViewDetails = async (machine) => {
+  const handleViewDetails = async (machine: Machine) => {
     setViewingMachine(machine);
     try {
       const res = await api.get(`/machineries/${machine.id}/reports`);
@@ -208,7 +232,9 @@ export default function MachineriesPage() {
                       setFormData({
                         name: machine.name,
                         category: machine.category,
-                        projectId: machine.projectId || "",
+                        projectId: machine.projectId
+                          ? String(machine.projectId)
+                          : "",
                         ownershipType: machine.ownershipType,
                       });
                       setIsModalOpen(true);

@@ -28,14 +28,28 @@ const COLORS = [
   "#FF1744",
 ];
 
+interface Project {
+  id: number | string;
+  name: string;
+  progress: number;
+}
+
+interface ProjectReport {
+  totalIncome: number;
+  totalExpense: number;
+  profit: number;
+  expensesByCategory?: Record<string, number>;
+  incomesByCategory?: Record<string, number>;
+}
+
 export default function ProjectsPage() {
   const params = useParams();
   const companyId = params.companyId as string;
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProj, setEditingProj] = useState(null);
-  const [viewingProj, setViewingProj] = useState(null);
-  const [projReport, setProjReport] = useState(null);
+  const [editingProj, setEditingProj] = useState<Project | null>(null);
+  const [viewingProj, setViewingProj] = useState<Project | null>(null);
+  const [projReport, setProjReport] = useState<ProjectReport | null>(null);
   const [formData, setFormData] = useState({ name: "", progress: 0 });
 
   const fetchProjects = async () => {
@@ -51,7 +65,7 @@ export default function ProjectsPage() {
     fetchProjects();
   }, [companyId]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
       if (editingProj) {
@@ -73,7 +87,7 @@ export default function ProjectsPage() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: number | string) => {
     if (confirm("Delete this project?")) {
       try {
         await api.delete(`/companies/${companyId}/projects/${id}`);
@@ -85,7 +99,7 @@ export default function ProjectsPage() {
     }
   };
 
-  const handleViewDetails = async (proj) => {
+  const handleViewDetails = async (proj: Project) => {
     setViewingProj(proj);
     try {
       const res = await api.get(`/projects/${proj.id}/reports`);
@@ -96,7 +110,9 @@ export default function ProjectsPage() {
   };
 
   // Helper to format data for charts
-  const formatPieData = (dataObj) => {
+  const formatPieData = (
+    dataObj: Record<string, number> | undefined | null,
+  ) => {
     return Object.entries(dataObj || {}).map(([name, value]) => ({
       name,
       value,

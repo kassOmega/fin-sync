@@ -16,10 +16,24 @@ import {
   YAxis,
 } from "recharts";
 
+interface ProjectReportsData {
+  summary: {
+    totalIncome: number;
+    totalExpense: number;
+    totalProfit: number;
+  };
+  chartData: Array<{
+    name: string;
+    Income: number;
+    Expenses: number;
+    Profit: number;
+  }>;
+}
+
 export default function ProjectsReportPage() {
   const params = useParams();
   const companyId = params.companyId as string;
-  const [report, setReport] = useState(null);
+  const [report, setReport] = useState<ProjectReportsData | null>(null);
 
   useEffect(() => {
     if (companyId) {

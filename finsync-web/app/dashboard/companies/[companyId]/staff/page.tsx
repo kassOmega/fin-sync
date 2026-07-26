@@ -7,9 +7,19 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
+interface StaffMember {
+  id: number | string;
+  role: string;
+  user: {
+    name: string;
+    email: string;
+  };
+}
+
 export default function StaffPage() {
-  const { companyId } = useParams();
-  const [staff, setStaff] = useState([]);
+  const params = useParams();
+  const companyId = params.companyId as string;
+  const [staff, setStaff] = useState<StaffMember[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -21,7 +31,6 @@ export default function StaffPage() {
 
   const fetchStaff = async () => {
     try {
-      // Using the company members endpoint we built in the backend
       const res = await api.get(`/companies/${companyId}/staff`);
       setStaff(res.data);
     } catch (error) {
@@ -33,11 +42,10 @@ export default function StaffPage() {
     fetchStaff();
   }, [companyId]);
 
-  const handleCreate = async (e) => {
+  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     try {
-      // Call the User endpoint to create staff and assign them
       await api.post("/users/staff", {
         ...formData,
         companyId: parseInt(companyId),
@@ -51,14 +59,14 @@ export default function StaffPage() {
         role: SystemRole.Cashier,
       });
       fetchStaff();
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to add staff");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRemove = async (memberId) => {
+  const handleRemove = async (memberId: number | string) => {
     if (confirm("Remove this staff member from the company?")) {
       try {
         await api.delete(`/companies/${companyId}/staff/${memberId}`);
@@ -167,7 +175,10 @@ export default function StaffPage() {
                 <select
                   value={formData.role}
                   onChange={(e) =>
-                    setFormData({ ...formData, role: e.target.value })
+                    setFormData({
+                      ...formData,
+                      role: e.target.value as SystemRole,
+                    })
                   }
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white"
                 >

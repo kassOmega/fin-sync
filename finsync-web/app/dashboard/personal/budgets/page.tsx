@@ -6,10 +6,17 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
+interface Budget {
+  id: number;
+  type: string;
+  amount: number;
+  startDate: string;
+}
+
 export default function PersonalBudgetsPage() {
-  const [budgets, setBudgets] = useState([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [budgetData, setBudgetData] = useState({ type: "DAILY", amount: 0 });
+  const [budgetData, setBudgetData] = useState({ type: "DAILY", amount: "" });
 
   const fetchBudgets = async () => {
     try {
@@ -24,7 +31,7 @@ export default function PersonalBudgetsPage() {
     fetchBudgets();
   }, []);
 
-  const handleSetupBudget = async (e) => {
+  const handleSetupBudget = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
       await api.post("/budgets", {

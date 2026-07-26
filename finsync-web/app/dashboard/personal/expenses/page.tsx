@@ -6,8 +6,17 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
+interface PersonalExpense {
+  id: number | string;
+  amount: number;
+  note?: string;
+  date: string;
+  category?: string;
+  isCategorized: boolean;
+}
+
 export default function PersonalExpensesPage() {
-  const [expenses, setExpenses] = useState([]);
+  const [expenses, setExpenses] = useState<PersonalExpense[]>([]);
   const [quickAmount, setQuickAmount] = useState("");
   const [quickNote, setQuickNote] = useState("");
 
@@ -24,7 +33,7 @@ export default function PersonalExpensesPage() {
     fetchExpenses();
   }, []);
 
-  const handleQuickExpense = async (e) => {
+  const handleQuickExpense = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
       await api.post("/personal-expenses", {
@@ -41,7 +50,7 @@ export default function PersonalExpensesPage() {
     }
   };
 
-  const handleCategorize = async (id, category) => {
+  const handleCategorize = async (id: number | string, category: string) => {
     try {
       await api.patch(`/personal-expenses/${id}`, {
         category,

@@ -6,12 +6,20 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
+interface SavingsGoal {
+  id: number | string;
+  targetAmount: number;
+  thresholdAmount: number;
+  currentAmount: number;
+  frequency: string;
+}
+
 export default function PersonalSavingsPage() {
-  const [savings, setSavings] = useState([]);
+  const [savings, setSavings] = useState<SavingsGoal[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [savingData, setSavingData] = useState({
-    targetAmount: 0,
-    thresholdAmount: 0,
+    targetAmount: "",
+    thresholdAmount: "",
     frequency: "MONTHLY",
   });
 
@@ -28,10 +36,15 @@ export default function PersonalSavingsPage() {
     fetchSavings();
   }, []);
 
-  const handleCreate = async (e) => {
+  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      await api.post("/savings", { ...savingData, startDate: new Date() });
+      await api.post("/savings", {
+        targetAmount: parseFloat(savingData.targetAmount),
+        thresholdAmount: parseFloat(savingData.thresholdAmount),
+        frequency: savingData.frequency,
+        startDate: new Date(),
+      });
       toast.success("Goal created!");
       setIsModalOpen(false);
       fetchSavings();
@@ -40,7 +53,7 @@ export default function PersonalSavingsPage() {
     }
   };
 
-  const handleAddFunds = async (id, currentAmount) => {
+  const handleAddFunds = async (id: number | string, currentAmount: number) => {
     const amount = prompt("Enter amount to add:");
     if (amount) {
       try {

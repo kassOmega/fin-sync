@@ -16,10 +16,24 @@ import {
   YAxis,
 } from "recharts";
 
+interface MachineryReport {
+  summary: {
+    totalIncome: number;
+    totalExpense: number;
+    totalProfit: number;
+  };
+  chartData: Array<{
+    name: string;
+    Income: number;
+    Expenses: number;
+    Profit: number;
+  }>;
+}
+
 export default function MachineriesReportPage() {
   const params = useParams();
   const companyId = params.companyId as string;
-  const [report, setReport] = useState(null);
+  const [report, setReport] = useState<MachineryReport | null>(null);
 
   useEffect(() => {
     if (companyId) {

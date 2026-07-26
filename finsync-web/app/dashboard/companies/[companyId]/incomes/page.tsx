@@ -6,13 +6,30 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
+interface Income {
+  id: number | string;
+  amount: number;
+  category: string;
+  note?: string;
+  date: string;
+  projectId?: number | null;
+  project?: { id: number; name: string };
+  user?: { name: string };
+}
+
+interface Project {
+  id: number;
+  name: string;
+}
+
 export default function CompanyIncomesPage() {
-  const { companyId } = useParams();
-  const [incomes, setIncomes] = useState([]);
-  const [projects, setProjects] = useState([]); // Fetch projects for dropdown
+  const params = useParams();
+  const companyId = params.companyId as string;
+  const [incomes, setIncomes] = useState<Income[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingIncome, setEditingIncome] = useState(null);
-  const [viewingIncome, setViewingIncome] = useState(null);
+  const [editingIncome, setEditingIncome] = useState<Income | null>(null);
+  const [viewingIncome, setViewingIncome] = useState<Income | null>(null);
   const [formData, setFormData] = useState({
     amount: "",
     category: "Sales",
@@ -43,16 +60,15 @@ export default function CompanyIncomesPage() {
     fetchProjects();
   }, [companyId]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    try {
-      // Convert projectId to integer or null
-      const payload = {
-        ...formData,
-        amount: parseFloat(formData.amount),
-        projectId: formData.projectId ? parseInt(formData.projectId) : null,
-      };
+    const payload = {
+      ...formData,
+      amount: parseFloat(formData.amount),
+      projectId: formData.projectId ? parseInt(formData.projectId) : null,
+    };
 
+    try {
       if (editingIncome) {
         await api.patch(
           `/companies/${companyId}/incomes/${editingIncome.id}`,
@@ -72,7 +88,7 @@ export default function CompanyIncomesPage() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: number | string) => {
     if (confirm("Delete this income record?")) {
       try {
         await api.delete(`/companies/${companyId}/incomes/${id}`);
@@ -152,10 +168,10 @@ export default function CompanyIncomesPage() {
                     onClick={() => {
                       setEditingIncome(inc);
                       setFormData({
-                        amount: inc.amount,
+                        amount: String(inc.amount),
                         category: inc.category,
                         note: inc.note || "",
-                        projectId: inc.projectId || "",
+                        projectId: inc.projectId ? String(inc.projectId) : "",
                       });
                       setIsModalOpen(true);
                     }}

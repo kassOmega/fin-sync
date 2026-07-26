@@ -8,11 +8,26 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
+interface StoreItem {
+  id: number | string;
+  name: string;
+  category: string;
+  quantity: number;
+  lowStockThreshold?: number;
+  unit: string;
+}
+
+interface Unit {
+  id: number;
+  name: string;
+}
+
 export default function StorePage() {
-  const { companyId } = useParams();
+  const params = useParams();
+  const companyId = params.companyId as string;
   const { hasRole } = useAuthStore();
-  const [items, setItems] = useState([]);
-  const [units, setUnits] = useState([]);
+  const [items, setItems] = useState<StoreItem[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [itemData, setItemData] = useState({
     name: "",
@@ -33,7 +48,6 @@ export default function StorePage() {
 
   const fetchUnits = async () => {
     try {
-      // Change URL from `/companies/${companyId}/measuring-units` to `/measuring-units`
       const res = await api.get("/measuring-units");
       setUnits(res.data);
     } catch {
@@ -46,10 +60,10 @@ export default function StorePage() {
     fetchUnits();
   }, [companyId]);
 
-  const handleCreateItem = async (e) => {
+  const handleCreateItem = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      const payload = { ...itemData };
+      const payload: Record<string, unknown> = { ...itemData };
       if (payload.category === "TOOL") delete payload.lowStockThreshold;
 
       await api.post(`/companies/${companyId}/store-items`, payload);
@@ -68,7 +82,7 @@ export default function StorePage() {
     }
   };
 
-  const handleRestock = async (id) => {
+  const handleRestock = async (id: number | string) => {
     const amount = prompt("Enter quantity to restock:");
     if (amount) {
       try {
@@ -90,10 +104,9 @@ export default function StorePage() {
     );
     if (newUnit) {
       try {
-        // Change URL from `/companies/${companyId}/measuring-units` to `/measuring-units`
         const res = await api.post("/measuring-units", { name: newUnit });
         setUnits([...units, res.data]);
-        setItemData({ ...itemData, unitId: res.data.id });
+        setItemData({ ...itemData, unit: res.data.name });
         toast.success("Unit added!");
       } catch {
         toast.error("Failed to add unit");

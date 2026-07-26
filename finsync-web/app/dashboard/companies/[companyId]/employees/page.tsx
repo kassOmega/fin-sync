@@ -6,12 +6,20 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
+interface Employee {
+  id: number | string;
+  name: string;
+  employmentType: string;
+  wage: number | null;
+  nextPayDate: string | null;
+}
+
 export default function EmployeesPage() {
   const params = useParams();
   const companyId = params.companyId as string;
-  const [employees, setEmployees] = useState([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingEmp, setEditingEmp] = useState(null);
+  const [editingEmp, setEditingEmp] = useState<Employee | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     employmentType: "PERMANENT",
@@ -68,7 +76,7 @@ export default function EmployeesPage() {
     }
   };
 
-  const handleEdit = (emp) => {
+  const handleEdit = (emp: Employee) => {
     setEditingEmp(emp);
     const dateStr = emp.nextPayDate
       ? new Date(emp.nextPayDate).toISOString().split("T")[0]
@@ -82,7 +90,7 @@ export default function EmployeesPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: number | string) => {
     if (confirm("Remove this employee record?")) {
       try {
         await api.delete(`/companies/${companyId}/employees/${id}`);
@@ -95,11 +103,11 @@ export default function EmployeesPage() {
   };
 
   // Helper to check if pay date is within 3 days
-  const isPayDateSoon = (dateStr) => {
+  const isPayDateSoon = (dateStr: string | null) => {
     if (!dateStr) return false;
     const payDate = new Date(dateStr);
     const today = new Date();
-    const diffTime = payDate - today;
+    const diffTime = payDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays >= 0 && diffDays <= 3;
   };
@@ -151,7 +159,7 @@ export default function EmployeesPage() {
               {employees.length === 0 ? (
                 <tr>
                   <td
-                    colSpan="5"
+                    colSpan={5}
                     className="px-6 py-12 text-center text-gray-500"
                   >
                     No employees registered yet.

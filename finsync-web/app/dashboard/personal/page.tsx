@@ -5,8 +5,12 @@ import { ArrowRight, BarChart3, Tag, TrendingUp, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+interface BudgetStatus {
+  remaining: number;
+}
+
 export default function PersonalFinanceHub() {
-  const [status, setStatus] = useState(null);
+  const [status, setStatus] = useState<BudgetStatus | null>(null);
 
   useEffect(() => {
     api

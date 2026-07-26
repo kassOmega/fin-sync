@@ -7,15 +7,38 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
+interface Expense {
+  id: number | string;
+  amount: number;
+  category: string;
+  note?: string;
+  date: string;
+  projectId?: number | null;
+  unit?: string;
+  project?: { id: number; name: string };
+  user?: { name: string };
+}
+
+interface Project {
+  id: number;
+  name: string;
+}
+
+interface Unit {
+  id: number;
+  name: string;
+}
+
 export default function CompanyExpensesPage() {
-  const { companyId } = useParams();
+  const params = useParams();
+  const companyId = params.companyId as string;
   const addToQueue = useOfflineQueueStore((state) => state.addToQueue);
-  const [expenses, setExpenses] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [units, setUnits] = useState([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingExp, setEditingExp] = useState(null);
-  const [viewingExp, setViewingExp] = useState(null);
+  const [editingExp, setEditingExp] = useState<Expense | null>(null);
+  const [viewingExp, setViewingExp] = useState<Expense | null>(null);
   const [formData, setFormData] = useState({
     amount: "",
     category: "Fuel",
@@ -58,15 +81,15 @@ export default function CompanyExpensesPage() {
     fetchUnits();
   }, [companyId]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    try {
-      const payload = {
-        ...formData,
-        amount: parseFloat(formData.amount),
-        projectId: formData.projectId ? parseInt(formData.projectId) : null,
-      };
+    const payload = {
+      ...formData,
+      amount: parseFloat(formData.amount),
+      projectId: formData.projectId ? parseInt(formData.projectId) : null,
+    };
 
+    try {
       if (editingExp) {
         await api.patch(
           `/companies/${companyId}/expenses/${editingExp.id}`,
@@ -104,7 +127,7 @@ export default function CompanyExpensesPage() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: number | string) => {
     if (confirm("Delete this expense?")) {
       try {
         await api.delete(`/companies/${companyId}/expenses/${id}`);
@@ -125,7 +148,7 @@ export default function CompanyExpensesPage() {
         // Change URL
         const res = await api.post("/measuring-units", { name: newUnit });
         setUnits([...units, res.data]);
-        setFormData({ ...formData, unitId: res.data.id });
+        setFormData({ ...formData, unit: res.data.name });
         toast.success("Unit added!");
       } catch {
         toast.error("Failed to add unit");
@@ -207,10 +230,10 @@ export default function CompanyExpensesPage() {
                     onClick={() => {
                       setEditingExp(exp);
                       setFormData({
-                        amount: exp.amount,
+                        amount: String(exp.amount),
                         category: exp.category,
                         note: exp.note || "",
-                        projectId: exp.projectId || "",
+                        projectId: exp.projectId ? String(exp.projectId) : "",
                         unit: exp.unit || "",
                       });
                       setIsModalOpen(true);

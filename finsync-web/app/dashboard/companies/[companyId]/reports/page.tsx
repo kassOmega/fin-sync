@@ -31,10 +31,29 @@ const COLORS = [
   "#FF1744",
 ];
 
+interface CompanyReport {
+  totalIncome: number;
+  totalExpense: number;
+  profit: number;
+  expensesByCategory: Record<string, number>;
+  incomesByCategory: Record<string, number>;
+}
+
+interface CompanyForecast {
+  isGrowing: boolean;
+  dailyIncomeRate: number;
+  dailyExpenseRate: number;
+  forecastData: Array<{
+    day: string;
+    projectedBalance: number;
+  }>;
+}
+
 export default function CompanyReportsPage() {
-  const { companyId } = useParams();
-  const [report, setReport] = useState(null);
-  const [forecast, setForecast] = useState(null);
+  const params = useParams();
+  const companyId = params.companyId as string;
+  const [report, setReport] = useState<CompanyReport | null>(null);
+  const [forecast, setForecast] = useState<CompanyForecast | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {

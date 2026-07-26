@@ -22,9 +22,23 @@ const COLORS = [
   "#FF1744",
 ];
 
+interface PersonalReport {
+  totalBudget: number;
+  totalSpent: number;
+  remaining: number;
+  tag: string;
+  expensesByCategory: Record<string, number>;
+}
+
+interface Budget {
+  id: number;
+  type: string;
+  amount: number;
+}
+
 export default function PersonalReportsPage() {
-  const [report, setReport] = useState(null);
-  const [budgets, setBudgets] = useState([]);
+  const [report, setReport] = useState<PersonalReport | null>(null);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
 
   useEffect(() => {
     api.get("/personal/reports").then((res) => setReport(res.data));
@@ -40,7 +54,14 @@ export default function PersonalReportsPage() {
     ([name, value]) => ({ name, value }),
   );
 
-  const tagConfig = {
+  const tagConfig: Record<
+    string,
+    {
+      color: string;
+      icon: React.ComponentType<{ className?: string }>;
+      message: string;
+    }
+  > = {
     Appreciative: {
       color: "bg-green-100 text-green-800",
       icon: Smile,
@@ -80,11 +101,13 @@ export default function PersonalReportsPage() {
           <h3 className="text-lg font-semibold text-gray-800 mb-2 md:mb-0">
             Budget Performance
           </h3>
-          <span
-            className={`flex items-center px-4 py-2 rounded-full text-sm font-medium ${currentTag.color}`}
-          >
-            <currentTag.icon className="h-4 w-4 mr-2" /> {report.tag}
-          </span>
+          {currentTag && (
+            <span
+              className={`flex items-center px-4 py-2 rounded-full text-sm font-medium ${currentTag.color}`}
+            >
+              <currentTag.icon className="h-4 w-4 mr-2" /> {report.tag}
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -125,9 +148,11 @@ export default function PersonalReportsPage() {
           </div>
         </div>
 
-        <p className="text-sm text-gray-600 italic mt-4">
-          {currentTag.message}
-        </p>
+        {currentTag && (
+          <p className="text-sm text-gray-600 italic mt-4">
+            {currentTag.message}
+          </p>
+        )}
       </div>
 
       {/* Expense Breakdown Chart */}

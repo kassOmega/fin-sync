@@ -5,8 +5,16 @@ import { Bell, CheckCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
+interface Notification {
+  id: number | string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const fetchNotifications = async () => {
     try {
@@ -21,7 +29,7 @@ export default function NotificationsPage() {
     fetchNotifications();
   }, []);
 
-  const handleMarkAsRead = async (id) => {
+  const handleMarkAsRead = async (id: number | string) => {
     try {
       await api.patch(`/notifications/${id}/read`);
       // Update UI locally

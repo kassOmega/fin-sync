@@ -13,9 +13,16 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+interface Company {
+  id: number;
+  name: string;
+  industry?: string;
+}
+
 export default function CompanyOverview() {
-  const { companyId } = useParams();
-  const [company, setCompany] = useState(null);
+  const params = useParams();
+  const companyId = params.companyId as string;
+  const [company, setCompany] = useState<Company | null>(null);
 
   useEffect(() => {
     api.get(`/companies/${companyId}`).then((res) => setCompany(res.data));
