@@ -1,3 +1,7 @@
+import { ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
@@ -28,7 +32,7 @@ async function bootstrap() {
       if (isAllowed) {
         callback(null, true);
       } else {
-        // DO NOT pass an Error object here—pass false so CORS safely rejects without 500 throwing
+        // Pass false so CORS safely rejects without throwing 500
         callback(null, false);
       }
     },
