@@ -207,4 +207,18 @@ export class ReportsService {
       forecastData,
     };
   }
+
+  async getCompanyExportData(companyId: number) {
+    const incomes = await this.prisma.companyIncome.findMany({
+      where: { companyId },
+      include: { user: { select: { name: true } } },
+      orderBy: { date: 'asc' },
+    });
+    const expenses = await this.prisma.companyExpense.findMany({
+      where: { companyId },
+      include: { user: { select: { name: true } } },
+      orderBy: { date: 'asc' },
+    });
+    return { incomes, expenses };
+  }
 }

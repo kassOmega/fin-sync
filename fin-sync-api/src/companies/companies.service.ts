@@ -32,6 +32,24 @@ export class CompaniesService {
     return company;
   }
 
+  // Add this method to the CompaniesService class
+  async getCompanyStaff(companyId: number) {
+    return this.prisma.companyMember.findMany({
+      where: { companyId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            role: true,
+          },
+        },
+      },
+    });
+  }
+
   async update(id: number, ownerId: number, dto: UpdateCompanyDto) {
     await this.verifyOwnership(id, ownerId);
     return this.prisma.company.update({ where: { id }, data: dto });

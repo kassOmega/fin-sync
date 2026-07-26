@@ -12,6 +12,7 @@ export default function StorePage() {
   const { companyId } = useParams();
   const { hasRole } = useAuthStore();
   const [items, setItems] = useState([]);
+  const [units, setUnits] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [itemData, setItemData] = useState({
     name: "",
@@ -30,14 +31,24 @@ export default function StorePage() {
     }
   };
 
+  const fetchUnits = async () => {
+    try {
+      // Change URL from `/companies/${companyId}/measuring-units` to `/measuring-units`
+      const res = await api.get("/measuring-units");
+      setUnits(res.data);
+    } catch {
+      console.error("Failed to fetch units");
+    }
+  };
+
   useEffect(() => {
     fetchItems();
+    fetchUnits();
   }, [companyId]);
 
   const handleCreateItem = async (e) => {
     e.preventDefault();
     try {
-      // Only send lowStockThreshold if it's a consumable
       const payload = { ...itemData };
       if (payload.category === "TOOL") delete payload.lowStockThreshold;
 
@@ -69,6 +80,23 @@ export default function StorePage() {
         fetchItems();
       } catch {
         toast.error("Failed to restock");
+      }
+    }
+  };
+
+  const handleAddNewUnit = async () => {
+    const newUnit = prompt(
+      "Enter new measuring unit name (e.g., boxes, liters):",
+    );
+    if (newUnit) {
+      try {
+        // Change URL from `/companies/${companyId}/measuring-units` to `/measuring-units`
+        const res = await api.post("/measuring-units", { name: newUnit });
+        setUnits([...units, res.data]);
+        setItemData({ ...itemData, unitId: res.data.id });
+        toast.success("Unit added!");
+      } catch {
+        toast.error("Failed to add unit");
       }
     }
   };
@@ -131,8 +159,8 @@ export default function StorePage() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl text-gray-900">
             <h2 className="text-xl font-bold mb-4">Add Store Item</h2>
             <form onSubmit={handleCreateItem} className="space-y-4">
               <div>
@@ -169,16 +197,29 @@ export default function StorePage() {
                   <label className="block text-sm font-medium text-gray-700">
                     Measuring Unit
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={itemData.unit}
-                    onChange={(e) =>
-                      setItemData({ ...itemData, unit: e.target.value })
-                    }
-                    placeholder="e.g. pcs, liters, boxes"
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
-                  />
+                  <div className="flex space-x-2">
+                    <select
+                      value={itemData.unit}
+                      onChange={(e) =>
+                        setItemData({ ...itemData, unit: e.target.value })
+                      }
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                    >
+                      <option value="pcs">pcs (Default)</option>
+                      {units.map((u) => (
+                        <option key={u.id} value={u.name}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleAddNewUnit}
+                      className="mt-1 px-3 py-2 bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 text-sm whitespace-nowrap"
+                    >
+                      + Add
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">

@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 export default function CompanyIncomesPage() {
   const { companyId } = useParams();
   const [incomes, setIncomes] = useState([]);
+  const [projects, setProjects] = useState([]); // Fetch projects for dropdown
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingIncome, setEditingIncome] = useState(null);
   const [viewingIncome, setViewingIncome] = useState(null);
@@ -16,6 +17,7 @@ export default function CompanyIncomesPage() {
     amount: "",
     category: "Sales",
     note: "",
+    projectId: "",
   });
 
   const fetchIncomes = async () => {
@@ -27,26 +29,43 @@ export default function CompanyIncomesPage() {
     }
   };
 
+  const fetchProjects = async () => {
+    try {
+      const res = await api.get(`/companies/${companyId}/projects`);
+      setProjects(res.data);
+    } catch {
+      console.error("Failed to fetch projects for dropdown");
+    }
+  };
+
   useEffect(() => {
     fetchIncomes();
+    fetchProjects();
   }, [companyId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Convert projectId to integer or null
+      const payload = {
+        ...formData,
+        amount: parseFloat(formData.amount),
+        projectId: formData.projectId ? parseInt(formData.projectId) : null,
+      };
+
       if (editingIncome) {
         await api.patch(
           `/companies/${companyId}/incomes/${editingIncome.id}`,
-          formData,
+          payload,
         );
         toast.success("Income updated");
       } else {
-        await api.post(`/companies/${companyId}/incomes`, formData);
+        await api.post(`/companies/${companyId}/incomes`, payload);
         toast.success("Income added");
       }
       setIsModalOpen(false);
       setEditingIncome(null);
-      setFormData({ amount: "", category: "Sales", note: "" });
+      setFormData({ amount: "", category: "Sales", note: "", projectId: "" });
       fetchIncomes();
     } catch {
       toast.error("Failed to save income");
@@ -72,7 +91,12 @@ export default function CompanyIncomesPage() {
         <button
           onClick={() => {
             setEditingIncome(null);
-            setFormData({ amount: "", category: "Sales", note: "" });
+            setFormData({
+              amount: "",
+              category: "Sales",
+              note: "",
+              projectId: "",
+            });
             setIsModalOpen(true);
           }}
           className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
@@ -92,6 +116,9 @@ export default function CompanyIncomesPage() {
                 Category
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Project
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 Amount
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
@@ -107,6 +134,9 @@ export default function CompanyIncomesPage() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {inc.category}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {inc.project?.name || "General"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
                   ${inc.amount}
@@ -125,6 +155,7 @@ export default function CompanyIncomesPage() {
                         amount: inc.amount,
                         category: inc.category,
                         note: inc.note || "",
+                        projectId: inc.projectId || "",
                       });
                       setIsModalOpen(true);
                     }}
@@ -164,6 +195,10 @@ export default function CompanyIncomesPage() {
               </p>
               <p>
                 <strong>Category:</strong> {viewingIncome.category}
+              </p>
+              <p>
+                <strong>Project:</strong>{" "}
+                {viewingIncome.project?.name || "General Income"}
               </p>
               <p>
                 <strong>Date:</strong>{" "}
@@ -226,6 +261,26 @@ export default function CompanyIncomesPage() {
                   <option>Service</option>
                   <option>Rental</option>
                   <option>Misc</option>
+                </select>
+              </div>
+              {/* PROJECT DROPDOWN */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Assign to Project (Optional)
+                </label>
+                <select
+                  value={formData.projectId}
+                  onChange={(e) =>
+                    setFormData({ ...formData, projectId: e.target.value })
+                  }
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                >
+                  <option value="">None (General Income)</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>

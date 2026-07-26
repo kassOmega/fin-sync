@@ -4,8 +4,10 @@ import {
   Param,
   ParseIntPipe,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ReportsService } from './reports.service';
 
 import { SystemRole } from '@prisma/client';
@@ -62,5 +64,49 @@ export class ReportsController {
   @Roles(SystemRole.Owner)
   getAllMachineriesReport(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.service.getAllMachineriesReport(companyId);
+  }
+
+  @Get('companies/:companyId/reports/export')
+  @Roles(SystemRole.Owner)
+  async exportCompanyReport(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Res() res: Response,
+  ) {
+    const { incomes, expenses } =
+      await this.service.getCompanyExportData(companyId);
+
+    // Create CSV string
+    const csvRows = [
+      ['Type', 'Date', 'Category', 'Amount', 'Note', 'Registered By'].join(','),
+      ...incomes.map((inc) =>
+        [
+          `Income`,
+          new Date(inc.date).toLocaleDateString(),
+          `"${inc.category}"`,
+          inc.amount,
+          `"${inc.note || ''}"`,
+          `"${inc.user?.name || ''}"`,
+        ].join(','),
+      ),
+      ...expenses.map((exp) =>
+        [
+          `Expense`,
+          new Date(exp.date).toLocaleDateString(),
+          `"${exp.category}"`,
+          exp.amount,
+          `"${exp.note || ''}"`,
+          `"${exp.user?.name || ''}"`,
+        ].join(','),
+      ),
+    ];
+
+    const csvString = csvRows.join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="company_${companyId}_tax_report.csv"`,
+    );
+    res.status(200).send(csvString);
   }
 }

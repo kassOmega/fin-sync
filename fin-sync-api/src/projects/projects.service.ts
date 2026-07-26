@@ -7,9 +7,13 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 export class ProjectsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(dto: CreateProjectDto) {
+  async create(companyId: number, dto: CreateProjectDto) {
     return this.prisma.project.create({
-      data: { ...dto, progress: dto.progress || 0 },
+      data: {
+        ...dto,
+        companyId,
+        progress: dto.progress || 0,
+      },
     });
   }
 

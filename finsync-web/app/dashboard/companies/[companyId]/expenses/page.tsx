@@ -11,6 +11,8 @@ export default function CompanyExpensesPage() {
   const { companyId } = useParams();
   const addToQueue = useOfflineQueueStore((state) => state.addToQueue);
   const [expenses, setExpenses] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [units, setUnits] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExp, setEditingExp] = useState(null);
   const [viewingExp, setViewingExp] = useState(null);
@@ -18,6 +20,8 @@ export default function CompanyExpensesPage() {
     amount: "",
     category: "Fuel",
     note: "",
+    projectId: "",
+    unit: "",
   });
 
   const fetchExpenses = async () => {
@@ -29,36 +33,71 @@ export default function CompanyExpensesPage() {
     }
   };
 
+  const fetchProjects = async () => {
+    try {
+      const res = await api.get(`/companies/${companyId}/projects`);
+      setProjects(res.data);
+    } catch {
+      console.error("Failed to fetch projects");
+    }
+  };
+
+  const fetchUnits = async () => {
+    try {
+      // Change URL
+      const res = await api.get("/measuring-units");
+      setUnits(res.data);
+    } catch {
+      console.error("Failed to fetch units");
+    }
+  };
+
   useEffect(() => {
     fetchExpenses();
+    fetchProjects();
+    fetchUnits();
   }, [companyId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        amount: parseFloat(formData.amount),
+        projectId: formData.projectId ? parseInt(formData.projectId) : null,
+      };
+
       if (editingExp) {
         await api.patch(
           `/companies/${companyId}/expenses/${editingExp.id}`,
-          formData,
+          payload,
         );
         toast.success("Expense updated");
       } else {
-        await api.post(`/companies/${companyId}/expenses`, formData);
+        await api.post(`/companies/${companyId}/expenses`, payload);
         toast.success("Expense logged");
       }
       setIsModalOpen(false);
       setEditingExp(null);
-      setFormData({ amount: "", category: "Fuel", note: "" });
+      setFormData({
+        amount: "",
+        category: "Fuel",
+        note: "",
+        projectId: "",
+        unit: "",
+      });
       fetchExpenses();
     } catch (error) {
       if (!navigator.onLine && !editingExp) {
-        addToQueue({
-          ...formData,
-          amount: parseFloat(formData.amount),
-          companyId: parseInt(companyId),
-        });
+        addToQueue({ ...payload, companyId: parseInt(companyId) });
         setIsModalOpen(false);
-        setFormData({ amount: "", category: "Fuel", note: "" });
+        setFormData({
+          amount: "",
+          category: "Fuel",
+          note: "",
+          projectId: "",
+          unit: "",
+        });
       } else {
         toast.error("Failed to save expense");
       }
@@ -77,6 +116,23 @@ export default function CompanyExpensesPage() {
     }
   };
 
+  const handleAddNewUnit = async () => {
+    const newUnit = prompt(
+      "Enter new measuring unit name (e.g., liters, bags):",
+    );
+    if (newUnit) {
+      try {
+        // Change URL
+        const res = await api.post("/measuring-units", { name: newUnit });
+        setUnits([...units, res.data]);
+        setFormData({ ...formData, unitId: res.data.id });
+        toast.success("Unit added!");
+      } catch {
+        toast.error("Failed to add unit");
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -84,7 +140,13 @@ export default function CompanyExpensesPage() {
         <button
           onClick={() => {
             setEditingExp(null);
-            setFormData({ amount: "", category: "Fuel", note: "" });
+            setFormData({
+              amount: "",
+              category: "Fuel",
+              note: "",
+              projectId: "",
+              unit: "",
+            });
             setIsModalOpen(true);
           }}
           className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
@@ -104,6 +166,9 @@ export default function CompanyExpensesPage() {
                 Category
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Project
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 Amount
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
@@ -120,8 +185,16 @@ export default function CompanyExpensesPage() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {exp.category}
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {exp.project?.name || "General"}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
-                  ${exp.amount}
+                  ${exp.amount}{" "}
+                  {exp.unit && (
+                    <span className="text-gray-400 font-normal">
+                      ({exp.unit})
+                    </span>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button
@@ -137,6 +210,8 @@ export default function CompanyExpensesPage() {
                         amount: exp.amount,
                         category: exp.category,
                         note: exp.note || "",
+                        projectId: exp.projectId || "",
+                        unit: exp.unit || "",
                       });
                       setIsModalOpen(true);
                     }}
@@ -172,10 +247,15 @@ export default function CompanyExpensesPage() {
                 <strong>Amount:</strong>{" "}
                 <span className="text-red-600 font-bold">
                   ${viewingExp.amount}
-                </span>
+                </span>{" "}
+                {viewingExp.unit && `(${viewingExp.unit})`}
               </p>
               <p>
                 <strong>Category:</strong> {viewingExp.category}
+              </p>
+              <p>
+                <strong>Project:</strong>{" "}
+                {viewingExp.project?.name || "General Expense"}
               </p>
               <p>
                 <strong>Date:</strong>{" "}
@@ -206,20 +286,50 @@ export default function CompanyExpensesPage() {
               {editingExp ? "Edit Expense" : "Add Expense"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Amount ($)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={formData.amount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, amount: e.target.value })
-                  }
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Amount ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formData.amount}
+                    onChange={(e) =>
+                      setFormData({ ...formData, amount: e.target.value })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Measuring Unit (Optional)
+                  </label>
+                  <div className="flex space-x-2">
+                    <select
+                      value={formData.unit}
+                      onChange={(e) =>
+                        setFormData({ ...formData, unit: e.target.value })
+                      }
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                    >
+                      <option value="">None</option>
+                      {units.map((u) => (
+                        <option key={u.id} value={u.name}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleAddNewUnit}
+                      className="mt-1 px-3 py-2 bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 text-sm whitespace-nowrap"
+                    >
+                      + Add
+                    </button>
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
@@ -239,6 +349,25 @@ export default function CompanyExpensesPage() {
                   <option>Utilities</option>
                   <option>Maintenance</option>
                   <option>Misc</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Assign to Project (Optional)
+                </label>
+                <select
+                  value={formData.projectId}
+                  onChange={(e) =>
+                    setFormData({ ...formData, projectId: e.target.value })
+                  }
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                >
+                  <option value="">None (General Expense)</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>

@@ -1,10 +1,11 @@
 "use client";
 
 import api from "@/lib/api";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Download } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import {
   Bar,
   BarChart,
@@ -62,11 +63,37 @@ export default function CompanyReportsPage() {
     ([name, value]) => ({ name, value }),
   );
 
+  const handleExportCSV = async () => {
+    try {
+      const res = await api.get(`/companies/${companyId}/reports/export`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `company_${companyId}_tax_report.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success("CSV exported successfully");
+    } catch (error) {
+      toast.error("Failed to export CSV");
+    }
+  };
+
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-gray-800">
-        Financial Reports & Forecasting
-      </h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-800">
+          Financial Reports & Forecasting
+        </h1>
+        <button
+          onClick={handleExportCSV}
+          className="flex items-center px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 text-sm"
+        >
+          <Download className="h-4 w-4 mr-2" /> Export CSV (Tax)
+        </button>
+      </div>
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-lg shadow border border-gray-200">

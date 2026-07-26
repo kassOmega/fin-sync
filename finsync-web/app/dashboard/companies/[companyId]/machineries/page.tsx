@@ -12,13 +12,12 @@ import {
   Trash2,
   Wrench,
 } from "lucide-react";
-import { useParams } from "next/navigation"; // Use useParams hook
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
 export default function MachineriesPage() {
-  // Use the hook correctly for Next.js 15
   const params = useParams();
   const companyId = params.companyId as string;
 
@@ -33,6 +32,7 @@ export default function MachineriesPage() {
     name: "",
     category: "Heavy Machinery",
     projectId: "",
+    ownershipType: "OWNED",
   });
 
   const fetchMachines = async () => {
@@ -51,10 +51,7 @@ export default function MachineriesPage() {
       const res = await api.get(`/companies/${companyId}/projects`);
       setProjects(res.data);
     } catch (error) {
-      console.error(
-        "Failed to fetch projects. Check if ProjectsModule is added to backend app.module.ts",
-        error,
-      );
+      console.error("Failed to fetch projects", error);
     }
   };
 
@@ -82,7 +79,12 @@ export default function MachineriesPage() {
       }
       setIsModalOpen(false);
       setEditingMachine(null);
-      setFormData({ name: "", category: "Heavy Machinery", projectId: "" });
+      setFormData({
+        name: "",
+        category: "Heavy Machinery",
+        projectId: "",
+        ownershipType: "OWNED",
+      });
       fetchMachines();
     } catch {
       toast.error("Failed to save machinery");
@@ -154,6 +156,7 @@ export default function MachineriesPage() {
                 name: "",
                 category: "Heavy Machinery",
                 projectId: "",
+                ownershipType: "OWNED",
               });
               setIsModalOpen(true);
             }}
@@ -176,10 +179,18 @@ export default function MachineriesPage() {
             >
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="font-semibold text-gray-900">
-                    {machine.name}
-                  </h3>
-                  <p className="text-xs text-gray-500">
+                  <div className="flex items-center space-x-2">
+                    <h3 className="font-semibold text-gray-900">
+                      {machine.name}
+                    </h3>
+                    {/* Ownership Badge */}
+                    <span
+                      className={`px-2 py-0.5 text-xs rounded-full font-medium ${machine.ownershipType === "OWNED" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}
+                    >
+                      {machine.ownershipType}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
                     {machine.category}{" "}
                     {machine.project && `| ${machine.project.name}`}
                   </p>
@@ -198,6 +209,7 @@ export default function MachineriesPage() {
                         name: machine.name,
                         category: machine.category,
                         projectId: machine.projectId || "",
+                        ownershipType: machine.ownershipType,
                       });
                       setIsModalOpen(true);
                     }}
@@ -268,6 +280,9 @@ export default function MachineriesPage() {
             <div className="space-y-3 mb-6">
               <p>
                 <strong>Category:</strong> {viewingMachine.category}
+              </p>
+              <p>
+                <strong>Ownership:</strong> {viewingMachine.ownershipType}
               </p>
               <p>
                 <strong>Total Hours:</strong> {viewingMachine.runningHours}
@@ -352,21 +367,41 @@ export default function MachineriesPage() {
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Category
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category: e.target.value })
-                  }
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
-                >
-                  <option>Heavy Machinery</option>
-                  <option>Transport Vehicle</option>
-                  <option>Power Tool</option>
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Category
+                  </label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) =>
+                      setFormData({ ...formData, category: e.target.value })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                  >
+                    <option>Heavy Machinery</option>
+                    <option>Transport Vehicle</option>
+                    <option>Power Tool</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Ownership
+                  </label>
+                  <select
+                    value={formData.ownershipType}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        ownershipType: e.target.value,
+                      })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                  >
+                    <option value="OWNED">Owned (Asset)</option>
+                    <option value="RENTED">Rented (Liability)</option>
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">

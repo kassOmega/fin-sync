@@ -10,14 +10,15 @@ import { CompanyExpensesModule } from './company-expenses/company-expenses.modul
 import { CompanyIncomesModule } from './company-incomes/company-incomes.module';
 import { EmployeesModule } from './employees/employees.module';
 import { MachineriesModule } from './machineries/machineries.module';
+import { MeasuringUnitsModule } from './measuring-units/measuring-unts.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PersonalExpensesModule } from './personal-expenses/personal-expenses.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProjectsModule } from './projects/projects.module';
+import { ReportsModule } from './reports/reports.module';
 import { SavingsModule } from './savings/savings.module';
 import { StoreItemsModule } from './store-items/store-items.module';
 import { UsersModule } from './users/users.module';
-import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { ReportsModule } from './reports/reports.module';
     ProjectsModule,
     NotificationsModule,
     ReportsModule,
+    MeasuringUnitsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -27,6 +27,7 @@ export default function CompanyLayout({
     { name: "Incomes", href: `/incomes` },
     { name: "Expenses", href: `/expenses` },
     { name: "Staff", href: `/staff` },
+    { name: "Employees", href: `/employees` }, // <-- ADD THIS LINE
     { name: "Projects", href: `/projects` },
     { name: "Machineries", href: `/machineries` },
     { name: "Store", href: `/store` },

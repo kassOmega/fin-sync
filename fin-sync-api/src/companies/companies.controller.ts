@@ -47,6 +47,12 @@ export class CompaniesController {
     return this.companiesService.findOne(id);
   }
 
+  @Get(':id/staff')
+  @Roles(SystemRole.Owner)
+  getStaff(@Param('id', ParseIntPipe) id: number) {
+    return this.companiesService.getCompanyStaff(id);
+  }
+
   @Patch(':id')
   @Roles(SystemRole.Owner)
   update(
