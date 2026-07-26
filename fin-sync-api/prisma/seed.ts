@@ -10,12 +10,21 @@ import {
   SystemRole,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import 'dotenv/config';
+import * as dotenv from 'dotenv';
 import { Pool } from 'pg';
 
+dotenv.config();
 // 1. Initialize Postgres Pool & Driver Adapter
 const connectionString = process.env.DATABASE_URL;
-const pool = new Pool({ connectionString });
+if (!connectionString) {
+  throw new Error('❌ DATABASE_URL environment variable is not set!');
+}
+const pool = new Pool({
+  connectionString,
+  ssl: {
+    rejectUnauthorized: false,
+  },
+});
 const adapter = new PrismaPg(pool);
 
 // 2. Pass Adapter to PrismaClient
@@ -27,7 +36,6 @@ const daysAgo = (days: number) => {
   d.setDate(d.getDate() - days);
   return d;
 };
-
 async function main() {
   console.log('🧹 Clearing existing database records...');
   await prisma.notification.deleteMany();
