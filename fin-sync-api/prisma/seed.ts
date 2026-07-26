@@ -12,10 +12,13 @@ import {
 import * as bcrypt from 'bcrypt';
 import * as dotenv from 'dotenv';
 import { Pool } from 'pg';
+import { URL } from 'url';
 
 dotenv.config();
 // 1. Initialize Postgres Pool & Driver Adapter
 const connectionString = process.env.DATABASE_URL;
+const url = new URL(connectionString!);
+const schema = url.searchParams.get('schema') || 'public';
 if (!connectionString) {
   throw new Error('❌ DATABASE_URL environment variable is not set!');
 }
@@ -24,8 +27,7 @@ const pool = new Pool({
   ssl: {
     rejectUnauthorized: false,
   },
-  // Force the pool to use the 'finsync' schema
-  options: '-c search_path=finsync,public',
+  options: `-c search_path=${schema}`,
 });
 const adapter = new PrismaPg(pool);
 

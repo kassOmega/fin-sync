@@ -1,42 +1,49 @@
-import { ValidationPipe } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  const allowedOrigins = process.env.FRONTEND_URL
+  // Parse allowed origins from environment variable
+  const envOrigins = process.env.FRONTEND_URL
     ? process.env.FRONTEND_URL.split(',').map((url) => url.trim())
-    : ['http://localhost:5173', 'http://localhost:3000'];
+    : [];
+
+  const defaultOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://fin-sync-mu.vercel.app', // Explicit fallback
+  ];
+
+  const allowedOrigins = [...new Set([...envOrigins, ...defaultOrigins])];
 
   app.enableCors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, postman)
+      // Allow server-to-server or non-browser requests (Postman/curl)
       if (!origin) return callback(null, true);
 
-      const allowed = allowedOrigins.some((allowedOrigin) => {
-        return origin.replace(/\/$/, '') === allowedOrigin.replace(/\/$/, '');
-      });
+      // Sanitize trailing slashes for clean comparison
+      const normalizedOrigin = origin.replace(/\/$/, '');
+      const isAllowed = allowedOrigins.some(
+        (allowed) => allowed.replace(/\/$/, '') === normalizedOrigin,
+      );
 
-      if (allowed) {
+      if (isAllowed) {
         callback(null, true);
       } else {
-        callback(new Error(`CORS blocked for origin: ${origin}`));
+        // DO NOT pass an Error object here—pass false so CORS safely rejects without 500 throwing
+        callback(null, false);
       }
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
-    allowedHeaders: 'Content-Type, Accept, Authorization',
+    allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],
   });
 
-  // Add this global pipe to automatically transform types
   app.useGlobalPipes(
     new ValidationPipe({
-      transform: true, // Automatically converts strings to numbers/dates based on DTO
-      whitelist: true, // Strips away unknown properties
+      transform: true,
+      whitelist: true,
     }),
   );
 
-  await app.listen(3000);
+  await app.listen(process.env.PORT || 3000);
 }
 bootstrap();
