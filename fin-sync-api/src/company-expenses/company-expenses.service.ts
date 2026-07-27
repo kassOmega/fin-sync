@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { SystemRole } from '@prisma/client';
+import { guessCategory } from '../common/utils/category-guesser';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCompanyExpenseDto } from './dto/create-company-expense.dto';
 import { UpdateCompanyExpenseDto } from './dto/update-company-expense.dto';
@@ -17,9 +18,16 @@ export class CompanyExpensesService {
     dto: CreateCompanyExpenseDto,
     registeredById: number,
   ) {
+    // If user didn't provide a category, guess it!
+    let finalCategory = dto.category;
+    if (!finalCategory && dto.note) {
+      finalCategory = guessCategory(dto.note) || 'Misc';
+    }
+
     return this.prisma.companyExpense.create({
       data: {
         ...dto,
+        category: finalCategory,
         companyId,
         date: dto.date ? new Date(dto.date) : new Date(),
         registeredBy: registeredById,

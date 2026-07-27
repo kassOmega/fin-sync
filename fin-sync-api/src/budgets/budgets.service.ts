@@ -1,39 +1,103 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { BudgetType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateBudgetDto } from './dto/create-budget.dto';
-import { UpdateBudgetDto } from './dto/update-budget.dto';
 
 @Injectable()
 export class BudgetsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(dto: CreateBudgetDto, userId: number) {
+  // Helper: Find the start of the current cycle based on the budget's startDate
+  private getCurrentCycleStart(startDate: Date, frequency: BudgetType): Date {
+    const now = new Date();
+    let currentStart = new Date(startDate);
+
+    // If the start date is in the future, the cycle hasn't started yet.
+    if (currentStart > now) return currentStart;
+
+    if (frequency === BudgetType.DAILY) {
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    }
+
+    // Step forward from the startDate to find the current cycle
+    while (true) {
+      const nextStart = new Date(currentStart);
+      if (frequency === BudgetType.WEEKLY)
+        nextStart.setDate(nextStart.getDate() + 7);
+      if (frequency === BudgetType.MONTHLY)
+        nextStart.setMonth(nextStart.getMonth() + 1);
+      if (frequency === BudgetType.YEARLY)
+        nextStart.setFullYear(nextStart.getFullYear() + 1);
+
+      if (nextStart > now) break;
+      currentStart = nextStart;
+    }
+    return currentStart;
+  }
+
+  async create(
+    dto: {
+      category: string;
+      amount: number;
+      frequency: BudgetType;
+      startDate?: string;
+    },
+    userId: number,
+  ) {
+    // Prevent duplicates
+    const existing = await this.prisma.personalBudget.findFirst({
+      where: { userId, category: dto.category },
+    });
+    if (existing) throw new NotFoundException('Budget category already exists');
+
     return this.prisma.personalBudget.create({
       data: {
-        ...dto,
-        startDate: new Date(dto.startDate),
         userId,
+        category: dto.category,
+        amount: dto.amount,
+        frequency: dto.frequency,
+        startDate: dto.startDate ? new Date(dto.startDate) : new Date(),
       },
     });
   }
 
   async findAll(userId: number) {
-    return this.prisma.personalBudget.findMany({ where: { userId } });
+    const budgets = await this.prisma.personalBudget.findMany({
+      where: { userId },
+    });
+
+    const budgetsWithSpent = await Promise.all(
+      budgets.map(async (b) => {
+        const cycleStart = this.getCurrentCycleStart(
+          new Date(b.startDate),
+          b.frequency,
+        );
+
+        const expenses = await this.prisma.personalExpense.findMany({
+          where: {
+            userId,
+            category: b.category,
+            date: { gte: cycleStart },
+          },
+        });
+
+        const spent = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+        return { ...b, spent };
+      }),
+    );
+
+    return budgetsWithSpent;
   }
 
-  async update(id: number, dto: UpdateBudgetDto, userId: number) {
+  async update(
+    id: number,
+    dto: { category?: string; amount?: number; frequency?: BudgetType },
+    userId: number,
+  ) {
     const budget = await this.prisma.personalBudget.findFirst({
       where: { id, userId },
     });
     if (!budget) throw new NotFoundException('Budget not found');
-
-    return this.prisma.personalBudget.update({
-      where: { id },
-      data: {
-        ...dto,
-        startDate: dto.startDate ? new Date(dto.startDate) : undefined,
-      },
-    });
+    return this.prisma.personalBudget.update({ where: { id }, data: dto });
   }
 
   async remove(id: number, userId: number) {

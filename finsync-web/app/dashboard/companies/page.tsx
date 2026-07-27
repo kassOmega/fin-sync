@@ -1,6 +1,7 @@
 "use client";
 
 import api from "@/lib/api";
+import { useLangStore } from "@/store/langStore";
 import { ArrowRight, Building2, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -17,18 +18,22 @@ interface Company {
 }
 
 export default function CompaniesPage() {
+  const { t } = useLangStore();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
 
   const fetchCompanies = async () => {
     try {
       const res = await api.get("/companies");
       setCompanies(res.data);
-    } catch (error) {
-      toast.error("Failed to fetch companies");
+    } catch {
+      toast.error(t("companies.fetchFailed"));
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -41,27 +46,37 @@ export default function CompaniesPage() {
     setLoading(true);
     try {
       await api.post("/companies", { name, industry });
-      toast.success("Company created successfully!");
+      toast.success(t("companies.created"));
       setIsModalOpen(false);
       setName("");
       setIndustry("");
       fetchCompanies();
-    } catch (error) {
-      toast.error("Failed to create company");
+    } catch {
+      toast.error(t("companies.createFailed"));
     } finally {
       setLoading(false);
     }
   };
 
+  if (pageLoading) {
+    return (
+      <div className="flex justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Your Companies</h1>
+        <h1 className="text-2xl font-bold text-gray-800">
+          {t("companies.title")}
+        </h1>
         <button
           onClick={() => setIsModalOpen(true)}
           className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
         >
-          <Plus className="h-5 w-5 mr-1" /> New Company
+          <Plus className="h-5 w-5 mr-1" /> {t("companies.newCompany")}
         </button>
       </div>
 
@@ -82,25 +97,30 @@ export default function CompaniesPage() {
               {company.name}
             </h3>
             <p className="text-sm text-gray-500 mt-1">
-              {company.industry || "General Business"}
+              {company.industry || t("companies.generalBusiness")}
             </p>
             <div className="mt-4 flex space-x-4 text-sm text-gray-600">
-              <span>{company._count?.members || 0} Staff</span>
-              <span>{company._count?.expenses || 0} Expenses</span>
+              <span>
+                {company._count?.members || 0} {t("companies.staffCount")}
+              </span>
+              <span>
+                {company._count?.expenses || 0} {t("companies.expensesCount")}
+              </span>
             </div>
           </Link>
         ))}
       </div>
 
-      {/* Create Company Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
-            <h2 className="text-xl font-bold mb-4">Create New Company</h2>
+            <h2 className="text-xl font-bold mb-4">
+              {t("companies.modalTitle")}
+            </h2>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Company Name
+                  {t("companies.name")}
                 </label>
                 <input
                   type="text"
@@ -112,7 +132,7 @@ export default function CompaniesPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Industry (Optional)
+                  {t("companies.industry")}
                 </label>
                 <input
                   type="text"
@@ -127,14 +147,14 @@ export default function CompaniesPage() {
                   onClick={() => setIsModalOpen(false)}
                   className="px-4 py-2 text-gray-600 hover:text-gray-800"
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
                   className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {loading ? "Creating..." : "Create"}
+                  {loading ? t("common.creating") : t("common.create")}
                 </button>
               </div>
             </form>

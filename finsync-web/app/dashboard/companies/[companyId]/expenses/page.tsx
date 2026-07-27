@@ -41,10 +41,12 @@ export default function CompanyExpensesPage() {
   const [viewingExp, setViewingExp] = useState<Expense | null>(null);
   const [formData, setFormData] = useState({
     amount: "",
-    category: "Fuel",
+    category: "",
     note: "",
     projectId: "",
-    unit: "",
+    unitId: "",
+    isRecurring: false,
+    recurringFrequency: "MONTHLY",
   });
 
   const fetchExpenses = async () => {
@@ -87,6 +89,11 @@ export default function CompanyExpensesPage() {
       ...formData,
       amount: parseFloat(formData.amount),
       projectId: formData.projectId ? parseInt(formData.projectId) : null,
+      unitId: formData.unitId ? parseInt(formData.unitId) : null,
+      isRecurring: formData.isRecurring,
+      recurringFrequency: formData.isRecurring
+        ? formData.recurringFrequency
+        : null,
     };
 
     try {
@@ -405,6 +412,41 @@ export default function CompanyExpensesPage() {
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
                 />
               </div>
+              <div className="flex items-center space-x-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="isRecurring"
+                  checked={formData.isRecurring}
+                  onChange={(e) =>
+                    setFormData({ ...formData, isRecurring: e.target.checked })
+                  }
+                  className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                />
+                <label htmlFor="isRecurring" className="text-sm text-gray-700">
+                  Make this a recurring expense
+                </label>
+              </div>
+
+              {formData.isRecurring && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Frequency
+                  </label>
+                  <select
+                    value={formData.recurringFrequency}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        recurringFrequency: e.target.value,
+                      })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                  >
+                    <option value="MONTHLY">Monthly (on this day)</option>
+                  </select>
+                </div>
+              )}
+
               {!navigator.onLine && (
                 <div className="flex items-center text-amber-600 text-sm bg-amber-50 p-2 rounded-md">
                   <WifiOff className="h-4 w-4 mr-2" /> You are offline. This

@@ -26,7 +26,15 @@ export class BudgetsController {
 
   @Post()
   create(@Body() dto: CreateBudgetDto, @CurrentUser('id') userId: number) {
-    return this.service.create(dto, userId);
+    return this.service.create(
+      {
+        category: dto.category,
+        amount: dto.amount,
+        frequency: dto.frequency,
+        ...(dto.startDate && { startDate: dto.startDate }),
+      },
+      userId,
+    );
   }
 
   @Get()
@@ -40,7 +48,14 @@ export class BudgetsController {
     @Body() dto: UpdateBudgetDto,
     @CurrentUser('id') userId: number,
   ) {
-    return this.service.update(id, dto, userId);
+    return this.service.update(
+      id,
+      {
+        ...dto,
+        ...(dto.startDate && { startDate: dto.startDate }),
+      },
+      userId,
+    );
   }
 
   @Delete(':id')

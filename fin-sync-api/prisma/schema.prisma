@@ -29,6 +29,7 @@ enum BudgetType {
   DAILY
   WEEKLY
   MONTHLY
+  YEARLY
 
   @@schema("finsync")
 }
@@ -97,6 +98,25 @@ model User {
   projectUpdates     ProjectUpdate[]
   notifications      Notification[]
   storeRequests      StoreRequest[]
+  personalAccounts   PersonalAccount[]
+  accountTransfers   AccountTransfer[]
+  personalIncomes    PersonalIncome[]
+
+  @@schema("finsync")
+}
+
+model PersonalAccount {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  name      String
+  balance   Float    @default(0)
+  createdAt DateTime @default(now())
+
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses      PersonalExpense[]
+  incomes       PersonalIncome[]
+  transfersFrom AccountTransfer[] @relation("FromAccount")
+  transfersTo   AccountTransfer[] @relation("ToAccount")
 
   @@schema("finsync")
 }
@@ -143,13 +163,13 @@ model CompanyMember {
 // ==========================================
 
 model PersonalBudget {
-  id                Int        @id @default(autoincrement())
-  userId            Int        @map("user_id")
-  type              BudgetType
-  amount            Float
-  startDate         DateTime
-  createdAt         DateTime   @default(now())
-  carriedOverAmount Float      @default(0)
+  id        Int        @id @default(autoincrement())
+  userId    Int
+  category  String
+  amount    Float
+  frequency BudgetType
+  startDate DateTime   @default(now())
+  createdAt DateTime   @default(now())
 
   user User @relation(fields: [userId], references: [id])
 
@@ -157,14 +177,35 @@ model PersonalBudget {
 }
 
 model PersonalExpense {
-  id            Int      @id @default(autoincrement())
-  userId        Int      @map("user_id")
-  amount        Float
-  category      String?
-  note          String?
-  date          DateTime @default(now())
-  isCategorized Boolean  @default(false)
-  createdAt     DateTime @default(now())
+  id                 Int      @id @default(autoincrement())
+  userId             Int      @map("user_id")
+  amount             Float
+  category           String?
+  note               String?
+  date               DateTime @default(now())
+  isCategorized      Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  accountId          Int?
+  isRecurring        Boolean  @default(false)
+  recurringFrequency String?
+
+  account PersonalAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  user    User             @relation(fields: [userId], references: [id])
+
+  @@schema("finsync")
+}
+
+model PersonalIncome {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  amount    Float
+  category  String
+  note      String?
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  accountId Int? // Add this
+  account   PersonalAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
 
   user User @relation(fields: [userId], references: [id])
 
@@ -182,6 +223,22 @@ model PersonalSaving {
   createdAt       DateTime   @default(now())
 
   user User @relation(fields: [userId], references: [id])
+
+  @@schema("finsync")
+}
+
+model AccountTransfer {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  fromAccountId Int
+  toAccountId   Int
+  amount        Float
+  date          DateTime @default(now())
+  note          String?
+
+  fromAccount PersonalAccount @relation("FromAccount", fields: [fromAccountId], references: [id], onDelete: Cascade)
+  toAccount   PersonalAccount @relation("ToAccount", fields: [toAccountId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@schema("finsync")
 }
@@ -211,16 +268,18 @@ model CompanyIncome {
 }
 
 model CompanyExpense {
-  id           Int      @id @default(autoincrement())
-  companyId    Int      @map("company_id")
-  registeredBy Int      @map("registered_by")
-  amount       Float
-  category     String
-  date         DateTime @default(now())
-  note         String?
-  projectId    Int?     @map("project_id")
-  machineryId  Int?     @map("machinery_id")
-  createdAt    DateTime @default(now())
+  id                 Int      @id @default(autoincrement())
+  companyId          Int      @map("company_id")
+  registeredBy       Int      @map("registered_by")
+  amount             Float
+  category           String
+  date               DateTime @default(now())
+  note               String?
+  projectId          Int?     @map("project_id")
+  machineryId        Int?     @map("machinery_id")
+  createdAt          DateTime @default(now())
+  isRecurring        Boolean  @default(false) // Add this
+  recurringFrequency String?
 
   company         Company        @relation(fields: [companyId], references: [id])
   user            User           @relation(fields: [registeredBy], references: [id])

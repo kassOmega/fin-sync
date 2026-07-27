@@ -3,12 +3,14 @@
 import api from "@/lib/api";
 import { SystemRole } from "@/lib/types";
 import { useAuthStore } from "@/store/authStore";
+import { useLangStore } from "@/store/langStore";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import toast from "react-hot-toast";
 
 export default function RegisterPage() {
+  const { t } = useLangStore();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,10 +29,10 @@ export default function RegisterPage() {
         role: SystemRole.Owner,
       });
       setAuth(res.data.user, res.data.accessToken);
-      toast.success("Account created successfully!");
+      toast.success(t("register.success"));
       router.push("/dashboard");
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Registration failed");
+      toast.error(error.response?.data?.message || t("register.failed"));
     } finally {
       setLoading(false);
     }
@@ -41,10 +43,10 @@ export default function RegisterPage() {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Create Owner Account
+            {t("register.title")}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Start managing your life and business
+            {t("register.subtitle")}
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -52,7 +54,7 @@ export default function RegisterPage() {
             <input
               type="text"
               required
-              placeholder="Full Name"
+              placeholder={t("register.name")}
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
@@ -60,7 +62,7 @@ export default function RegisterPage() {
             <input
               type="email"
               required
-              placeholder="Email address"
+              placeholder={t("register.email")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
@@ -68,7 +70,7 @@ export default function RegisterPage() {
             <input
               type="password"
               required
-              placeholder="Password"
+              placeholder={t("register.password")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
@@ -80,7 +82,7 @@ export default function RegisterPage() {
             disabled={loading}
             className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
           >
-            {loading ? "Creating..." : "Register"}
+            {loading ? t("register.loading") : t("register.submit")}
           </button>
 
           <div className="text-sm text-center">
@@ -88,7 +90,7 @@ export default function RegisterPage() {
               href="/login"
               className="font-medium text-indigo-600 hover:text-indigo-500"
             >
-              Already have an account? Sign in
+              {t("register.haveAccount")}
             </Link>
           </div>
         </form>

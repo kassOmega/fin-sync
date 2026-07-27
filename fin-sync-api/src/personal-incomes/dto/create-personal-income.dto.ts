@@ -1,12 +1,12 @@
 import {
-  IsBoolean,
   IsDateString,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
 } from 'class-validator';
 
-export class CreatePersonalExpenseDto {
+export class CreatePersonalIncomeDto {
   @IsNumber()
   amount: number;
 
@@ -18,14 +18,11 @@ export class CreatePersonalExpenseDto {
   @IsOptional()
   note?: string;
 
-  @IsBoolean()
-  @IsOptional()
-  isCategorized?: boolean; // Defaults to false in service if not provided
-
-  @IsOptional()
-  accountId?: string;
-
   @IsDateString()
   @IsOptional()
   date?: string;
+
+  @IsInt()
+  @IsOptional()
+  accountId?: number;
 }

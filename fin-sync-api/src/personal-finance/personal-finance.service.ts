@@ -12,7 +12,7 @@ export class PersonalFinanceService {
     const endOfDay = new Date(today.setHours(23, 59, 59, 999));
 
     const budget = await this.prisma.personalBudget.findFirst({
-      where: { userId, type: 'DAILY' },
+      where: { userId, frequency: 'DAILY' },
     });
 
     if (!budget) throw new NotFoundException('Daily budget not found');
@@ -22,8 +22,7 @@ export class PersonalFinanceService {
     });
 
     const totalSpent = expensesToday.reduce((sum, exp) => sum + exp.amount, 0);
-    const effectiveBudget = budget.amount + budget.carriedOverAmount;
-    const remaining = effectiveBudget - totalSpent;
+    const remaining = budget.amount - totalSpent;
 
     let prompt: { action: string; message: string; amount: number } | null =
       null;
@@ -33,7 +32,7 @@ export class PersonalFinanceService {
         message: `You exceeded your budget by $${Math.abs(remaining)}. Do you want to borrow from tomorrow?`,
         amount: Math.abs(remaining),
       };
-    } else if (remaining > 0 && remaining > effectiveBudget * 0.2) {
+    } else if (remaining > 0 && remaining > budget.amount * 0.2) {
       prompt = {
         action: 'ROLLOVER',
         message: `You have $${remaining} left. Roll over to tomorrow or add to savings?`,
@@ -41,7 +40,7 @@ export class PersonalFinanceService {
       };
     }
 
-    return { budget: effectiveBudget, spent: totalSpent, remaining, prompt };
+    return { budget: budget.amount, spent: totalSpent, remaining, prompt };
   }
 
   // 2. Execute Rollover (Pass to next day or add to savings)
@@ -50,14 +49,15 @@ export class PersonalFinanceService {
     action: 'ROLLOVER' | 'SAVINGS',
     amount: number,
   ) {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
     if (action === 'ROLLOVER') {
-      // Find or create tomorrow's budget and add the amount
-      await this.prisma.personalBudget.updateMany({
-        where: { userId, type: 'DAILY' },
-        data: { carriedOverAmount: { increment: amount } },
+      // Create a budget entry for the rollover amount
+      await this.prisma.personalBudget.create({
+        data: {
+          userId,
+          category: 'Rollover',
+          amount: amount,
+          frequency: 'DAILY',
+        },
       });
       return {
         message: `Successfully rolled over $${amount} to tomorrow's budget.`,
@@ -79,9 +79,14 @@ export class PersonalFinanceService {
 
   // 3. Execute Borrow (Take from tomorrow's budget)
   async executeBorrow(userId: number, amount: number) {
-    await this.prisma.personalBudget.updateMany({
-      where: { userId, type: 'DAILY' },
-      data: { carriedOverAmount: { decrement: amount } },
+    // Create a negative-amount budget entry to track the borrow
+    await this.prisma.personalBudget.create({
+      data: {
+        userId,
+        category: 'Borrow',
+        amount: -amount,
+        frequency: 'DAILY',
+      },
     });
     return {
       message: `Successfully borrowed $${amount} from tomorrow's budget.`,
