@@ -29,6 +29,17 @@ interface Unit {
   name: string;
 }
 
+const DEFAULT_FORM = {
+  amount: "",
+  category: "Fuel",
+  note: "",
+  projectId: "",
+  unitId: "",
+  unit: "",
+  isRecurring: false,
+  recurringFrequency: "MONTHLY",
+};
+
 export default function CompanyExpensesPage() {
   const params = useParams();
   const companyId = params.companyId as string;
@@ -39,15 +50,7 @@ export default function CompanyExpensesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExp, setEditingExp] = useState<Expense | null>(null);
   const [viewingExp, setViewingExp] = useState<Expense | null>(null);
-  const [formData, setFormData] = useState({
-    amount: "",
-    category: "",
-    note: "",
-    projectId: "",
-    unitId: "",
-    isRecurring: false,
-    recurringFrequency: "MONTHLY",
-  });
+  const [formData, setFormData] = useState(DEFAULT_FORM);
 
   const fetchExpenses = async () => {
     try {
@@ -69,7 +72,6 @@ export default function CompanyExpensesPage() {
 
   const fetchUnits = async () => {
     try {
-      // Change URL
       const res = await api.get("/measuring-units");
       setUnits(res.data);
     } catch {
@@ -109,25 +111,13 @@ export default function CompanyExpensesPage() {
       }
       setIsModalOpen(false);
       setEditingExp(null);
-      setFormData({
-        amount: "",
-        category: "Fuel",
-        note: "",
-        projectId: "",
-        unit: "",
-      });
+      setFormData(DEFAULT_FORM);
       fetchExpenses();
-    } catch (error) {
+    } catch {
       if (!navigator.onLine && !editingExp) {
         addToQueue({ ...payload, companyId: parseInt(companyId) });
         setIsModalOpen(false);
-        setFormData({
-          amount: "",
-          category: "Fuel",
-          note: "",
-          projectId: "",
-          unit: "",
-        });
+        setFormData(DEFAULT_FORM);
       } else {
         toast.error("Failed to save expense");
       }
@@ -152,7 +142,6 @@ export default function CompanyExpensesPage() {
     );
     if (newUnit) {
       try {
-        // Change URL
         const res = await api.post("/measuring-units", { name: newUnit });
         setUnits([...units, res.data]);
         setFormData({ ...formData, unit: res.data.name });
@@ -170,13 +159,7 @@ export default function CompanyExpensesPage() {
         <button
           onClick={() => {
             setEditingExp(null);
-            setFormData({
-              amount: "",
-              category: "Fuel",
-              note: "",
-              projectId: "",
-              unit: "",
-            });
+            setFormData(DEFAULT_FORM);
             setIsModalOpen(true);
           }}
           className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
@@ -241,7 +224,10 @@ export default function CompanyExpensesPage() {
                         category: exp.category,
                         note: exp.note || "",
                         projectId: exp.projectId ? String(exp.projectId) : "",
+                        unitId: "",
                         unit: exp.unit || "",
+                        isRecurring: false,
+                        recurringFrequency: "MONTHLY",
                       });
                       setIsModalOpen(true);
                     }}
