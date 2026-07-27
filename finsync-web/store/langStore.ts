@@ -297,6 +297,70 @@ const translations: Record<Lang, Record<string, string>> = {
     "landing.title": "FinSync መተግበሪያ እየሰራ ነው!",
     "landing.subtitle": "ይህን ካዩ፣ ማሳያው እየሰራ ነው።",
     "landing.goLogin": "ወደ መግቢያ ይሂዱ",
+    "landing.navLogin": "ይግቡ",
+    "landing.navRegister": "ይጀምሩ",
+    "landing.heroBadge": "በኢትዮጵያ ውስጥ ባሉ ንግዶች የታመነ",
+    "landing.heroTitle": "ገንዘብዎን እና ንግድዎን ለማስተዳደር",
+    "landing.heroTitleHighlight": "አንድ መድረክ",
+    "landing.heroSubtitle":
+      "FinSync የግል በጀት፣ ቁጠባ ክትትል እና ሙሉ የንግድ ስራዎችን — ማሽኖች፣ እቃዎች፣ ሰራተኞች፣ ፕሮጀክቶች እና የፋይናንስ ሪፖርቶችን በአንድ ቦታ ያጣምራል።",
+    "landing.ctaStart": "በነጻ ይጀምሩ",
+    "landing.ctaSignIn": "ይግቡ",
+    "landing.heroNote": "በሞባይል፣ ታብሌት እና ኮምፒውተር ይገኛል",
+    "landing.featuresTitle": "ሁሉም ነገር በአንድ መተግበሪያ",
+    "landing.featuresSubtitle":
+      "ከግል ፋይናንስ እስከ ሙሉ የንግድ አስተዳደር፣ FinSync ሁሉንም ይሸፍናል።",
+    "landing.feature1Title": "የግል ፋይናንስ",
+    "landing.feature1Desc":
+      "ዕለታዊ በጀቶችን፣ ወጪዎችን፣ ገቢዎችን እና የቁጠባ ግቦችን በሚያምሩ ግራፎች እና የ30-ቀን ትንበያዎች ይከታተሉ።",
+    "landing.feature2Title": "የንግድ አስተዳደር",
+    "landing.feature2Desc":
+      "በርካታ ኩባንያዎችን ያስተዳድሩ፣ ገቢዎችን እና ወጪዎችን ይከታተሉ፣ ፕሮጀክቶችን ይመድቡ እና ማሽኖችን ይቆጣጠሩ።",
+    "landing.feature3Title": "ብልህ ሪፖርቶች እና ትንበያ",
+    "landing.feature3Desc":
+      "ፋይናንስዎን በግራፎች ይመልከቱ፣ አበረታች ግንዛቤዎችን ያግኙ እና የወደፊት የገንዘብ ፍሰት ይተንብዩ።",
+    "landing.feature4Title": "የቁጠባ ግቦች",
+    "landing.feature4Desc":
+      "በተለዋዋጭ ድግግሞሾች — ዕለታዊ፣ ሳምንታዊ ወይም ወርሃዊ የቁጠባ ግቦችን ያዘጋጁ እና እድገትዎን ይመልከቱ።",
+    "landing.feature5Title": "እቃዎች እና ሰራተኞች",
+    "landing.feature5Desc":
+      "የመደብር እቃዎችን ያስተዳድሩ፣ የአክሲዮን ደረጃዎችን ይከታተሉ፣ የሰራተኞች ክፍያን ያስተናግዱ እና የፕሮጀክት ሚናዎችን ይመድቡ።",
+    "landing.feature6Title": "ባለብዙ ሂሳብ ባንኪንግ",
+    "landing.feature6Desc":
+      "በርካታ ሂሳቦችን ይፍጠሩ፣ ቀሪ ሂሳቦችን ይከታተሉ እና በሂሳቦች መካከል ገንዘብ ያስተላልፉ።",
+    "landing.howItWorksTitle": "እንዴት እንደሚሰራ",
+    "landing.howItWorksSubtitle": "በደቂቃዎች ውስጥ ይጀምሩ፣ በቀናት አይደለም።",
+    "landing.step1Title": "መለያዎን ይፍጠሩ",
+    "landing.step1Desc":
+      "እንደ ንግድ ባለቤት ከአንድ ደቂቃ ባነሰ ጊዜ ይመዝገቡ። ውሂብዎ ደህንነቱ በተጠበቀ ሁኔታ ተከማችቶ ሁልጊዜ ተደራሽ ነው።",
+    "landing.step2Title": "ውሂብዎን ያክሉ",
+    "landing.step2Desc":
+      "በጀቶችን ያዘጋጁ፣ ኩባንያዎችዎን ይመዝግቡ፣ ሰራተኞችን፣ ማሽኖችን ያክሉ እና ግብይቶችን መመዝገብ ይጀምሩ።",
+    "landing.step3Title": "ብልህ ውሳኔዎችን ያድርጉ",
+    "landing.step3Desc":
+      "ገንዘብዎ የት እንደሚሄድ ለመረዳት የእውነተኛ ጊዜ ዳሽቦርዶችን፣ ግራፎችን፣ ሪፖርቶችን እና ትንበያዎችን ይጠቀሙ።",
+    "landing.whoForTitle": "የተገነባው ለ",
+    "landing.whoForSubtitle": "የግልም ይሁኑ ንግድ እያስተዳደሩ፣ FinSync ከእርስዎ ጋር ይላመዳል።",
+    "landing.audience1Title": "አነስተኛ ንግድ ባለቤቶች",
+    "landing.audience1Desc":
+      "የግንባታ ኩባንያዎችን፣ ሎጂስቲክስን፣ ችርቻሮን ያስተዳድሩ — ወጪዎችን፣ ማሽኖችን፣ ፕሮጀክቶችን እና ሰራተኞችን ከአንድ ዳሽቦርድ ይከታተሉ።",
+    "landing.audience2Title": "እያደጉ ያሉ ኢንተርፕራይዞች",
+    "landing.audience2Desc":
+      "በአንድ መለያ ስር በርካታ ኩባንያዎችን ያስተዳድሩ። ለገንዘብ ተቀባዮች፣ ፎርማኖች፣ የፕሮጀክት አስተዳዳሪዎች እና ሌሎችም ሚናዎችን ይመድቡ።",
+    "landing.audience3Title": "ግለሰቦች እና ቤተሰቦች",
+    "landing.audience3Desc":
+      "የግል ወጪዎችን ይከታተሉ፣ ወርሃዊ የበጀት ግቦችን ያዘጋጁ፣ ቁጠባ ይገንቡ እና የፋይናንስ ግልጽነትን ያግኙ።",
+    "landing.stat1Value": "ሁሉም-በአንድ",
+    "landing.stat1Label": "የግል + የንግድ ፋይናንስ",
+    "landing.stat2Value": "ቅጽበታዊ",
+    "landing.stat2Label": "ዳሽቦርዶች እና ሪፖርቶች",
+    "landing.stat3Value": "ባለብዙ-ሚና",
+    "landing.stat3Label": "የቡድን ተደራሽነት ቁጥጥር",
+    "landing.finalCtaTitle": "ፋይናንስዎን ለመቆጣጠር ዝግጁ ነዎት?",
+    "landing.finalCtaSubtitle":
+      "ገንዘባቸውን በብልህነት ለማስተዳደር FinSync ን ከሚጠቀሙ ንግዶች እና ግለሰቦች ጋር ይቀላቀሉ።",
+    "landing.finalCtaButton": "ነጻ መለያ ይፍጠሩ",
+    "landing.footer": "መብቱ በህግ የተጠበቀ ነው። በኢትዮጵያ ውስጥ በፍቅር የተገነባ።",
 
     // Dashboard Overview
     "overview.title": "አጠቃላይ እይታ",
