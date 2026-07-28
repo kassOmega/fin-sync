@@ -57,6 +57,8 @@ export const hashPassword = async (password: string): Promise<string> => {
 let _prisma: PrismaClient | null = null;
 let _pool: Pool | null = null;
 
+export const getPool = (): Pool | null => _pool;
+
 export const getPrisma = (): PrismaClient => {
   if (_prisma) return _prisma;
 

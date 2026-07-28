@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { seedMeasuringUnits } from './00-measuring-units';
+import { seedPermissions } from './00-permissions';
 import { seedUsers } from './01-users';
 import { seedCompanies } from './02-companies';
 import { seedPersonalFinance } from './03-personal-finance';
@@ -16,7 +17,31 @@ import { createContext, disconnect, getPrisma } from './utils';
 async function clearDatabase(prisma: PrismaClient): Promise<void> {
   console.log('🧹 Clearing existing database records...');
 
+  // New tables (not in Prisma client) - use raw SQL
+  try {
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM finsync."CompanyRolePermission"`,
+    );
+  } catch (e: any) {
+    console.warn(`  ⚠️ ${e.message}`);
+  }
+  try {
+    await prisma.$executeRawUnsafe(`DELETE FROM finsync."CompanyRole"`);
+  } catch (e: any) {
+    console.warn(`  ⚠️ ${e.message}`);
+  }
+  try {
+    await prisma.$executeRawUnsafe(`DELETE FROM finsync."Permission"`);
+  } catch (e: any) {
+    console.warn(`  ⚠️ ${e.message}`);
+  }
+
+  // Existing tables - use Prisma model deleteMany
   const tables = [
+    'storeRequest',
+    'storeTransaction',
+    'storeItem',
+    'storeCategory',
     'saleItem',
     'sale',
     'customer',
@@ -24,10 +49,6 @@ async function clearDatabase(prisma: PrismaClient): Promise<void> {
     'purchase',
     'supplier',
     'notification',
-    'storeRequest',
-    'storeTransaction',
-    'storeItem',
-    'storeCategory',
     'machineryOperator',
     'machinery',
     'projectUpdate',
@@ -41,22 +62,15 @@ async function clearDatabase(prisma: PrismaClient): Promise<void> {
     'personalSaving',
     'personalBudget',
     'personalAccount',
-    'companyRolePermission',
-    'companyRole',
-    'permission',
     'companyMember',
     'company',
     'user',
     'measuringUnit',
   ];
-
   for (const table of tables) {
     try {
-      // @ts-ignore
-      await prisma[table].deleteMany();
-    } catch (e) {
-      console.warn(`   ⚠️ Could not clear ${table}`);
-    }
+      await (prisma as any)[table].deleteMany();
+    } catch {}
   }
 }
 
@@ -67,6 +81,7 @@ export async function seedAll(): Promise<void> {
   try {
     await clearDatabase(prisma);
 
+    await seedPermissions(prisma);
     await seedMeasuringUnits(prisma, ctx);
     await seedUsers(prisma, ctx);
     await seedCompanies(prisma, ctx);

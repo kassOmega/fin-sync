@@ -6,32 +6,37 @@ const BUILTIN_ROLES: { name: string; permissions: string[] }[] = [
     name: 'Operator',
     permissions: [
       'MACHINERY_READ',
-      'MACHINERY_LOG_HOURS',
-      'MACHINERY_MAINTENANCE',
-      'REQUISITIONS_CREATE',
+      'MACHINERY_OPERATE',
+      'MACHINERY_MAINTAIN',
+      'STORE_REQUEST_CREATE',
     ],
   },
   {
     name: 'Storekeeper',
     permissions: [
-      'STORE_ITEMS_READ',
-      'STORE_ITEMS_WRITE',
-      'STORE_ITEMS_RESTOCK',
-      'REQUISITIONS_CREATE',
-      'REQUISITIONS_APPROVE',
+      'STORE_READ',
+      'STORE_WRITE',
+      'STORE_TRANSACTION',
+      'STORE_REQUEST_CREATE',
+      'STORE_REQUEST_APPROVE',
+      'STORE_REQUEST_ISSUE',
       'MACHINERY_READ',
-      'MACHINERY_MAINTENANCE',
+      'MACHINERY_MAINTAIN',
+      'PURCHASES_READ',
+      'PURCHASES_WRITE',
     ],
   },
   {
     name: 'Cashier',
     permissions: [
-      'FINANCES_READ',
-      'FINANCES_WRITE',
+      'FINANCE_INCOME_READ',
+      'FINANCE_INCOME_WRITE',
+      'FINANCE_EXPENSE_READ',
+      'FINANCE_EXPENSE_WRITE',
       'SALES_READ',
       'SALES_WRITE',
-      'STORE_ITEMS_READ',
-      'REQUISITIONS_CREATE',
+      'STORE_READ',
+      'STORE_REQUEST_CREATE',
     ],
   },
   {
@@ -39,9 +44,10 @@ const BUILTIN_ROLES: { name: string; permissions: string[] }[] = [
     permissions: [
       'SALES_READ',
       'SALES_WRITE',
-      'FINANCES_READ',
-      'STORE_ITEMS_READ',
-      'REQUISITIONS_CREATE',
+      'CUSTOMER_MANAGE',
+      'FINANCE_INCOME_READ',
+      'STORE_READ',
+      'STORE_REQUEST_CREATE',
     ],
   },
   {
@@ -49,11 +55,15 @@ const BUILTIN_ROLES: { name: string; permissions: string[] }[] = [
     permissions: [
       'PROJECTS_READ',
       'PROJECTS_WRITE',
+      'PROJECTS_DELETE',
       'MACHINERY_READ',
-      'STORE_ITEMS_READ',
-      'FINANCES_READ',
-      'STAFF_READ',
-      'REQUISITIONS_CREATE',
+      'STORE_READ',
+      'FINANCE_INCOME_READ',
+      'FINANCE_EXPENSE_READ',
+      'COMPANY_STAFF_MANAGE',
+      'EMPLOYEES_MANAGE',
+      'STORE_REQUEST_CREATE',
+      'REPORTS_VIEW',
     ],
   },
   {
@@ -62,8 +72,9 @@ const BUILTIN_ROLES: { name: string; permissions: string[] }[] = [
       'PROJECTS_READ',
       'PROJECTS_WRITE',
       'MACHINERY_READ',
-      'STORE_ITEMS_READ',
-      'REQUISITIONS_CREATE',
+      'MACHINERY_OPERATE',
+      'STORE_READ',
+      'STORE_REQUEST_CREATE',
     ],
   },
 ];
@@ -89,13 +100,11 @@ export async function seedRoles(
         .filter((code) => permByCode[code])
         .map((code) => permByCode[code]);
 
-      // Create the role
       const escapedName = roleDef.name.replace(/'/g, "''");
       await prisma.$executeRawUnsafe(
         `INSERT INTO finsync."CompanyRole" (company_id, name) VALUES (${companyId}, '${escapedName}')`,
       );
 
-      // Get the role id
       const roleRows: { id: number }[] = await prisma.$queryRawUnsafe(
         `SELECT id FROM finsync."CompanyRole" WHERE company_id = ${companyId} AND name = '${escapedName}'`,
       );
@@ -104,7 +113,6 @@ export async function seedRoles(
 
       ctx.companyRoles[`${companyKey}_${roleDef.name}`] = roleId;
 
-      // Insert permissions
       for (const permId of matchingPermIds) {
         await prisma.$executeRawUnsafe(
           `INSERT INTO finsync."CompanyRolePermission" (role_id, permission_id) VALUES (${roleId}, ${permId}) ON CONFLICT DO NOTHING`,
@@ -112,7 +120,6 @@ export async function seedRoles(
       }
     }
 
-    // Assign roles to seed staff based on their system role
     const members: { id: number; role: string; user_id: number }[] =
       await prisma.$queryRawUnsafe(
         `SELECT id, role, user_id FROM finsync."CompanyMember" WHERE company_id = ${companyId}`,
