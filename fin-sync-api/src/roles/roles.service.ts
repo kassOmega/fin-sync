@@ -70,9 +70,9 @@ export class RolesService {
   async getRoles(companyId: number, ownerId: number) {
     await this.verifyOwnership(companyId, ownerId);
 
-    const roles: { id: number; name: string; created_at: string }[] =
+    const roles: { id: number; name: string; createdAt: string }[] =
       await this.prisma.$queryRawUnsafe(
-        `SELECT id, name, created_at FROM finsync."CompanyRole" WHERE company_id = ${companyId} ORDER BY created_at DESC`,
+        `SELECT id, name, "createdAt" FROM finsync."CompanyRole" WHERE company_id = ${companyId} ORDER BY "createdAt" DESC`,
       );
 
     const result: {
@@ -100,7 +100,7 @@ export class RolesService {
       result.push({
         id: role.id,
         name: role.name,
-        createdAt: role.created_at,
+        createdAt: role.createdAt,
         permissions: permissions.map((p) => ({
           permission: {
             id: p.permission_id,
@@ -119,9 +119,9 @@ export class RolesService {
   async getRole(companyId: number, roleId: number, ownerId: number) {
     await this.verifyOwnership(companyId, ownerId);
 
-    const roleRows: { id: number; name: string; created_at: string }[] =
+    const roleRows: { id: number; name: string; createdAt: string }[] =
       await this.prisma.$queryRawUnsafe(
-        `SELECT id, name, created_at FROM finsync."CompanyRole" WHERE id = ${roleId} AND company_id = ${companyId}`,
+        `SELECT id, name, "createdAt" FROM finsync."CompanyRole" WHERE id = ${roleId} AND company_id = ${companyId}`,
       );
     if (!roleRows[0]) throw new NotFoundException('Role not found');
 
@@ -143,7 +143,7 @@ export class RolesService {
     return {
       id: role.id,
       name: role.name,
-      createdAt: role.created_at,
+      createdAt: role.createdAt,
       permissions: permissions.map((p) => ({
         permission: {
           id: p.permission_id,
