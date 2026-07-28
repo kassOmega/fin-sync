@@ -29,6 +29,8 @@ export class StoreItemsController {
     private readonly workflowService: StoreWorkflowService,
   ) {}
 
+  // --- Literal path routes must come BEFORE parameterized :id routes ---
+
   @Post()
   @Roles(SystemRole.Owner, SystemRole.Storekeeper)
   create(
@@ -38,20 +40,7 @@ export class StoreItemsController {
     return this.service.create(companyId, dto);
   }
 
-  @Get()
-  @Roles(SystemRole.Owner, SystemRole.Storekeeper, SystemRole.ProjectManager)
-  findAll(
-    @Param('companyId', ParseIntPipe) companyId: number,
-    @Query('categoryId') categoryId?: string,
-  ) {
-    return this.service.findAll(
-      companyId,
-      categoryId ? parseInt(categoryId) : undefined,
-    );
-  }
-
   // --- Category Management ---
-
   @Get('categories')
   getCategories(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.service.getCategories(companyId);
@@ -66,31 +55,7 @@ export class StoreItemsController {
     return this.service.createCategory(companyId, dto.name);
   }
 
-  @Patch(':id')
-  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateStoreItemDto,
-  ) {
-    return this.service.update(id, dto);
-  }
-
-  @Delete(':id')
-  @Roles(SystemRole.Owner)
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.service.remove(id);
-  }
-
-  @Post(':id/transaction')
-  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
-  handleTransaction(
-    @Param('companyId', ParseIntPipe) companyId: number,
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: StoreTransactionDto,
-  ) {
-    return this.service.handleTransaction(id, dto, companyId);
-  }
-
+  // --- Request Management ---
   @Get('requests')
   @Roles(SystemRole.Owner, SystemRole.Storekeeper)
   getRequests(@Param('companyId', ParseIntPipe) companyId: number) {
@@ -149,5 +114,44 @@ export class StoreItemsController {
     @Param('companyId', ParseIntPipe) companyId: number,
   ) {
     return this.service.returnItem(id, user, companyId);
+  }
+
+  // --- Parameterized :id routes come AFTER all literal paths ---
+
+  @Get()
+  @Roles(SystemRole.Owner, SystemRole.Storekeeper, SystemRole.ProjectManager)
+  findAll(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Query('categoryId') categoryId?: string,
+  ) {
+    return this.service.findAll(
+      companyId,
+      categoryId ? parseInt(categoryId) : undefined,
+    );
+  }
+
+  @Patch(':id')
+  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateStoreItemDto,
+  ) {
+    return this.service.update(id, dto);
+  }
+
+  @Delete(':id')
+  @Roles(SystemRole.Owner)
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.service.remove(id);
+  }
+
+  @Post(':id/transaction')
+  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
+  handleTransaction(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: StoreTransactionDto,
+  ) {
+    return this.service.handleTransaction(id, dto, companyId);
   }
 }
