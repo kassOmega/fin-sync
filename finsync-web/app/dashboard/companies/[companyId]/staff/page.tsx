@@ -41,14 +41,16 @@ export default function StaffPage() {
 
   const fetchStaff = async () => {
     try {
-      const [staffRes, rolesRes] = await Promise.all([
-        api.get(`/companies/${companyId}/staff`),
-        api.get(`/companies/${companyId}/roles`),
-      ]);
+      const staffRes = await api.get(`/companies/${companyId}/staff`);
       setStaff(staffRes.data);
-      setRoles(rolesRes.data);
     } catch {
       toast.error("Failed to load staff");
+    }
+    try {
+      const rolesRes = await api.get(`/companies/${companyId}/roles`);
+      setRoles(rolesRes.data);
+    } catch {
+      // roles endpoint may not be deployed yet — don't fail
     }
   };
 
