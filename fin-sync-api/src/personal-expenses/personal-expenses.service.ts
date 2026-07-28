@@ -1,13 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { BudgetType } from '@prisma/client';
 import { guessCategory } from '../common/utils/category-guesser';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePersonalExpenseDto } from './dto/create-personal-expense.dto';
 import { UpdatePersonalExpenseDto } from './dto/update-personal-expense.dto';
 
 @Injectable()
 export class PersonalExpensesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async create(dto: CreatePersonalExpenseDto, userId: number) {
     let finalCategory = dto.category;
@@ -33,6 +37,35 @@ export class PersonalExpensesService {
           where: { id: expense.accountId },
           data: { balance: { decrement: expense.amount } },
         });
+      }
+
+      // Check budget status after adding expense
+      if (expense.category) {
+        const budget = await prisma.personalBudget.findFirst({
+          where: { userId, category: expense.category },
+        });
+        if (budget) {
+          const spent = await prisma.personalExpense.aggregate({
+            where: { userId, category: expense.category },
+            _sum: { amount: true },
+          });
+          const totalSpent = spent._sum.amount || 0;
+          const remaining = budget.amount - totalSpent;
+
+          if (remaining < 0) {
+            await this.notifications.notifyUser(
+              userId,
+              '⚠️ Budget Exceeded',
+              `You've exceeded your "${expense.category}" budget of $${budget.amount} by $${Math.abs(remaining).toFixed(2)}.`,
+            );
+          } else if (remaining < budget.amount * 0.2) {
+            await this.notifications.notifyUser(
+              userId,
+              '⚡ Budget Almost Gone',
+              `Only $${remaining.toFixed(2)} left in your "${expense.category}" budget.`,
+            );
+          }
+        }
       }
 
       return expense;

@@ -32,6 +32,11 @@ export class NotificationsController {
     return this.service.findAll(userId);
   }
 
+  @Get('unread-count')
+  getUnreadCount(@CurrentUser('id') userId: number) {
+    return this.service.getUnreadCount(userId);
+  }
+
   @Patch(':id/read')
   @Roles(
     SystemRole.Owner,
@@ -44,5 +49,19 @@ export class NotificationsController {
   )
   markAsRead(@Param('id', ParseIntPipe) id: number) {
     return this.service.markAsRead(id);
+  }
+
+  @Patch('read-all')
+  @Roles(
+    SystemRole.Owner,
+    SystemRole.Cashier,
+    SystemRole.Storekeeper,
+    SystemRole.OperatorDriver,
+    SystemRole.ProjectManager,
+    SystemRole.Foreman,
+    SystemRole.Sales,
+  )
+  markAllAsRead(@CurrentUser('id') userId: number) {
+    return this.service.markAllAsRead(userId);
   }
 }

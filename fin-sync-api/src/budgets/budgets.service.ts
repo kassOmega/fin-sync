@@ -1,24 +1,26 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { BudgetType } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class BudgetsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   // Helper: Find the start of the current cycle based on the budget's startDate
   private getCurrentCycleStart(startDate: Date, frequency: BudgetType): Date {
     const now = new Date();
     let currentStart = new Date(startDate);
 
-    // If the start date is in the future, the cycle hasn't started yet.
     if (currentStart > now) return currentStart;
 
     if (frequency === BudgetType.DAILY) {
       return new Date(now.getFullYear(), now.getMonth(), now.getDate());
     }
 
-    // Step forward from the startDate to find the current cycle
     while (true) {
       const nextStart = new Date(currentStart);
       if (frequency === BudgetType.WEEKLY)
@@ -43,13 +45,12 @@ export class BudgetsService {
     },
     userId: number,
   ) {
-    // Prevent duplicates
     const existing = await this.prisma.personalBudget.findFirst({
       where: { userId, category: dto.category },
     });
     if (existing) throw new NotFoundException('Budget category already exists');
 
-    return this.prisma.personalBudget.create({
+    const budget = await this.prisma.personalBudget.create({
       data: {
         userId,
         category: dto.category,
@@ -58,6 +59,15 @@ export class BudgetsService {
         startDate: dto.startDate ? new Date(dto.startDate) : new Date(),
       },
     });
+
+    // Notify user about new budget
+    await this.notifications.notifyUser(
+      userId,
+      '📊 Budget Created',
+      `New budget "${dto.category}" created with $${dto.amount} (${dto.frequency.toLowerCase()}).`,
+    );
+
+    return budget;
   }
 
   async findAll(userId: number) {

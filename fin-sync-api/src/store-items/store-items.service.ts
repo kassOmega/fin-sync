@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { StoreTxType } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateStoreItemDto } from './dto/create-store-item.dto';
 import { StoreTransactionDto } from './dto/store-transaction.dto';
@@ -11,10 +12,13 @@ import { UpdateStoreItemDto } from './dto/update-store-item.dto';
 
 @Injectable()
 export class StoreItemsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async create(companyId: number, dto: CreateStoreItemDto) {
-    return this.prisma.storeItem.create({
+    const item = await this.prisma.storeItem.create({
       data: {
         ...dto,
         companyId,
@@ -22,6 +26,14 @@ export class StoreItemsService {
         lowStockThreshold: dto.lowStockThreshold || 5,
       },
     });
+
+    await this.notifications.notifyCompany(
+      companyId,
+      '📦 New Store Item',
+      `"${dto.name}" has been added to inventory.`,
+    );
+
+    return item;
   }
 
   async findAll(companyId: number) {
@@ -73,10 +85,30 @@ export class StoreItemsService {
         newQuantity += dto.quantity;
       }
 
-      return prisma.storeItem.update({
+      const updated = await prisma.storeItem.update({
         where: { id: itemId },
         data: { quantity: newQuantity },
       });
+
+      // Check low stock after transaction
+      if (
+        updated.quantity <= updated.lowStockThreshold &&
+        updated.quantity > 0
+      ) {
+        await this.notifications.notifyCompany(
+          companyId,
+          '📦 Low Stock Alert',
+          `"${updated.name}" is running low: ${updated.quantity} remaining (threshold: ${updated.lowStockThreshold}).`,
+        );
+      } else if (updated.quantity <= 0) {
+        await this.notifications.notifyCompany(
+          companyId,
+          '🚨 Out of Stock',
+          `"${updated.name}" is out of stock!`,
+        );
+      }
+
+      return updated;
     });
   }
 }

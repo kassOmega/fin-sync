@@ -38,6 +38,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "login.noAccount": "Don't have an account? Register",
     "login.welcomeBack": "Welcome back!",
     "login.failed": "Login failed",
+    "login.backToHome": "Back to Home",
 
     // Register
     "register.title": "Create Owner Account",
@@ -55,6 +56,71 @@ const translations: Record<Lang, Record<string, string>> = {
     "landing.title": "FinSync App Running!",
     "landing.subtitle": "If you see this, rendering is working.",
     "landing.goLogin": "Go to Login",
+    "landing.navLogin": "Sign In",
+    "landing.navRegister": "Get Started",
+    "landing.heroBadge": "Trusted by businesses across Ethiopia",
+    "landing.heroTitle": "One platform to manage your",
+    "landing.heroTitleHighlight": "money & business",
+    "landing.heroSubtitle":
+      "FinSync combines personal budgeting, savings tracking, and full business operations — machinery, inventory, employees, projects, and financial reports — all in one place.",
+    "landing.ctaStart": "Start Free",
+    "landing.ctaSignIn": "Sign In",
+    "landing.heroNote": "Available on mobile, tablet & desktop",
+    "landing.featuresTitle": "Everything you need in one app",
+    "landing.featuresSubtitle":
+      "From personal finance to full business management, FinSync covers it all.",
+    "landing.feature1Title": "Personal Finance",
+    "landing.feature1Desc":
+      "Track daily budgets, expenses, incomes, and savings goals with beautiful charts and 30-day forecasts.",
+    "landing.feature2Title": "Business Management",
+    "landing.feature2Desc":
+      "Manage multiple companies, track incomes & expenses, assign projects, and monitor machinery.",
+    "landing.feature3Title": "Smart Reports & Forecasting",
+    "landing.feature3Desc":
+      "Visualize your finances with charts, get motivational insights, and predict future cash flow.",
+    "landing.feature4Title": "Savings Goals",
+    "landing.feature4Desc":
+      "Set savings targets with flexible frequencies — daily, weekly, or monthly — and watch your progress grow.",
+    "landing.feature5Title": "Inventory & Staff",
+    "landing.feature5Desc":
+      "Manage store items, track stock levels, handle employee payroll, and assign project roles.",
+    "landing.feature6Title": "Multi-Account Banking",
+    "landing.feature6Desc":
+      "Create multiple accounts, track balances, and transfer money between accounts seamlessly.",
+    "landing.howItWorksTitle": "How It Works",
+    "landing.howItWorksSubtitle": "Get started in minutes, not days.",
+    "landing.step1Title": "Create Your Account",
+    "landing.step1Desc":
+      "Sign up as a business owner in under a minute. Your data is securely stored and always accessible.",
+    "landing.step2Title": "Add Your Data",
+    "landing.step2Desc":
+      "Set up budgets, register your companies, add staff, machinery, and start logging transactions.",
+    "landing.step3Title": "Make Smarter Decisions",
+    "landing.step3Desc":
+      "Use real-time dashboards, charts, reports, and forecasts to understand where your money goes.",
+    "landing.whoForTitle": "Built For",
+    "landing.whoForSubtitle":
+      "Whether you're an individual or running a business, FinSync adapts to you.",
+    "landing.audience1Title": "Small Business Owners",
+    "landing.audience1Desc":
+      "Manage construction companies, logistics, retail — track expenses, machinery, projects, and staff from one dashboard.",
+    "landing.audience2Title": "Growing Enterprises",
+    "landing.audience2Desc":
+      "Handle multiple companies under one account. Assign roles to cashiers, foremen, project managers, and more.",
+    "landing.audience3Title": "Individuals & Families",
+    "landing.audience3Desc":
+      "Track personal spending, set monthly budget goals, build savings, and get financial clarity.",
+    "landing.stat1Value": "All-in-One",
+    "landing.stat1Label": "Personal + Business Finance",
+    "landing.stat2Value": "Real-Time",
+    "landing.stat2Label": "Dashboards & Reports",
+    "landing.stat3Value": "Multi-Role",
+    "landing.stat3Label": "Team Access Control",
+    "landing.finalCtaTitle": "Ready to take control of your finances?",
+    "landing.finalCtaSubtitle":
+      "Join businesses and individuals already using FinSync to manage their money smarter.",
+    "landing.finalCtaButton": "Create Free Account",
+    "landing.footer": "All rights reserved. Built with ❤️ in Ethiopia.",
 
     // Dashboard Overview
     "overview.title": "Overview",
@@ -237,6 +303,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "notifications.markRead": "Mark as read",
     "notifications.loadFailed": "Failed to load notifications",
     "notifications.updateFailed": "Failed to update notification",
+    "notifications.allRead": "All notifications marked as read",
+    "notifications.markAllRead": "Mark All as Read",
+    "notifications.unread": "unread",
 
     // Common
     "common.save": "Save",
@@ -280,6 +349,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "login.noAccount": "መለያ የሎትም? ይመዝገቡ",
     "login.welcomeBack": "እንኳን ደህና መጡ!",
     "login.failed": "መግባት አልተሳካም",
+    "login.backToHome": "ወደ መነሻ ገጽ ተመለስ",
 
     // Register
     "register.title": "የባለቤት መለያ ይፍጠሩ",
@@ -540,6 +610,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "notifications.markRead": "እንደተነበበ ምልክት አድርግ",
     "notifications.loadFailed": "ማሳወቂያዎችን መጫን አልተሳካም",
     "notifications.updateFailed": "ማሳወቂያ ማዘመን አልተሳካም",
+    "notifications.allRead": "ሁሉም ማሳወቂያዎች እንደተነበቡ ምልክት ተደርጓል",
+    "notifications.markAllRead": "ሁሉንም እንደተነበበ ምልክት አድርግ",
+    "notifications.unread": "ያልተነበበ",
 
     // Common
     "common.save": "አስቀምጥ",

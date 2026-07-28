@@ -5,26 +5,29 @@ import {
 } from '@nestjs/common';
 import { SystemRole } from '@prisma/client';
 import { guessCategory } from '../common/utils/category-guesser';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCompanyExpenseDto } from './dto/create-company-expense.dto';
 import { UpdateCompanyExpenseDto } from './dto/update-company-expense.dto';
 
 @Injectable()
 export class CompanyExpensesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async create(
     companyId: number,
     dto: CreateCompanyExpenseDto,
     registeredById: number,
   ) {
-    // If user didn't provide a category, guess it!
     let finalCategory = dto.category;
     if (!finalCategory && dto.note) {
       finalCategory = guessCategory(dto.note) || 'Misc';
     }
 
-    return this.prisma.companyExpense.create({
+    const expense = await this.prisma.companyExpense.create({
       data: {
         ...dto,
         category: finalCategory,
@@ -33,6 +36,18 @@ export class CompanyExpensesService {
         registeredBy: registeredById,
       },
     });
+
+    // Notify company members about large expenses
+    if (dto.amount > 1000) {
+      await this.notifications.notifyCompany(
+        companyId,
+        '💰 Large Expense Recorded',
+        `A ${finalCategory} expense of $${dto.amount} was recorded.`,
+        registeredById,
+      );
+    }
+
+    return expense;
   }
 
   async findAll(companyId: number, user: any) {
@@ -42,7 +57,7 @@ export class CompanyExpensesService {
         : { companyId };
     return this.prisma.companyExpense.findMany({
       where,
-      include: { user: { select: { name: true } } }, // <-- Add this
+      include: { user: { select: { name: true } } },
       orderBy: { date: 'desc' },
     });
   }

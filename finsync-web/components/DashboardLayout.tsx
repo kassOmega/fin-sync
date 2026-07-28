@@ -1,5 +1,6 @@
 "use client";
 
+import api from "@/lib/api";
 import { SystemRole } from "@/lib/types";
 import { useAuthStore } from "@/store/authStore";
 import { useLangStore } from "@/store/langStore";
@@ -15,7 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function DashboardLayout({
   children,
@@ -23,9 +24,24 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { user, logout, hasRole } = useAuthStore();
-  const { lang, setLang, t } = useLangStore(); // Language store
+  const { lang, setLang, t } = useLangStore();
   const pathname = usePathname();
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchUnread = () => {
+      api
+        .get("/notifications/unread-count")
+        .then((res) => setUnreadCount(res.data))
+        .catch(() => {});
+    };
+    fetchUnread();
+    // Poll every 60 seconds
+    const interval = setInterval(fetchUnread, 60000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   if (!user) return null;
 
@@ -58,6 +74,7 @@ export default function DashboardLayout({
       name: t("nav.notifications"),
       href: "/dashboard/notifications",
       icon: Bell,
+      badge: unreadCount,
       roles: [
         SystemRole.Owner,
         SystemRole.Cashier,
@@ -98,7 +115,17 @@ export default function DashboardLayout({
                 onClick={() => setSidebarOpen(false)}
                 className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${isActive ? "bg-gray-800 text-white" : "text-gray-300 hover:bg-gray-700 hover:text-white"}`}
               >
-                <item.icon className="mr-3 h-5 w-5" />
+                <span className="relative mr-3">
+                  <item.icon className="h-5 w-5" />
+                  {(item as { badge?: number }).badge != null &&
+                    (item as { badge?: number }).badge! > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                        {(item as { badge?: number }).badge! > 9
+                          ? "9+"
+                          : (item as { badge?: number }).badge}
+                      </span>
+                    )}
+                </span>
                 {item.name}
               </Link>
             );
@@ -129,7 +156,6 @@ export default function DashboardLayout({
             </h1>
           </div>
 
-          {/* Language Toggle Button */}
           <div className="flex items-center space-x-4">
             <button
               onClick={() => setLang(lang === "en" ? "am" : "en")}

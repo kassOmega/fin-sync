@@ -82,12 +82,12 @@ export default function Home() {
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
+            <Link href="/" className="flex items-center space-x-3">
               <div className="p-2 bg-indigo-600 rounded-lg">
                 <Wallet className="h-5 w-5 text-white" />
               </div>
               <span className="text-xl font-bold text-gray-900">FinSync</span>
-            </div>
+            </Link>
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => setLang(lang === "en" ? "am" : "en")}
@@ -98,15 +98,9 @@ export default function Home() {
               </button>
               <Link
                 href="/login"
-                className="px-4 py-2 text-sm font-medium text-indigo-600 border border-indigo-200 rounded-md hover:bg-indigo-50"
-              >
-                {t("landing.navLogin")}
-              </Link>
-              <Link
-                href="/register"
                 className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
               >
-                {t("landing.navRegister")}
+                {t("landing.navLogin")}
               </Link>
             </div>
           </div>
@@ -134,20 +128,12 @@ export default function Home() {
             <p className="text-lg md:text-xl text-gray-300 mb-10 max-w-2xl mx-auto leading-relaxed">
               {t("landing.heroSubtitle")}
             </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <Link
-                href="/register"
-                className="inline-flex items-center justify-center px-8 py-3.5 text-base font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/25"
-              >
-                {t("landing.ctaStart")} <ArrowRight className="h-5 w-5 ml-2" />
-              </Link>
-              <Link
-                href="/login"
-                className="inline-flex items-center justify-center px-8 py-3.5 text-base font-semibold text-gray-300 border border-gray-600 rounded-lg hover:bg-gray-800 hover:text-white transition-colors"
-              >
-                {t("landing.ctaSignIn")}
-              </Link>
-            </div>
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center px-8 py-3.5 text-base font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/25"
+            >
+              {t("landing.ctaSignIn")} <ArrowRight className="h-5 w-5 ml-2" />
+            </Link>
             <div className="mt-12 flex items-center justify-center space-x-2 text-sm text-gray-500">
               <Smartphone className="h-4 w-4" />
               <span>{t("landing.heroNote")}</span>
@@ -263,32 +249,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Stats / Differentiators */}
-      <section className="py-20 bg-indigo-600">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-            <div>
-              <div className="text-4xl font-bold text-white mb-2">
-                {t("landing.stat1Value")}
-              </div>
-              <p className="text-indigo-200">{t("landing.stat1Label")}</p>
-            </div>
-            <div>
-              <div className="text-4xl font-bold text-white mb-2">
-                {t("landing.stat2Value")}
-              </div>
-              <p className="text-indigo-200">{t("landing.stat2Label")}</p>
-            </div>
-            <div>
-              <div className="text-4xl font-bold text-white mb-2">
-                {t("landing.stat3Value")}
-              </div>
-              <p className="text-indigo-200">{t("landing.stat3Label")}</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* CTA */}
       <section className="py-20 bg-white">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -299,11 +259,10 @@ export default function Home() {
             {t("landing.finalCtaSubtitle")}
           </p>
           <Link
-            href="/register"
+            href="/login"
             className="inline-flex items-center justify-center px-8 py-3.5 text-base font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/25"
           >
-            {t("landing.finalCtaButton")}{" "}
-            <ArrowRight className="h-5 w-5 ml-2" />
+            {t("landing.ctaSignIn")} <ArrowRight className="h-5 w-5 ml-2" />
           </Link>
         </div>
       </section>
