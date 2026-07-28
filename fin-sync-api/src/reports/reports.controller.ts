@@ -66,6 +66,32 @@ export class ReportsController {
     return this.service.getAllMachineriesReport(companyId);
   }
 
+  @Get('companies/:companyId/reports/inventory')
+  @Roles(SystemRole.Owner, SystemRole.Storekeeper, SystemRole.Sales)
+  getInventoryReport(@Param('companyId', ParseIntPipe) companyId: number) {
+    return this.service.getInventoryReport(companyId);
+  }
+
+  @Get('companies/:companyId/reports/sales')
+  @Roles(SystemRole.Owner, SystemRole.Sales)
+  getSalesReport(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.service.getSalesReport(companyId, startDate, endDate);
+  }
+
+  @Get('companies/:companyId/reports/purchases')
+  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
+  getPurchasesReport(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.service.getPurchasesReport(companyId, startDate, endDate);
+  }
+
   @Get('companies/:companyId/reports/export')
   @Roles(SystemRole.Owner)
   async exportCompanyReport(

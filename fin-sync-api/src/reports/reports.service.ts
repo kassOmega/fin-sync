@@ -20,27 +20,84 @@ export class ReportsService {
 
     const incomes = await this.prisma.companyIncome.findMany({ where });
     const expenses = await this.prisma.companyExpense.findMany({ where });
+    const sales = await this.prisma.sale.findMany({
+      where: { companyId, date: where.date },
+      include: {
+        items: {
+          include: {
+            storeItem: { select: { category: { select: { name: true } } } },
+          },
+        },
+      },
+    });
+    const purchases = await this.prisma.purchase.findMany({
+      where: { companyId, date: where.date },
+      include: {
+        items: {
+          include: {
+            storeItem: { select: { category: { select: { name: true } } } },
+          },
+        },
+      },
+    });
 
-    const totalIncome = incomes.reduce((sum, inc) => sum + inc.amount, 0);
-    const totalExpense = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalSalesRevenue = sales.reduce((sum, s) => sum + s.totalAmount, 0);
+    const totalPurchasesCost = purchases.reduce(
+      (sum, p) => sum + p.totalAmount,
+      0,
+    );
+
+    // Sales are income, purchases are expenses
+    const totalIncome =
+      incomes.reduce((sum, inc) => sum + inc.amount, 0) + totalSalesRevenue;
+    const totalExpense =
+      expenses.reduce((sum, exp) => sum + exp.amount, 0) + totalPurchasesCost;
     const profit = totalIncome - totalExpense;
 
-    const expensesByCategory = expenses.reduce((acc, exp) => {
-      acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
-      return acc;
-    }, {});
+    // Merge expense categories
+    const expensesByCategory = expenses.reduce(
+      (acc, exp) => {
+        acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
-    const incomesByCategory = incomes.reduce((acc, inc) => {
-      acc[inc.category] = (acc[inc.category] || 0) + inc.amount;
-      return acc;
-    }, {});
+    // Merge purchase amounts into expenses by category
+    purchases.forEach((p) => {
+      p.items.forEach((pi) => {
+        const cat = pi.storeItem?.category?.name || 'Uncategorized Purchases';
+        expensesByCategory[cat] = (expensesByCategory[cat] || 0) + pi.total;
+      });
+    });
+
+    // Merge income categories
+    const incomesByCategory = incomes.reduce(
+      (acc, inc) => {
+        acc[inc.category] = (acc[inc.category] || 0) + inc.amount;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    // Merge sale amounts into incomes by category
+    sales.forEach((s) => {
+      s.items.forEach((si) => {
+        const cat = si.storeItem?.category?.name || 'Uncategorized Sales';
+        incomesByCategory[cat] = (incomesByCategory[cat] || 0) + si.total;
+      });
+    });
 
     return {
       totalIncome,
       totalExpense,
+      totalSales: totalSalesRevenue,
+      totalPurchases: totalPurchasesCost,
       profit,
       expensesByCategory,
       incomesByCategory,
+      salesCount: sales.length,
+      purchasesCount: purchases.length,
     };
   }
 
@@ -339,6 +396,233 @@ export class ReportsService {
       dailyExpenseRate: Math.round(dailyExpenseRate * 100) / 100,
       isGrowing: dailyNetRate >= 0,
       forecastData,
+    };
+  }
+
+  async getInventoryReport(companyId: number) {
+    const items = await this.prisma.storeItem.findMany({
+      where: { companyId },
+      include: {
+        category: { select: { id: true, name: true } },
+        saleItems: {
+          include: {
+            sale: { select: { id: true, date: true, totalAmount: true } },
+          },
+        },
+        purchaseItems: {
+          include: {
+            purchase: { select: { id: true, date: true, totalAmount: true } },
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    return items.map((item) => {
+      const totalSold = item.saleItems.reduce((s, si) => s + si.quantity, 0);
+      const totalPurchased = item.purchaseItems.reduce(
+        (s, pi) => s + pi.quantity,
+        0,
+      );
+      const saleRevenue = item.saleItems.reduce((s, si) => s + si.total, 0);
+      const purchaseCost = item.purchaseItems.reduce(
+        (s, pi) => s + pi.total,
+        0,
+      );
+
+      return {
+        id: item.id,
+        name: item.name,
+        category: item.category?.name || 'Uncategorized',
+        quantity: item.quantity,
+        sellingPrice: item.sellingPrice,
+        costPrice: item.costPrice,
+        unit: item.unit,
+        totalSold,
+        totalPurchased,
+        saleRevenue: Math.round(saleRevenue * 100) / 100,
+        purchaseCost: Math.round(purchaseCost * 100) / 100,
+        profitMargin: saleRevenue - purchaseCost,
+      };
+    });
+  }
+
+  async getSalesReport(
+    companyId: number,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    const where: any = {
+      companyId,
+      date: {
+        gte: startDate ? new Date(startDate) : undefined,
+        lte: endDate ? new Date(endDate) : undefined,
+      },
+    };
+
+    const sales = await this.prisma.sale.findMany({
+      where,
+      include: {
+        customer: { select: { id: true, name: true } },
+        user: { select: { id: true, name: true } },
+        items: {
+          include: {
+            storeItem: {
+              select: {
+                id: true,
+                name: true,
+                category: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { date: 'desc' },
+    });
+
+    const totalRevenue = sales.reduce((s, sale) => s + sale.totalAmount, 0);
+    const totalDiscount = sales.reduce((s, sale) => s + sale.discount, 0);
+    const totalItems = sales.reduce((s, sale) => s + sale.items.length, 0);
+
+    // Sales by category
+    const salesByCategory: Record<string, number> = {};
+    sales.forEach((sale) => {
+      sale.items.forEach((si) => {
+        const cat = si.storeItem?.category?.name || 'Uncategorized';
+        salesByCategory[cat] = (salesByCategory[cat] || 0) + si.total;
+      });
+    });
+
+    // Sales by customer
+    const salesByCustomer: Record<string, { count: number; total: number }> =
+      {};
+    sales.forEach((sale) => {
+      const customerName = sale.customer?.name || 'Walk-in';
+      if (!salesByCustomer[customerName]) {
+        salesByCustomer[customerName] = { count: 0, total: 0 };
+      }
+      salesByCustomer[customerName].count += 1;
+      salesByCustomer[customerName].total += sale.totalAmount;
+    });
+
+    return {
+      summary: {
+        totalRevenue: Math.round(totalRevenue * 100) / 100,
+        totalDiscount: Math.round(totalDiscount * 100) / 100,
+        totalItemsSold: totalItems,
+        saleCount: sales.length,
+        averageSaleValue:
+          sales.length > 0
+            ? Math.round((totalRevenue / sales.length) * 100) / 100
+            : 0,
+      },
+      salesByCategory,
+      salesByCustomer,
+      sales: sales.map((s) => ({
+        id: s.id,
+        date: s.date,
+        totalAmount: s.totalAmount,
+        discount: s.discount,
+        note: s.note,
+        customer: s.customer?.name || 'Walk-in',
+        registeredBy: s.user?.name,
+        items: s.items.map((si) => ({
+          itemName: si.storeItem?.name || 'Unknown',
+          category: si.storeItem?.category?.name || 'Uncategorized',
+          quantity: si.quantity,
+          unitPrice: si.unitPrice,
+          total: si.total,
+        })),
+      })),
+    };
+  }
+
+  async getPurchasesReport(
+    companyId: number,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    const where: any = {
+      companyId,
+      date: {
+        gte: startDate ? new Date(startDate) : undefined,
+        lte: endDate ? new Date(endDate) : undefined,
+      },
+    };
+
+    const purchases = await this.prisma.purchase.findMany({
+      where,
+      include: {
+        supplier: { select: { id: true, name: true } },
+        user: { select: { id: true, name: true } },
+        items: {
+          include: {
+            storeItem: {
+              select: {
+                id: true,
+                name: true,
+                category: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { date: 'desc' },
+    });
+
+    const totalSpent = purchases.reduce((s, p) => s + p.totalAmount, 0);
+    const totalItems = purchases.reduce((s, p) => s + p.items.length, 0);
+
+    // Purchases by category
+    const purchasesByCategory: Record<string, number> = {};
+    purchases.forEach((p) => {
+      p.items.forEach((pi) => {
+        const cat = pi.storeItem?.category?.name || 'Uncategorized';
+        purchasesByCategory[cat] = (purchasesByCategory[cat] || 0) + pi.total;
+      });
+    });
+
+    // Purchases by supplier
+    const purchasesBySupplier: Record<
+      string,
+      { count: number; total: number }
+    > = {};
+    purchases.forEach((p) => {
+      const supplierName = p.supplier?.name || 'Unknown';
+      if (!purchasesBySupplier[supplierName]) {
+        purchasesBySupplier[supplierName] = { count: 0, total: 0 };
+      }
+      purchasesBySupplier[supplierName].count += 1;
+      purchasesBySupplier[supplierName].total += p.totalAmount;
+    });
+
+    return {
+      summary: {
+        totalSpent: Math.round(totalSpent * 100) / 100,
+        totalItemsPurchased: totalItems,
+        purchaseCount: purchases.length,
+        averagePurchaseValue:
+          purchases.length > 0
+            ? Math.round((totalSpent / purchases.length) * 100) / 100
+            : 0,
+      },
+      purchasesByCategory,
+      purchasesBySupplier,
+      purchases: purchases.map((p) => ({
+        id: p.id,
+        date: p.date,
+        totalAmount: p.totalAmount,
+        note: p.note,
+        supplier: p.supplier?.name || 'Unknown',
+        registeredBy: p.user?.name,
+        items: p.items.map((pi) => ({
+          itemName: pi.storeItem?.name || 'Unknown',
+          category: pi.storeItem?.category?.name || 'Uncategorized',
+          quantity: pi.quantity,
+          unitCost: pi.unitCost,
+          total: pi.total,
+        })),
+      })),
     };
   }
 

@@ -22,6 +22,16 @@ export class CompanyIncomesService {
     });
   }
 
+  async getCategories(companyId: number) {
+    const incomes = await this.prisma.companyIncome.findMany({
+      where: { companyId },
+      select: { category: true },
+      distinct: ['category'],
+      orderBy: { category: 'asc' },
+    });
+    return incomes.map((i) => i.category);
+  }
+
   async findAll(companyId: number) {
     return this.prisma.companyIncome.findMany({
       where: { companyId },

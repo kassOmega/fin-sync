@@ -72,7 +72,10 @@ export default function CompanyReportsPage() {
 
   if (!report || !forecast)
     return (
-      <div className="p-8 text-center text-gray-500">Generating reports...</div>
+      <div className="flex justify-center items-center py-20">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-500 mr-3"></div>
+        <p className="text-gray-500 text-lg">Generating Reports...</p>
+      </div>
     );
 
   const expensePieData = Object.entries(report.expensesByCategory).map(
@@ -137,6 +140,48 @@ export default function CompanyReportsPage() {
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <Link
+          href={`/dashboard/companies/${companyId}/reports/inventory`}
+          className="bg-white p-6 rounded-lg shadow border border-gray-200 hover:border-indigo-500 flex items-center justify-between"
+        >
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">
+              Inventory Report
+            </h3>
+            <p className="text-sm text-gray-500">
+              Stock levels, sold vs purchased, profit margins
+            </p>
+          </div>
+          <BarChart3 className="h-8 w-8 text-indigo-600" />
+        </Link>
+        <Link
+          href={`/dashboard/companies/${companyId}/reports/sales`}
+          className="bg-white p-6 rounded-lg shadow border border-gray-200 hover:border-indigo-500 flex items-center justify-between"
+        >
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">
+              Sales Report
+            </h3>
+            <p className="text-sm text-gray-500">
+              Revenue breakdown by category & customer
+            </p>
+          </div>
+          <BarChart3 className="h-8 w-8 text-indigo-600" />
+        </Link>
+        <Link
+          href={`/dashboard/companies/${companyId}/reports/purchases`}
+          className="bg-white p-6 rounded-lg shadow border border-gray-200 hover:border-indigo-500 flex items-center justify-between"
+        >
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">
+              Purchase Report
+            </h3>
+            <p className="text-sm text-gray-500">
+              Spending breakdown by category & supplier
+            </p>
+          </div>
+          <BarChart3 className="h-8 w-8 text-indigo-600" />
+        </Link>
         <Link
           href={`/dashboard/companies/${companyId}/reports/projects`}
           className="bg-white p-6 rounded-lg shadow border border-gray-200 hover:border-indigo-500 flex items-center justify-between"

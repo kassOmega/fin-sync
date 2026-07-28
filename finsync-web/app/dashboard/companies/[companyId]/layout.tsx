@@ -3,7 +3,7 @@
 import api from "@/lib/api";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { useParams, usePathname } from "next/navigation"; // Import useParams
+import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function CompanyLayout({
@@ -12,9 +12,12 @@ export default function CompanyLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const params = useParams(); // Use the hook
-  const companyId = params.companyId as string; // Extract companyId safely
-  const [company, setCompany] = useState<any>(null);
+  const params = useParams();
+  const companyId = params.companyId as string;
+  const [company, setCompany] = useState<{
+    name: string;
+    industry?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (companyId) {
@@ -27,10 +30,12 @@ export default function CompanyLayout({
     { name: "Incomes", href: `/incomes` },
     { name: "Expenses", href: `/expenses` },
     { name: "Staff", href: `/staff` },
-    { name: "Employees", href: `/employees` }, // <-- ADD THIS LINE
+    { name: "Employees", href: `/employees` },
     { name: "Projects", href: `/projects` },
     { name: "Machineries", href: `/machineries` },
     { name: "Store", href: `/store` },
+    { name: "Sales", href: `/sales` },
+    { name: "Purchases", href: `/purchases` },
     { name: "Reports", href: `/reports` },
   ];
 
@@ -53,7 +58,6 @@ export default function CompanyLayout({
             )}
           </div>
         </div>
-        {/* Horizontal Navbar */}
         <nav className="flex overflow-x-auto px-4 lg:px-8 border-t border-gray-100">
           {navItems.map((item) => {
             const href = `/dashboard/companies/${companyId}${item.href}`;

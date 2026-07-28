@@ -32,6 +32,11 @@ export class CompanyExpensesController {
     return this.service.create(companyId, dto, user.id);
   }
 
+  @Get('categories')
+  getCategories(@Param('companyId', ParseIntPipe) companyId: number) {
+    return this.service.getCategories(companyId);
+  }
+
   @Get()
   @Roles(SystemRole.Owner, SystemRole.Cashier, SystemRole.ProjectManager)
   findAll(

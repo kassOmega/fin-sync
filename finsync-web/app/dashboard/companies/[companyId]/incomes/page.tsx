@@ -26,16 +26,29 @@ export default function CompanyIncomesPage() {
   const params = useParams();
   const companyId = params.companyId as string;
   const [incomes, setIncomes] = useState<Income[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [pageLoading, setPageLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
   const [editingIncome, setEditingIncome] = useState<Income | null>(null);
   const [viewingIncome, setViewingIncome] = useState<Income | null>(null);
   const [formData, setFormData] = useState({
     amount: "",
-    category: "Sales",
+    category: "",
     note: "",
     projectId: "",
   });
+
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get(`/companies/${companyId}/incomes/categories`);
+      setCategories(res.data);
+    } catch {
+      /* fallback */
+    }
+  };
 
   const fetchIncomes = async () => {
     try {
@@ -51,20 +64,43 @@ export default function CompanyIncomesPage() {
       const res = await api.get(`/companies/${companyId}/projects`);
       setProjects(res.data);
     } catch {
-      console.error("Failed to fetch projects for dropdown");
+      /* silent */
     }
   };
 
   useEffect(() => {
-    fetchIncomes();
-    fetchProjects();
+    const load = async () => {
+      setPageLoading(true);
+      await Promise.all([fetchCategories(), fetchIncomes(), fetchProjects()]);
+      setPageLoading(false);
+    };
+    load();
   }, [companyId]);
+
+  const handleAddCategory = async () => {
+    if (!newCatName.trim()) return;
+    try {
+      await api.post(`/companies/${companyId}/incomes`, {
+        amount: 0,
+        category: newCatName.trim(),
+        note: "Category placeholder",
+      });
+      toast.success("Category added");
+      setCategories([...categories, newCatName.trim()]);
+      setFormData({ ...formData, category: newCatName.trim() });
+      setIsAddingCategory(false);
+      setNewCatName("");
+    } catch {
+      toast.error("Failed to add category");
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const payload = {
-      ...formData,
       amount: parseFloat(formData.amount),
+      category: formData.category,
+      note: formData.note,
       projectId: formData.projectId ? parseInt(formData.projectId) : null,
     };
 
@@ -81,8 +117,9 @@ export default function CompanyIncomesPage() {
       }
       setIsModalOpen(false);
       setEditingIncome(null);
-      setFormData({ amount: "", category: "Sales", note: "", projectId: "" });
+      setFormData({ amount: "", category: "", note: "", projectId: "" });
       fetchIncomes();
+      fetchCategories();
     } catch {
       toast.error("Failed to save income");
     }
@@ -94,11 +131,20 @@ export default function CompanyIncomesPage() {
         await api.delete(`/companies/${companyId}/incomes/${id}`);
         toast.success("Deleted");
         fetchIncomes();
+        fetchCategories();
       } catch {
         toast.error("Failed to delete");
       }
     }
   };
+
+  if (pageLoading) {
+    return (
+      <div className="flex justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -107,12 +153,6 @@ export default function CompanyIncomesPage() {
         <button
           onClick={() => {
             setEditingIncome(null);
-            setFormData({
-              amount: "",
-              category: "Sales",
-              note: "",
-              projectId: "",
-            });
             setIsModalOpen(true);
           }}
           className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
@@ -143,51 +183,59 @@ export default function CompanyIncomesPage() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {incomes.map((inc) => (
-              <tr key={inc.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {new Date(inc.date).toLocaleDateString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {inc.category}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {inc.project?.name || "General"}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                  ${inc.amount}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button
-                    onClick={() => setViewingIncome(inc)}
-                    className="text-gray-400 hover:text-gray-600 mx-1"
-                  >
-                    <Eye className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingIncome(inc);
-                      setFormData({
-                        amount: String(inc.amount),
-                        category: inc.category,
-                        note: inc.note || "",
-                        projectId: inc.projectId ? String(inc.projectId) : "",
-                      });
-                      setIsModalOpen(true);
-                    }}
-                    className="text-indigo-600 hover:text-indigo-900 mx-1"
-                  >
-                    <Pencil className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(inc.id)}
-                    className="text-red-500 hover:text-red-700 mx-1"
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </button>
+            {incomes.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                  No incomes recorded yet.
                 </td>
               </tr>
-            ))}
+            ) : (
+              incomes.map((inc) => (
+                <tr key={inc.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {new Date(inc.date).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {inc.category}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {inc.project?.name || "General"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                    ${inc.amount}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button
+                      onClick={() => setViewingIncome(inc)}
+                      className="text-gray-400 hover:text-gray-600 mx-1"
+                    >
+                      <Eye className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingIncome(inc);
+                        setFormData({
+                          amount: String(inc.amount),
+                          category: inc.category,
+                          note: inc.note || "",
+                          projectId: inc.projectId ? String(inc.projectId) : "",
+                        });
+                        setIsModalOpen(true);
+                      }}
+                      className="text-indigo-600 hover:text-indigo-900 mx-1"
+                    >
+                      <Pencil className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(inc.id)}
+                      className="text-red-500 hover:text-red-700 mx-1"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -265,21 +313,31 @@ export default function CompanyIncomesPage() {
                 <label className="block text-sm font-medium text-gray-700">
                   Category
                 </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category: e.target.value })
-                  }
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
-                >
-                  <option>Sales</option>
-                  <option>Milestone</option>
-                  <option>Service</option>
-                  <option>Rental</option>
-                  <option>Misc</option>
-                </select>
+                <div className="flex space-x-2">
+                  <select
+                    required
+                    value={formData.category}
+                    onChange={(e) =>
+                      setFormData({ ...formData, category: e.target.value })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                  >
+                    <option value="">Select category</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingCategory(true)}
+                    className="mt-1 px-3 py-2 bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 text-sm whitespace-nowrap"
+                  >
+                    + Add
+                  </button>
+                </div>
               </div>
-              {/* PROJECT DROPDOWN */}
               <div>
                 <label className="block text-sm font-medium text-gray-700">
                   Assign to Project (Optional)
@@ -327,6 +385,36 @@ export default function CompanyIncomesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {isAddingCategory && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl text-gray-900">
+            <h2 className="text-xl font-bold mb-4">Add Category</h2>
+            <input
+              type="text"
+              value={newCatName}
+              onChange={(e) => setNewCatName(e.target.value)}
+              placeholder="Category name"
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+            />
+            <div className="flex justify-end space-x-2 pt-4">
+              <button
+                type="button"
+                onClick={() => setIsAddingCategory(false)}
+                className="px-4 py-2 text-gray-600"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddCategory}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+              >
+                Add
+              </button>
+            </div>
           </div>
         </div>
       )}

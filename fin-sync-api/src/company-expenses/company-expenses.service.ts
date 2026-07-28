@@ -50,6 +50,16 @@ export class CompanyExpensesService {
     return expense;
   }
 
+  async getCategories(companyId: number) {
+    const expenses = await this.prisma.companyExpense.findMany({
+      where: { companyId },
+      select: { category: true },
+      distinct: ['category'],
+      orderBy: { category: 'asc' },
+    });
+    return expenses.map((e) => e.category);
+  }
+
   async findAll(companyId: number, user: any) {
     const where =
       user.role === SystemRole.Cashier

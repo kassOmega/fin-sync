@@ -1,8 +1,7 @@
 "use client";
 
 import api from "@/lib/api";
-import { useOfflineQueueStore } from "@/store/offlineQueueStore";
-import { Eye, Pencil, Plus, Trash2, WifiOff } from "lucide-react";
+import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -29,28 +28,38 @@ interface Unit {
   name: string;
 }
 
-const DEFAULT_FORM = {
-  amount: "",
-  category: "Fuel",
-  note: "",
-  projectId: "",
-  unitId: "",
-  unit: "",
-  isRecurring: false,
-  recurringFrequency: "MONTHLY",
-};
-
 export default function CompanyExpensesPage() {
   const params = useParams();
   const companyId = params.companyId as string;
-  const addToQueue = useOfflineQueueStore((state) => state.addToQueue);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
+  const [pageLoading, setPageLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
   const [editingExp, setEditingExp] = useState<Expense | null>(null);
   const [viewingExp, setViewingExp] = useState<Expense | null>(null);
-  const [formData, setFormData] = useState(DEFAULT_FORM);
+  const [formData, setFormData] = useState({
+    amount: "",
+    category: "",
+    note: "",
+    projectId: "",
+    unitId: "",
+    unit: "",
+    isRecurring: false,
+    recurringFrequency: "MONTHLY",
+  });
+
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get(`/companies/${companyId}/expenses/categories`);
+      setCategories(res.data);
+    } catch {
+      /* fallback to empty */
+    }
+  };
 
   const fetchExpenses = async () => {
     try {
@@ -66,7 +75,7 @@ export default function CompanyExpensesPage() {
       const res = await api.get(`/companies/${companyId}/projects`);
       setProjects(res.data);
     } catch {
-      console.error("Failed to fetch projects");
+      /* silent */
     }
   };
 
@@ -75,23 +84,50 @@ export default function CompanyExpensesPage() {
       const res = await api.get("/measuring-units");
       setUnits(res.data);
     } catch {
-      console.error("Failed to fetch units");
+      /* silent */
     }
   };
 
   useEffect(() => {
-    fetchExpenses();
-    fetchProjects();
-    fetchUnits();
+    const load = async () => {
+      setPageLoading(true);
+      await Promise.all([
+        fetchCategories(),
+        fetchExpenses(),
+        fetchProjects(),
+        fetchUnits(),
+      ]);
+      setPageLoading(false);
+    };
+    load();
   }, [companyId]);
+
+  const handleAddCategory = async () => {
+    if (!newCatName.trim()) return;
+    try {
+      await api.post(`/companies/${companyId}/expenses`, {
+        amount: 0,
+        category: newCatName.trim(),
+        note: "Category placeholder",
+      });
+      toast.success("Category added");
+      setCategories([...categories, newCatName.trim()]);
+      setFormData({ ...formData, category: newCatName.trim() });
+      setIsAddingCategory(false);
+      setNewCatName("");
+    } catch {
+      toast.error("Failed to add category");
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const payload = {
-      ...formData,
+    const payload: Record<string, unknown> = {
+      category: formData.category,
       amount: parseFloat(formData.amount),
+      note: formData.note,
       projectId: formData.projectId ? parseInt(formData.projectId) : null,
-      unitId: formData.unitId ? parseInt(formData.unitId) : null,
+      unit: formData.unit || undefined,
       isRecurring: formData.isRecurring,
       recurringFrequency: formData.isRecurring
         ? formData.recurringFrequency
@@ -111,16 +147,18 @@ export default function CompanyExpensesPage() {
       }
       setIsModalOpen(false);
       setEditingExp(null);
-      setFormData(DEFAULT_FORM);
+      setFormData({
+        ...formData,
+        amount: "",
+        category: "",
+        note: "",
+        projectId: "",
+        unit: "",
+      });
       fetchExpenses();
+      fetchCategories();
     } catch {
-      if (!navigator.onLine && !editingExp) {
-        addToQueue({ ...payload, companyId: parseInt(companyId) });
-        setIsModalOpen(false);
-        setFormData(DEFAULT_FORM);
-      } else {
-        toast.error("Failed to save expense");
-      }
+      toast.error("Failed to save expense");
     }
   };
 
@@ -130,27 +168,20 @@ export default function CompanyExpensesPage() {
         await api.delete(`/companies/${companyId}/expenses/${id}`);
         toast.success("Deleted");
         fetchExpenses();
+        fetchCategories();
       } catch {
         toast.error("Failed to delete");
       }
     }
   };
 
-  const handleAddNewUnit = async () => {
-    const newUnit = prompt(
-      "Enter new measuring unit name (e.g., liters, bags):",
+  if (pageLoading) {
+    return (
+      <div className="flex justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
     );
-    if (newUnit) {
-      try {
-        const res = await api.post("/measuring-units", { name: newUnit });
-        setUnits([...units, res.data]);
-        setFormData({ ...formData, unit: res.data.name });
-        toast.success("Unit added!");
-      } catch {
-        toast.error("Failed to add unit");
-      }
-    }
-  };
+  }
 
   return (
     <div className="space-y-6">
@@ -159,7 +190,6 @@ export default function CompanyExpensesPage() {
         <button
           onClick={() => {
             setEditingExp(null);
-            setFormData(DEFAULT_FORM);
             setIsModalOpen(true);
           }}
           className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
@@ -190,60 +220,68 @@ export default function CompanyExpensesPage() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {expenses.map((exp) => (
-              <tr key={exp.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {new Date(exp.date).toLocaleDateString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {exp.category}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {exp.project?.name || "General"}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
-                  ${exp.amount}{" "}
-                  {exp.unit && (
-                    <span className="text-gray-400 font-normal">
-                      ({exp.unit})
-                    </span>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button
-                    onClick={() => setViewingExp(exp)}
-                    className="text-gray-400 hover:text-gray-600 mx-1"
-                  >
-                    <Eye className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingExp(exp);
-                      setFormData({
-                        amount: String(exp.amount),
-                        category: exp.category,
-                        note: exp.note || "",
-                        projectId: exp.projectId ? String(exp.projectId) : "",
-                        unitId: "",
-                        unit: exp.unit || "",
-                        isRecurring: false,
-                        recurringFrequency: "MONTHLY",
-                      });
-                      setIsModalOpen(true);
-                    }}
-                    className="text-indigo-600 hover:text-indigo-900 mx-1"
-                  >
-                    <Pencil className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(exp.id)}
-                    className="text-red-500 hover:text-red-700 mx-1"
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </button>
+            {expenses.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                  No expenses recorded yet.
                 </td>
               </tr>
-            ))}
+            ) : (
+              expenses.map((exp) => (
+                <tr key={exp.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {new Date(exp.date).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {exp.category}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {exp.project?.name || "General"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
+                    ${exp.amount}{" "}
+                    {exp.unit && (
+                      <span className="text-gray-400 font-normal">
+                        ({exp.unit})
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button
+                      onClick={() => setViewingExp(exp)}
+                      className="text-gray-400 hover:text-gray-600 mx-1"
+                    >
+                      <Eye className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingExp(exp);
+                        setFormData({
+                          amount: String(exp.amount),
+                          category: exp.category,
+                          note: exp.note || "",
+                          projectId: exp.projectId ? String(exp.projectId) : "",
+                          unitId: "",
+                          unit: exp.unit || "",
+                          isRecurring: false,
+                          recurringFrequency: "MONTHLY",
+                        });
+                        setIsModalOpen(true);
+                      }}
+                      className="text-indigo-600 hover:text-indigo-900 mx-1"
+                    >
+                      <Pencil className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(exp.id)}
+                      className="text-red-500 hover:text-red-700 mx-1"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -322,50 +360,50 @@ export default function CompanyExpensesPage() {
                   <label className="block text-sm font-medium text-gray-700">
                     Measuring Unit (Optional)
                   </label>
-                  <div className="flex space-x-2">
-                    <select
-                      value={formData.unit}
-                      onChange={(e) =>
-                        setFormData({ ...formData, unit: e.target.value })
-                      }
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
-                    >
-                      <option value="">None</option>
-                      {units.map((u) => (
-                        <option key={u.id} value={u.name}>
-                          {u.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={handleAddNewUnit}
-                      className="mt-1 px-3 py-2 bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 text-sm whitespace-nowrap"
-                    >
-                      + Add
-                    </button>
-                  </div>
+                  <select
+                    value={formData.unit}
+                    onChange={(e) =>
+                      setFormData({ ...formData, unit: e.target.value })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                  >
+                    <option value="">None</option>
+                    {units.map((u) => (
+                      <option key={u.id} value={u.name}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
                   Category
                 </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category: e.target.value })
-                  }
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
-                >
-                  <option>Fuel</option>
-                  <option>Salary</option>
-                  <option>Materials</option>
-                  <option>Rent</option>
-                  <option>Utilities</option>
-                  <option>Maintenance</option>
-                  <option>Misc</option>
-                </select>
+                <div className="flex space-x-2">
+                  <select
+                    required
+                    value={formData.category}
+                    onChange={(e) =>
+                      setFormData({ ...formData, category: e.target.value })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                  >
+                    <option value="">Select category</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingCategory(true)}
+                    className="mt-1 px-3 py-2 bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 text-sm whitespace-nowrap"
+                  >
+                    + Add
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
@@ -412,7 +450,6 @@ export default function CompanyExpensesPage() {
                   Make this a recurring expense
                 </label>
               </div>
-
               {formData.isRecurring && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
@@ -432,13 +469,6 @@ export default function CompanyExpensesPage() {
                   </select>
                 </div>
               )}
-
-              {!navigator.onLine && (
-                <div className="flex items-center text-amber-600 text-sm bg-amber-50 p-2 rounded-md">
-                  <WifiOff className="h-4 w-4 mr-2" /> You are offline. This
-                  will be synced later.
-                </div>
-              )}
               <div className="flex justify-end space-x-2 pt-4">
                 <button
                   type="button"
@@ -455,6 +485,36 @@ export default function CompanyExpensesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {isAddingCategory && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl text-gray-900">
+            <h2 className="text-xl font-bold mb-4">Add Category</h2>
+            <input
+              type="text"
+              value={newCatName}
+              onChange={(e) => setNewCatName(e.target.value)}
+              placeholder="Category name"
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+            />
+            <div className="flex justify-end space-x-2 pt-4">
+              <button
+                type="button"
+                onClick={() => setIsAddingCategory(false)}
+                className="px-4 py-2 text-gray-600"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddCategory}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+              >
+                Add
+              </button>
+            </div>
           </div>
         </div>
       )}
