@@ -1,12 +1,11 @@
-import { ItemCategory } from '@prisma/client';
-import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateStoreItemDto {
   @IsString()
   name: string;
 
-  @IsEnum(ItemCategory)
-  category: ItemCategory;
+  @IsNumber()
+  categoryId: number;
 
   @IsNumber()
   @IsOptional()
@@ -15,4 +14,16 @@ export class CreateStoreItemDto {
   @IsNumber()
   @IsOptional()
   lowStockThreshold?: number;
+
+  @IsNumber()
+  @IsOptional()
+  costPrice?: number;
+
+  @IsNumber()
+  @IsOptional()
+  sellingPrice?: number;
+
+  @IsString()
+  @IsOptional()
+  unit?: string;
 }

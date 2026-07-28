@@ -1,0 +1,132 @@
+import { Injectable } from '@nestjs/common';
+import { NotificationsService } from '../notifications/notifications.service';
+import { PrismaService } from '../prisma/prisma.service';
+
+@Injectable()
+export class PurchasesService {
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
+
+  async create(
+    companyId: number,
+    dto: {
+      supplierId?: number;
+      amount: number;
+      note?: string;
+      items: {
+        itemId?: number;
+        name?: string;
+        categoryId?: number;
+        sellingPrice?: number;
+        unit?: string;
+        quantity: number;
+        unitCost: number;
+      }[];
+    },
+    registeredById: number,
+  ) {
+    return this.prisma.$transaction(async (prisma) => {
+      const purchase = await prisma.purchase.create({
+        data: {
+          companyId,
+          supplierId: dto.supplierId,
+          registeredBy: registeredById,
+          totalAmount: dto.amount,
+          note: dto.note,
+        },
+      });
+
+      for (const item of dto.items) {
+        let itemId: number;
+
+        // If no itemId, create a new store item first
+        if (!item.itemId) {
+          if (!item.name)
+            throw new Error('Item name is required for new items');
+          if (!item.categoryId)
+            throw new Error('Category is required for new items');
+          const newItem = await prisma.storeItem.create({
+            data: {
+              companyId,
+              name: item.name,
+              categoryId: item.categoryId,
+              quantity: 0,
+              costPrice: item.unitCost,
+              sellingPrice: item.sellingPrice || item.unitCost * 1.2, // default 20% markup
+              unit: item.unit || 'pcs',
+            },
+          });
+          itemId = newItem.id;
+        } else {
+          itemId = item.itemId;
+        }
+
+        await prisma.purchaseItem.create({
+          data: {
+            purchaseId: purchase.id,
+            itemId,
+            quantity: item.quantity,
+            unitCost: item.unitCost,
+            total: item.quantity * item.unitCost,
+          },
+        });
+
+        // Restock: increment quantity and update cost price
+        await prisma.storeItem.update({
+          where: { id: itemId },
+          data: {
+            quantity: { increment: item.quantity },
+            costPrice: item.unitCost,
+          },
+        });
+      }
+
+      await this.notifications.notifyCompany(
+        companyId,
+        '📦 New Purchase',
+        `Stock purchased for $${dto.amount.toLocaleString()}.`,
+        registeredById,
+      );
+
+      return prisma.purchase.findUnique({
+        where: { id: purchase.id },
+        include: {
+          supplier: true,
+          user: { select: { id: true, name: true } },
+          items: { include: { storeItem: true } },
+        },
+      });
+    });
+  }
+
+  async findAll(companyId: number) {
+    return this.prisma.purchase.findMany({
+      where: { companyId },
+      include: {
+        supplier: true,
+        user: { select: { id: true, name: true } },
+        items: { include: { storeItem: true } },
+      },
+      orderBy: { date: 'desc' },
+    });
+  }
+
+  async getSuppliers(companyId: number) {
+    return this.prisma.supplier.findMany({
+      where: { companyId },
+      include: { _count: { select: { purchases: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createSupplier(
+    companyId: number,
+    dto: { name: string; phone?: string; email?: string; address?: string },
+  ) {
+    return this.prisma.supplier.create({
+      data: { ...dto, companyId },
+    });
+  }
+}
