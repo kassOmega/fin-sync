@@ -21,10 +21,11 @@ export class SavingsService {
       },
     });
 
+    const title = dto.name || 'Savings Goal';
     await this.notifications.notifyUser(
       userId,
       '🎯 Savings Goal Created',
-      `New savings goal of $${dto.targetAmount} created (${dto.frequency.toLowerCase()} threshold: $${dto.thresholdAmount}).`,
+      `"${title}" — target: $${dto.targetAmount} (${dto.frequency.toLowerCase()} threshold: $${dto.thresholdAmount}).`,
     );
 
     return saving;

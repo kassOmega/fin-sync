@@ -34,10 +34,16 @@ enum BudgetType {
   @@schema("finsync")
 }
 
-enum ItemCategory {
-  CONSUMABLE
-  TOOL
+model StoreCategory {
+  id        Int      @id @default(autoincrement())
+  name      String
+  companyId Int      @map("company_id")
+  createdAt DateTime @default(now())
 
+  company Company     @relation(fields: [companyId], references: [id])
+  items   StoreItem[]
+
+  @@unique([name, companyId])
   @@schema("finsync")
 }
 
@@ -71,6 +77,18 @@ enum MachineryOwnership {
   @@schema("finsync")
 }
 
+enum CompanyType {
+  CONSTRUCTION
+  RETAIL
+  LOGISTICS
+  AGRICULTURE
+  MANUFACTURING
+  SERVICE
+  OTHER
+
+  @@schema("finsync")
+}
+
 // ==========================================
 // 2. USERS & COMPANIES
 // ==========================================
@@ -85,22 +103,23 @@ model User {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
-  // Relations
-  ownedCompanies     Company[]           @relation("CompanyOwner")
-  companyMemberships CompanyMember[]
-  personalExpenses   PersonalExpense[]
-  personalBudgets    PersonalBudget[]
-  personalSavings    PersonalSaving[]
-  registeredIncomes  CompanyIncome[]
-  registeredExpenses CompanyExpense[]
-  storeTransactions  StoreTransaction[]
-  machineryOps       MachineryOperator[]
-  projectUpdates     ProjectUpdate[]
-  notifications      Notification[]
-  storeRequests      StoreRequest[]
-  personalAccounts   PersonalAccount[]
-  accountTransfers   AccountTransfer[]
-  personalIncomes    PersonalIncome[]
+  ownedCompanies      Company[]           @relation("CompanyOwner")
+  companyMemberships  CompanyMember[]
+  personalExpenses    PersonalExpense[]
+  personalBudgets     PersonalBudget[]
+  personalSavings     PersonalSaving[]
+  registeredIncomes   CompanyIncome[]
+  registeredExpenses  CompanyExpense[]
+  storeTransactions   StoreTransaction[]
+  machineryOps        MachineryOperator[]
+  projectUpdates      ProjectUpdate[]
+  notifications       Notification[]
+  storeRequests       StoreRequest[]
+  personalAccounts    PersonalAccount[]
+  accountTransfers    AccountTransfer[]
+  personalIncomes     PersonalIncome[]
+  registeredSales     Sale[]
+  registeredPurchases Purchase[]
 
   @@schema("finsync")
 }
@@ -122,14 +141,14 @@ model PersonalAccount {
 }
 
 model Company {
-  id        Int      @id @default(autoincrement())
+  id        Int         @id @default(autoincrement())
   name      String
   industry  String?
-  currency  String   @default("USD")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  type      CompanyType @default(OTHER)
+  currency  String      @default("USD")
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
-  // Relations
   ownerId           Int                @map("owner_id")
   owner             User               @relation("CompanyOwner", fields: [ownerId], references: [id])
   members           CompanyMember[]
@@ -141,6 +160,11 @@ model Company {
   projects          Project[]
   storeTransactions StoreTransaction[]
   storeRequests     StoreRequest[]
+  sales             Sale[]
+  purchases         Purchase[]
+  customers         Customer[]
+  suppliers         Supplier[]
+  storeCategories   StoreCategory[]
 
   @@schema("finsync")
 }
@@ -204,7 +228,7 @@ model PersonalIncome {
   date      DateTime @default(now())
   createdAt DateTime @default(now())
 
-  accountId Int? // Add this
+  accountId Int?
   account   PersonalAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
 
   user User @relation(fields: [userId], references: [id])
@@ -215,6 +239,7 @@ model PersonalIncome {
 model PersonalSaving {
   id              Int        @id @default(autoincrement())
   userId          Int        @map("user_id")
+  name            String     @default("Savings Goal")
   targetAmount    Float      @map("target_amount")
   currentAmount   Float      @default(0) @map("current_amount")
   thresholdAmount Float      @map("threshold_amount")
@@ -278,7 +303,7 @@ model CompanyExpense {
   projectId          Int?     @map("project_id")
   machineryId        Int?     @map("machinery_id")
   createdAt          DateTime @default(now())
-  isRecurring        Boolean  @default(false) // Add this
+  isRecurring        Boolean  @default(false)
   recurringFrequency String?
 
   company         Company        @relation(fields: [companyId], references: [id])
@@ -348,20 +373,25 @@ model MachineryOperator {
 // ==========================================
 
 model StoreItem {
-  id                Int          @id @default(autoincrement())
-  companyId         Int          @map("company_id")
+  id                Int      @id @default(autoincrement())
+  companyId         Int      @map("company_id")
   name              String
-  category          ItemCategory
-  quantity          Float        @default(0)
-  lowStockThreshold Float        @default(5) @map("low_stock_threshold")
-  createdAt         DateTime     @default(now())
-  unit              String       @default("pcs")
+  categoryId        Int      @map("category_id")
+  quantity          Float    @default(0)
+  lowStockThreshold Float    @default(5) @map("low_stock_threshold")
+  sellingPrice      Float    @default(0) @map("selling_price")
+  costPrice         Float    @default(0) @map("cost_price")
+  createdAt         DateTime @default(now())
+  unit              String   @default("pcs")
 
   company         Company            @relation(fields: [companyId], references: [id])
+  category        StoreCategory      @relation(fields: [categoryId], references: [id])
   transactions    StoreTransaction[]
   storeRequests   StoreRequest[]
   measuringUnit   MeasuringUnit?     @relation(fields: [measuringUnitId], references: [id])
   measuringUnitId Int?
+  saleItems       SaleItem[]
+  purchaseItems   PurchaseItem[]
 
   @@schema("finsync")
 }
@@ -388,9 +418,9 @@ model StoreRequest {
   id        Int      @id @default(autoincrement())
   itemId    Int      @map("item_id")
   companyId Int      @map("company_id")
-  userId    Int      @map("user_id") // Who requested it
+  userId    Int      @map("user_id")
   quantity  Float
-  status    String   @default("PENDING") // PENDING, APPROVED, ISSUED, REJECTED
+  status    String   @default("PENDING")
   createdAt DateTime @default(now())
 
   item    StoreItem @relation(fields: [itemId], references: [id])
@@ -453,6 +483,105 @@ model MeasuringUnit {
 
   storeItems      StoreItem[]
   companyExpenses CompanyExpense[]
+
+  @@schema("finsync")
+}
+
+// ==========================================
+// 8. RETAIL / SHOP MODELS
+// ==========================================
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+  companyId Int      @map("company_id")
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+  sales   Sale[]
+
+  @@schema("finsync")
+}
+
+model Supplier {
+  id        Int      @id @default(autoincrement())
+  companyId Int      @map("company_id")
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  createdAt DateTime @default(now())
+
+  company   Company    @relation(fields: [companyId], references: [id])
+  purchases Purchase[]
+
+  @@schema("finsync")
+}
+
+model Sale {
+  id           Int      @id @default(autoincrement())
+  companyId    Int      @map("company_id")
+  customerId   Int?     @map("customer_id")
+  registeredBy Int      @map("registered_by")
+  totalAmount  Float
+  discount     Float    @default(0)
+  note         String?
+  date         DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  company  Company    @relation(fields: [companyId], references: [id])
+  customer Customer?  @relation(fields: [customerId], references: [id])
+  user     User       @relation(fields: [registeredBy], references: [id])
+  items    SaleItem[]
+
+  @@schema("finsync")
+}
+
+model SaleItem {
+  id        Int   @id @default(autoincrement())
+  saleId    Int   @map("sale_id")
+  itemId    Int   @map("item_id")
+  quantity  Float
+  unitPrice Float @map("unit_price")
+  total     Float
+
+  sale      Sale      @relation(fields: [saleId], references: [id])
+  storeItem StoreItem @relation(fields: [itemId], references: [id])
+
+  @@schema("finsync")
+}
+
+model Purchase {
+  id           Int      @id @default(autoincrement())
+  companyId    Int      @map("company_id")
+  supplierId   Int?     @map("supplier_id")
+  registeredBy Int      @map("registered_by")
+  totalAmount  Float
+  note         String?
+  date         DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  company  Company        @relation(fields: [companyId], references: [id])
+  supplier Supplier?      @relation(fields: [supplierId], references: [id])
+  user     User           @relation(fields: [registeredBy], references: [id])
+  items    PurchaseItem[]
+
+  @@schema("finsync")
+}
+
+model PurchaseItem {
+  id         Int   @id @default(autoincrement())
+  purchaseId Int   @map("purchase_id")
+  itemId     Int   @map("item_id")
+  quantity   Float
+  unitCost   Float @map("unit_cost")
+  total      Float
+
+  purchase  Purchase  @relation(fields: [purchaseId], references: [id])
+  storeItem StoreItem @relation(fields: [itemId], references: [id])
 
   @@schema("finsync")
 }

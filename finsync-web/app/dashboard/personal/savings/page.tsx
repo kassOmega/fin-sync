@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 
 interface SavingsGoal {
   id: number | string;
+  name: string;
   targetAmount: number;
   thresholdAmount: number;
   currentAmount: number;
@@ -22,6 +23,7 @@ export default function PersonalSavingsPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [savingData, setSavingData] = useState({
+    name: "",
     targetAmount: "",
     thresholdAmount: "",
     frequency: "MONTHLY",
@@ -47,6 +49,7 @@ export default function PersonalSavingsPage() {
     setLoading(true);
     try {
       await api.post("/savings", {
+        name: savingData.name || undefined,
         targetAmount: parseFloat(savingData.targetAmount),
         thresholdAmount: parseFloat(savingData.thresholdAmount),
         frequency: savingData.frequency,
@@ -130,7 +133,7 @@ export default function PersonalSavingsPage() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-900">
-                        {t("savings.goal")}
+                        {goal.name || t("savings.goal")}
                       </h3>
                       <p className="text-xs text-gray-500">
                         {t("savings.schedule")} ${goal.thresholdAmount}{" "}
@@ -175,6 +178,20 @@ export default function PersonalSavingsPage() {
               {t("savings.modalTitle")}
             </h2>
             <form onSubmit={handleCreate} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  {t("savings.name")}
+                </label>
+                <input
+                  type="text"
+                  value={savingData.name}
+                  onChange={(e) =>
+                    setSavingData({ ...savingData, name: e.target.value })
+                  }
+                  placeholder={t("savings.namePlaceholder")}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
                   {t("savings.targetAmount")}
