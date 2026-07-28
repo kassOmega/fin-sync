@@ -399,6 +399,16 @@ const STORE_ITEMS: StoreItemData[] = [
     costPrice: 120.0,
   },
   {
+    key: 'green_organic_compost',
+    companyKey: 'greenvalley',
+    categoryKey: 'green_cat_fertilizer',
+    name: 'Organic Compost',
+    quantity: 3000,
+    lowStockThreshold: 500,
+    unit: 'kg',
+    costPrice: 0.8,
+  },
+  {
     key: 'green_poultry_feed',
     companyKey: 'greenvalley',
     categoryKey: 'green_cat_feed',
@@ -982,88 +992,14 @@ export async function seedStoreInventory(
   });
 
   await prisma.storeRequest.createMany({
-    data: [
-      {
-        itemId: 23,
-        companyId: 17,
-        userId: 45,
-        quantity: 40,
-        status: 'PENDING',
-        note: 'Need for level 4-6 columns',
-      },
-      {
-        itemId: 24,
-        companyId: 17,
-        userId: 46,
-        quantity: 25,
-        status: 'PENDING',
-        note: 'Bridge deck reinforcement',
-      },
-      {
-        itemId: 21,
-        companyId: 17,
-        userId: 47,
-        quantity: 60,
-        status: 'APPROVED',
-        note: 'Mall foundation work',
-      },
-      {
-        itemId: 33,
-        companyId: 17,
-        userId: 45,
-        quantity: 20,
-        status: 'PENDING',
-        note: 'Formwork for level 4',
-      },
-      {
-        itemId: 35,
-        companyId: 18,
-        userId: 58,
-        quantity: 200,
-        status: 'APPROVED',
-        note: 'Van fueling',
-      },
-      {
-        itemId: 36,
-        companyId: 18,
-        userId: 56,
-        quantity: 20,
-        status: 'PENDING',
-        note: 'Upcoming shipment prep',
-      },
-      {
-        itemId: 39,
-        companyId: 19,
-        userId: 59,
-        quantity: 10,
-        status: 'PENDING',
-        note: 'Next season planting',
-      },
-      {
-        itemId: 38, // 👈 Replaced undefined with a valid itemId integer
-        companyId: 19,
-        userId: 59,
-        quantity: 1000,
-        status: 'APPROVED',
-        note: 'Field preparation',
-      },
-      {
-        itemId: 49,
-        companyId: 20,
-        userId: 60,
-        quantity: 15,
-        status: 'PENDING',
-        note: 'Low stock - selling fast',
-      },
-      {
-        itemId: 54,
-        companyId: 20,
-        userId: 61,
-        quantity: 10,
-        status: 'REJECTED',
-        note: 'Budget constraint - defer to next month',
-      },
-    ],
+    data: STORE_REQUESTS.map((r) => ({
+      itemId: ctx.storeItems[r.itemKey],
+      companyId: ctx.companies[r.companyKey],
+      userId: ctx.users[r.userKey],
+      quantity: r.quantity,
+      status: r.status,
+      note: r.note || null,
+    })),
   });
 
   console.log(
