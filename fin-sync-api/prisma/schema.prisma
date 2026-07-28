@@ -405,6 +405,7 @@ model StoreTransaction {
   issuedToUserId Int?        @map("issued_to_user_id")
   date           DateTime    @default(now())
   status         String      @default("APPROVED")
+  note           String?
   createdAt      DateTime    @default(now())
 
   item    StoreItem @relation(fields: [itemId], references: [id])
@@ -421,6 +422,7 @@ model StoreRequest {
   userId    Int      @map("user_id")
   quantity  Float
   status    String   @default("PENDING")
+  note      String?
   createdAt DateTime @default(now())
 
   item    StoreItem @relation(fields: [itemId], references: [id])

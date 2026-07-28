@@ -4,7 +4,7 @@ import api from "@/lib/api";
 import { ArrowLeft, DollarSign, ShoppingCart, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -283,8 +283,8 @@ export default function SalesReportPage() {
                 </tr>
               ) : (
                 report.sales.map((sale) => (
-                  <>
-                    <tr key={sale.id} className="hover:bg-gray-50">
+                  <React.Fragment key={sale.id}>
+                    <tr className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-900">
                         {new Date(sale.date).toLocaleDateString()}
                       </td>
@@ -356,7 +356,7 @@ export default function SalesReportPage() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 ))
               )}
             </tbody>
