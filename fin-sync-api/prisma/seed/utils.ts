@@ -98,6 +98,7 @@ export interface SeedContext {
   suppliers: Record<string, number>;
   employees: Record<string, number>;
   personalAccounts: Record<string, number>;
+  companyRoles: Record<string, number>;
 }
 
 export const createContext = (): SeedContext => ({
@@ -112,4 +113,5 @@ export const createContext = (): SeedContext => ({
   suppliers: {},
   employees: {},
   personalAccounts: {},
+  companyRoles: {},
 });

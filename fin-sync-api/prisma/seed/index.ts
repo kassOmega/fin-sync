@@ -10,6 +10,7 @@ import { seedEmployees } from './07-employees';
 import { seedStoreInventory } from './08-store-inventory';
 import { seedRetail } from './09-retail';
 import { seedNotifications } from './10-notifications';
+import { seedRoles } from './11-roles';
 import { createContext, disconnect, getPrisma } from './utils';
 
 async function clearDatabase(prisma: PrismaClient): Promise<void> {
@@ -40,6 +41,9 @@ async function clearDatabase(prisma: PrismaClient): Promise<void> {
     'personalSaving',
     'personalBudget',
     'personalAccount',
+    'companyRolePermission',
+    'companyRole',
+    'permission',
     'companyMember',
     'company',
     'user',
@@ -74,6 +78,7 @@ export async function seedAll(): Promise<void> {
     await seedStoreInventory(prisma, ctx);
     await seedRetail(prisma, ctx);
     await seedNotifications(prisma, ctx);
+    await seedRoles(prisma, ctx);
 
     console.log('\n✅ All seeds inserted successfully!\n');
     console.log('📊 SEED SUMMARY:');
