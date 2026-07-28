@@ -14,14 +14,49 @@ import { UpdateUserDto } from './dto/update-user.dto';
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
-  // Get logged in user's profile
+  // Get logged in user's profile with permissions
   async getMyProfile(userId: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, name: true, email: true, phone: true, role: true },
     });
     if (!user) throw new NotFoundException('User not found');
-    return user;
+
+    // Fetch permissions from first company membership with a role
+    const members = await this.prisma.companyMember.findMany({
+      where: { userId },
+      include: {
+        companyRole: {
+          include: {
+            permissions: {
+              include: { permission: true },
+            },
+          },
+        },
+        company: { select: { id: true, name: true } },
+      },
+    });
+
+    // Collect all unique permission codes across roles
+    const permissionSet = new Set<string>();
+    for (const member of members) {
+      for (const rp of member.companyRole?.permissions || []) {
+        permissionSet.add(rp.permission.code);
+      }
+    }
+
+    return {
+      ...user,
+      companies: members.map((m) => ({
+        id: m.company.id,
+        name: m.company.name,
+        role: m.role,
+        companyRoleId: m.companyRoleId,
+        permissions:
+          m.companyRole?.permissions.map((rp) => rp.permission.code) || [],
+      })),
+      permissions: Array.from(permissionSet),
+    };
   }
 
   // Get logged in user's assigned company (for non-owners)

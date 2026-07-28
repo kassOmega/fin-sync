@@ -22,6 +22,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ProjectsModule } from './projects/projects.module';
 import { PurchasesModule } from './purchases/purchases.module';
 import { ReportsModule } from './reports/reports.module';
+import { RolesModule } from './roles/roles.module';
 import { SalesModule } from './sales/sales.module';
 import { SavingsModule } from './savings/savings.module';
 import { StoreItemsModule } from './store-items/store-items.module';
@@ -45,6 +46,7 @@ import { UsersModule } from './users/users.module';
     ProjectsModule,
     NotificationsModule,
     ReportsModule,
+    RolesModule,
     MeasuringUnitsModule,
     PersonalAccountsModule,
     PersonalIncomesModule,
