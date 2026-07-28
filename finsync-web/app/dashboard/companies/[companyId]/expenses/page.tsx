@@ -102,22 +102,16 @@ export default function CompanyExpensesPage() {
     load();
   }, [companyId]);
 
-  const handleAddCategory = async () => {
+  const handleAddCategory = () => {
     if (!newCatName.trim()) return;
-    try {
-      await api.post(`/companies/${companyId}/expenses`, {
-        amount: 0,
-        category: newCatName.trim(),
-        note: "Category placeholder",
-      });
-      toast.success("Category added");
-      setCategories([...categories, newCatName.trim()]);
-      setFormData({ ...formData, category: newCatName.trim() });
-      setIsAddingCategory(false);
-      setNewCatName("");
-    } catch {
-      toast.error("Failed to add category");
+    if (categories.includes(newCatName.trim())) {
+      toast.error("Category already exists");
+      return;
     }
+    setCategories([...categories, newCatName.trim()]);
+    setFormData({ ...formData, category: newCatName.trim() });
+    setIsAddingCategory(false);
+    setNewCatName("");
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
