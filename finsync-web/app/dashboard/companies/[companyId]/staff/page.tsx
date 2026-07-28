@@ -2,7 +2,7 @@
 
 import api from "@/lib/api";
 import { SystemRole } from "@/lib/types";
-import { Trash2, UserPlus, Users } from "lucide-react";
+import { Pencil, Shield, Trash2, UserPlus, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -10,18 +10,27 @@ import toast from "react-hot-toast";
 interface StaffMember {
   id: number | string;
   role: string;
-  user: {
-    name: string;
-    email: string;
-  };
+  companyRoleId: number | null;
+  user: { id: number; name: string; email: string };
+}
+
+interface CompanyRole {
+  id: number;
+  name: string;
+  permissions: {
+    permission: { id: number; code: string; description: string };
+  }[];
 }
 
 export default function StaffPage() {
   const params = useParams();
   const companyId = params.companyId as string;
   const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [roles, setRoles] = useState<CompanyRole[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
+  const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -32,9 +41,13 @@ export default function StaffPage() {
 
   const fetchStaff = async () => {
     try {
-      const res = await api.get(`/companies/${companyId}/staff`);
-      setStaff(res.data);
-    } catch (error) {
+      const [staffRes, rolesRes] = await Promise.all([
+        api.get(`/companies/${companyId}/staff`),
+        api.get(`/companies/${companyId}/roles`),
+      ]);
+      setStaff(staffRes.data);
+      setRoles(rolesRes.data);
+    } catch {
       toast.error("Failed to load staff");
     }
   };
@@ -56,7 +69,7 @@ export default function StaffPage() {
         ...formData,
         companyId: parseInt(companyId),
       });
-      toast.success("Staff member added successfully!");
+      toast.success("Staff member added!");
       setIsModalOpen(false);
       setFormData({
         name: "",
@@ -65,24 +78,54 @@ export default function StaffPage() {
         role: SystemRole.Cashier,
       });
       fetchStaff();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to add staff");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to add staff");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRemove = async (memberId: number | string) => {
-    if (confirm("Remove this staff member from the company?")) {
-      try {
-        await api.delete(`/companies/${companyId}/staff/${memberId}`);
-        toast.success("Staff member removed");
-        fetchStaff();
-      } catch (error) {
-        toast.error("Failed to remove staff");
+  const handleEditStart = (member: StaffMember) => {
+    setEditingMember(member);
+    setSelectedRoleId(member.companyRoleId);
+  };
+
+  const handleRoleAssign = async () => {
+    if (!editingMember) return;
+    try {
+      if (selectedRoleId) {
+        await api.patch(
+          `/companies/${companyId}/staff/${editingMember.id}/assign-role`,
+          {
+            roleId: selectedRoleId,
+          },
+        );
+      } else {
+        await api.delete(
+          `/companies/${companyId}/staff/${editingMember.id}/assign-role`,
+        );
       }
+      toast.success("Role updated");
+      setEditingMember(null);
+      setSelectedRoleId(null);
+      fetchStaff();
+    } catch {
+      toast.error("Failed to update role");
     }
   };
+
+  const handleRemove = async (memberId: number | string) => {
+    if (!confirm("Remove this staff member?")) return;
+    try {
+      await api.delete(`/companies/${companyId}/staff/${memberId}`);
+      toast.success("Staff removed");
+      fetchStaff();
+    } catch {
+      toast.error("Failed to remove staff");
+    }
+  };
+
+  const selectedRole = roles.find((r) => r.id === selectedRoleId);
 
   if (pageLoading) {
     return (
@@ -104,40 +147,182 @@ export default function StaffPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {staff.map((member) => (
-          <div
-            key={member.id}
-            className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex justify-between items-start"
-          >
-            <div className="flex items-center space-x-3">
-              <div className="p-3 bg-gray-100 rounded-full">
-                <Users className="h-6 w-6 text-gray-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">
-                  {member.user.name}
-                </h3>
-                <p className="text-sm text-gray-500">{member.user.email}</p>
-                <span className="mt-1 inline-block px-2 py-0.5 bg-indigo-50 text-indigo-700 text-xs rounded-full font-medium">
-                  {member.role}
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={() => handleRemove(member.id)}
-              className="text-red-400 hover:text-red-600"
-            >
-              <Trash2 className="h-5 w-5" />
-            </button>
-          </div>
-        ))}
+      {/* Staff Table */}
+      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Name
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Email
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  System Role
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Custom Role
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {staff.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-6 py-8 text-center text-gray-500"
+                  >
+                    No staff members yet.
+                  </td>
+                </tr>
+              ) : (
+                staff.map((member) => {
+                  const role = roles.find((r) => r.id === member.companyRoleId);
+                  return (
+                    <tr key={member.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                        {member.user.name}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {member.user.email}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full">
+                          {member.role}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {role ? (
+                          <span className="inline-block px-2 py-0.5 bg-indigo-50 text-indigo-700 text-xs rounded-full">
+                            {role.name} ({role.permissions.length} perms)
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end space-x-1">
+                          <button
+                            onClick={() => handleEditStart(member)}
+                            className="p-1 text-blue-500 hover:bg-blue-50 rounded"
+                            title="Change Role"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleRemove(member.id)}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                            title="Remove"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {/* Edit Role Modal */}
+      {editingMember && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
-            <h2 className="text-xl font-bold mb-4">Add New Staff Member</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900">
+                Change Role — {editingMember.user.name}
+              </h2>
+              <button
+                onClick={() => setEditingMember(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Role
+              </label>
+              <select
+                value={selectedRoleId ?? ""}
+                onChange={(e) =>
+                  setSelectedRoleId(
+                    e.target.value ? Number(e.target.value) : null,
+                  )
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white text-gray-900"
+              >
+                <option value="">No role</option>
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name} ({r.permissions.length} perms)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Show selected role permissions */}
+            {selectedRole && (
+              <div className="mb-4 p-3 bg-gray-50 rounded-md border border-gray-200">
+                <p className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                  <Shield className="h-4 w-4 mr-1 text-indigo-500" />
+                  {selectedRole.name} Permissions
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {selectedRole.permissions.map((rp) => (
+                    <span
+                      key={rp.permission.code}
+                      className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 text-xs rounded"
+                    >
+                      {rp.permission.code}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setEditingMember(null)}
+                className="px-4 py-2 text-sm text-gray-600"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRoleAssign}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Staff Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900">
+                Add New Staff Member
+              </h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
@@ -150,7 +335,7 @@ export default function StaffPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900 bg-white"
                 />
               </div>
               <div>
@@ -164,7 +349,7 @@ export default function StaffPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
                   }
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900 bg-white"
                 />
               </div>
               <div>
@@ -178,12 +363,12 @@ export default function StaffPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, password: e.target.value })
                   }
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900 bg-white"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Role
+                  System Role
                 </label>
                 <select
                   value={formData.role}
@@ -193,7 +378,7 @@ export default function StaffPage() {
                       role: e.target.value as SystemRole,
                     })
                   }
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
                 >
                   <option value={SystemRole.Cashier}>Cashier</option>
                   <option value={SystemRole.Storekeeper}>Storekeeper</option>

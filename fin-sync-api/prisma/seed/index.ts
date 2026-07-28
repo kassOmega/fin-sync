@@ -17,60 +17,55 @@ import { createContext, disconnect, getPrisma } from './utils';
 async function clearDatabase(prisma: PrismaClient): Promise<void> {
   console.log('🧹 Clearing existing database records...');
 
-  // New tables (not in Prisma client) - use raw SQL
+  // Use pg Pool directly for raw SQL (Prisma adapter can't handle DELETE with quoted identifiers)
+  const { Pool } = require('pg');
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+  });
+  const client = await pool.connect();
   try {
-    await prisma.$executeRawUnsafe(
-      `DELETE FROM finsync."CompanyRolePermission"`,
-    );
-  } catch (e: any) {
-    console.warn(`  ⚠️ ${e.message}`);
-  }
-  try {
-    await prisma.$executeRawUnsafe(`DELETE FROM finsync."CompanyRole"`);
-  } catch (e: any) {
-    console.warn(`  ⚠️ ${e.message}`);
-  }
-  try {
-    await prisma.$executeRawUnsafe(`DELETE FROM finsync."Permission"`);
-  } catch (e: any) {
-    console.warn(`  ⚠️ ${e.message}`);
-  }
-
-  // Existing tables - use Prisma model deleteMany
-  const tables = [
-    'storeRequest',
-    'storeTransaction',
-    'storeItem',
-    'storeCategory',
-    'saleItem',
-    'sale',
-    'customer',
-    'purchaseItem',
-    'purchase',
-    'supplier',
-    'notification',
-    'machineryOperator',
-    'machinery',
-    'projectUpdate',
-    'project',
-    'employee',
-    'companyExpense',
-    'companyIncome',
-    'accountTransfer',
-    'personalExpense',
-    'personalIncome',
-    'personalSaving',
-    'personalBudget',
-    'personalAccount',
-    'companyMember',
-    'company',
-    'user',
-    'measuringUnit',
-  ];
-  for (const table of tables) {
-    try {
-      await (prisma as any)[table].deleteMany();
-    } catch {}
+    const tables = [
+      '"CompanyRolePermission"',
+      '"CompanyRole"',
+      '"Permission"',
+      '"StoreRequest"',
+      '"StoreTransaction"',
+      '"StoreItem"',
+      '"StoreCategory"',
+      '"SaleItem"',
+      '"Sale"',
+      '"Customer"',
+      '"PurchaseItem"',
+      '"Purchase"',
+      '"Supplier"',
+      '"Notification"',
+      '"MachineryOperator"',
+      '"Machinery"',
+      '"ProjectUpdate"',
+      '"Project"',
+      '"Employee"',
+      '"CompanyExpense"',
+      '"CompanyIncome"',
+      '"AccountTransfer"',
+      '"PersonalExpense"',
+      '"PersonalIncome"',
+      '"PersonalSaving"',
+      '"PersonalBudget"',
+      '"PersonalAccount"',
+      '"CompanyMember"',
+      '"Company"',
+      '"User"',
+      '"MeasuringUnit"',
+    ];
+    for (const t of tables) {
+      try {
+        await client.query(`DELETE FROM finsync.${t}`);
+      } catch {}
+    }
+  } finally {
+    client.release();
+    await pool.end();
   }
 }
 

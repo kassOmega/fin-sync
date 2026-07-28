@@ -120,21 +120,48 @@ export async function seedRoles(
       }
     }
 
+    // Create an "Owner" role with ALL permissions for company owners
+    const ownerRoleName = 'Owner';
+    const allPermIds = Object.values(permByCode);
+    const escapedOwnerName = ownerRoleName.replace(/'/g, "''");
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO finsync."CompanyRole" (company_id, name) VALUES (${companyId}, '${escapedOwnerName}')`,
+    );
+    const ownerRoleRows: { id: number }[] = await prisma.$queryRawUnsafe(
+      `SELECT id FROM finsync."CompanyRole" WHERE company_id = ${companyId} AND name = '${escapedOwnerName}'`,
+    );
+    const ownerRoleId = ownerRoleRows[0]?.id;
+    if (ownerRoleId) {
+      ctx.companyRoles[`${companyKey}_Owner`] = ownerRoleId;
+      for (const permId of allPermIds) {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO finsync."CompanyRolePermission" (role_id, permission_id) VALUES (${ownerRoleId}, ${permId}) ON CONFLICT DO NOTHING`,
+        );
+      }
+    }
+
     const members: { id: number; role: string; user_id: number }[] =
       await prisma.$queryRawUnsafe(
         `SELECT id, role, user_id FROM finsync."CompanyMember" WHERE company_id = ${companyId}`,
       );
 
     for (const member of members) {
-      const matchingRole = BUILTIN_ROLES.find(
-        (r) => r.name.toLowerCase() === member.role.toLowerCase(),
-      );
-      if (matchingRole) {
-        const roleId = ctx.companyRoles[`${companyKey}_${matchingRole.name}`];
-        if (roleId) {
-          await prisma.$executeRawUnsafe(
-            `UPDATE finsync."CompanyMember" SET company_role_id = ${roleId} WHERE id = ${member.id}`,
-          );
+      // Owner members get the Owner role with all permissions
+      if (member.role === 'Owner' && ownerRoleId) {
+        await prisma.$executeRawUnsafe(
+          `UPDATE finsync."CompanyMember" SET company_role_id = ${ownerRoleId} WHERE id = ${member.id}`,
+        );
+      } else {
+        const matchingRole = BUILTIN_ROLES.find(
+          (r) => r.name.toLowerCase() === member.role.toLowerCase(),
+        );
+        if (matchingRole) {
+          const roleId = ctx.companyRoles[`${companyKey}_${matchingRole.name}`];
+          if (roleId) {
+            await prisma.$executeRawUnsafe(
+              `UPDATE finsync."CompanyMember" SET company_role_id = ${roleId} WHERE id = ${member.id}`,
+            );
+          }
         }
       }
     }
