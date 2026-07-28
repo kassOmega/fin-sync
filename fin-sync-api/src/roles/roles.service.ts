@@ -9,19 +9,21 @@ import { PrismaService } from '../prisma/prisma.service';
 export class RolesService {
   constructor(private prisma: PrismaService) {}
 
-  // Owner-only: verify ownership of company
   private async verifyOwnership(companyId: number, ownerId: number) {
-    const company = await this.prisma.company.findUnique({
-      where: { id: companyId },
-    });
+    const rows: { owner_id: number }[] = await this.prisma.$queryRawUnsafe(
+      `SELECT owner_id FROM finsync."Company" WHERE id = ${companyId}`,
+    );
+    const company = rows[0];
     if (!company) throw new NotFoundException('Company not found');
-    if (company.ownerId !== ownerId)
+    if (company.owner_id !== ownerId)
       throw new ForbiddenException('You do not own this company');
   }
 
   // Get all system permissions
   async getPermissions() {
-    return this.prisma.permission.findMany({ orderBy: { code: 'asc' } });
+    return this.prisma.$queryRawUnsafe(
+      `SELECT id, code, description FROM finsync."Permission" ORDER BY code ASC`,
+    );
   }
 
   // Create a custom role with selected permissions
@@ -33,53 +35,124 @@ export class RolesService {
   ) {
     await this.verifyOwnership(companyId, ownerId);
 
-    const permissions = await this.prisma.permission.findMany({
-      where: { code: { in: permissionCodes } },
-    });
+    // Get permission IDs
+    const perms: { id: number }[] = await this.prisma.$queryRawUnsafe(
+      permissionCodes.length > 0
+        ? `SELECT id FROM finsync."Permission" WHERE code IN (${permissionCodes.map((c) => `'${c.replace(/'/g, "''")}'`).join(',')})`
+        : `SELECT id FROM finsync."Permission" WHERE FALSE`,
+    );
 
-    return this.prisma.companyRole.create({
-      data: {
-        companyId,
-        name,
-        permissions: {
-          create: permissions.map((p) => ({ permissionId: p.id })),
-        },
-      },
-      include: {
-        permissions: { include: { permission: true } },
-      },
-    });
+    // Create role
+    const escapedName = name.replace(/'/g, "''");
+    await this.prisma.$executeRawUnsafe(
+      `INSERT INTO finsync."CompanyRole" (company_id, name) VALUES (${companyId}, '${escapedName}')`,
+    );
+
+    // Get role ID
+    const roleRows: { id: number }[] = await this.prisma.$queryRawUnsafe(
+      `SELECT id FROM finsync."CompanyRole" WHERE company_id = ${companyId} AND name = '${escapedName}'`,
+    );
+    const roleId = roleRows[0]?.id;
+
+    // Insert permissions
+    if (roleId) {
+      for (const perm of perms) {
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO finsync."CompanyRolePermission" (role_id, permission_id) VALUES (${roleId}, ${perm.id}) ON CONFLICT DO NOTHING`,
+        );
+      }
+    }
+
+    return this.getRole(companyId, roleId!, ownerId);
   }
 
   // List roles for a company
   async getRoles(companyId: number, ownerId: number) {
     await this.verifyOwnership(companyId, ownerId);
-    return this.prisma.companyRole.findMany({
-      where: { companyId },
-      include: {
-        permissions: { include: { permission: true } },
-        _count: { select: { members: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+
+    const roles: { id: number; name: string; created_at: string }[] =
+      await this.prisma.$queryRawUnsafe(
+        `SELECT id, name, created_at FROM finsync."CompanyRole" WHERE company_id = ${companyId} ORDER BY created_at DESC`,
+      );
+
+    const result: {
+      id: number;
+      name: string;
+      createdAt: string;
+      permissions: {
+        permission: { id: number; code: string; description: string };
+      }[];
+      _count: { members: number };
+    }[] = [];
+    for (const role of roles) {
+      const permissions: {
+        permission_id: number;
+        code: string;
+        description: string;
+      }[] = await this.prisma.$queryRawUnsafe(
+        `SELECT crp.permission_id, p.code, p.description FROM finsync."CompanyRolePermission" crp JOIN finsync."Permission" p ON crp.permission_id = p.id WHERE crp.role_id = ${role.id}`,
+      );
+
+      const countRows: { count: string }[] = await this.prisma.$queryRawUnsafe(
+        `SELECT COUNT(*) as count FROM finsync."CompanyMember" WHERE company_role_id = ${role.id}`,
+      );
+
+      result.push({
+        id: role.id,
+        name: role.name,
+        createdAt: role.created_at,
+        permissions: permissions.map((p) => ({
+          permission: {
+            id: p.permission_id,
+            code: p.code,
+            description: p.description,
+          },
+        })),
+        _count: { members: parseInt(countRows[0]?.count || '0') },
+      });
+    }
+
+    return result;
   }
 
   // Get a single role
   async getRole(companyId: number, roleId: number, ownerId: number) {
     await this.verifyOwnership(companyId, ownerId);
-    const role = await this.prisma.companyRole.findUnique({
-      where: { id: roleId },
-      include: {
-        permissions: { include: { permission: true } },
-        members: {
-          include: { user: { select: { id: true, name: true, email: true } } },
+
+    const roleRows: { id: number; name: string; created_at: string }[] =
+      await this.prisma.$queryRawUnsafe(
+        `SELECT id, name, created_at FROM finsync."CompanyRole" WHERE id = ${roleId} AND company_id = ${companyId}`,
+      );
+    if (!roleRows[0]) throw new NotFoundException('Role not found');
+
+    const role = roleRows[0];
+
+    const permissions: {
+      permission_id: number;
+      code: string;
+      description: string;
+    }[] = await this.prisma.$queryRawUnsafe(
+      `SELECT crp.permission_id, p.code, p.description FROM finsync."CompanyRolePermission" crp JOIN finsync."Permission" p ON crp.permission_id = p.id WHERE crp.role_id = ${roleId}`,
+    );
+
+    const members: { id: number; name: string; email: string }[] =
+      await this.prisma.$queryRawUnsafe(
+        `SELECT u.id, u.name, u.email FROM finsync."CompanyMember" cm JOIN finsync."User" u ON cm.user_id = u.id WHERE cm.company_role_id = ${roleId}`,
+      );
+
+    return {
+      id: role.id,
+      name: role.name,
+      createdAt: role.created_at,
+      permissions: permissions.map((p) => ({
+        permission: {
+          id: p.permission_id,
+          code: p.code,
+          description: p.description,
         },
-      },
-    });
-    if (!role || role.companyId !== companyId) {
-      throw new NotFoundException('Role not found');
-    }
-    return role;
+      })),
+      members,
+    };
   }
 
   // Update role permissions
@@ -92,58 +165,53 @@ export class RolesService {
   ) {
     await this.verifyOwnership(companyId, ownerId);
 
-    const role = await this.prisma.companyRole.findUnique({
-      where: { id: roleId },
-    });
-    if (!role || role.companyId !== companyId) {
-      throw new NotFoundException('Role not found');
-    }
-
-    const data: any = {};
-    if (name) data.name = name;
-
-    if (permissionCodes) {
-      const permissions = await this.prisma.permission.findMany({
-        where: { code: { in: permissionCodes } },
-      });
-
-      // Replace all permissions
-      await this.prisma.companyRolePermission.deleteMany({
-        where: { roleId },
-      });
-      await this.prisma.companyRolePermission.createMany({
-        data: permissions.map((p) => ({
-          roleId,
-          permissionId: p.id,
-        })),
-      });
-    }
+    const roleRows: { id: number }[] = await this.prisma.$queryRawUnsafe(
+      `SELECT id FROM finsync."CompanyRole" WHERE id = ${roleId} AND company_id = ${companyId}`,
+    );
+    if (!roleRows[0]) throw new NotFoundException('Role not found');
 
     if (name) {
-      await this.prisma.companyRole.update({
-        where: { id: roleId },
-        data: { name },
-      });
+      const escapedName = name.replace(/'/g, "''");
+      await this.prisma.$executeRawUnsafe(
+        `UPDATE finsync."CompanyRole" SET name = '${escapedName}' WHERE id = ${roleId}`,
+      );
     }
 
-    return this.prisma.companyRole.findUnique({
-      where: { id: roleId },
-      include: {
-        permissions: { include: { permission: true } },
-      },
-    });
+    if (permissionCodes) {
+      // Remove all existing permissions
+      await this.prisma.$executeRawUnsafe(
+        `DELETE FROM finsync."CompanyRolePermission" WHERE role_id = ${roleId}`,
+      );
+
+      // Insert new ones
+      if (permissionCodes.length > 0) {
+        const perms: { id: number }[] = await this.prisma.$queryRawUnsafe(
+          `SELECT id FROM finsync."Permission" WHERE code IN (${permissionCodes.map((c) => `'${c.replace(/'/g, "''")}'`).join(',')})`,
+        );
+        for (const perm of perms) {
+          await this.prisma.$executeRawUnsafe(
+            `INSERT INTO finsync."CompanyRolePermission" (role_id, permission_id) VALUES (${roleId}, ${perm.id}) ON CONFLICT DO NOTHING`,
+          );
+        }
+      }
+    }
+
+    return this.getRole(companyId, roleId, ownerId);
   }
 
   // Delete role
   async deleteRole(companyId: number, roleId: number, ownerId: number) {
     await this.verifyOwnership(companyId, ownerId);
-    const role = await this.prisma.companyRole.findUnique({
-      where: { id: roleId },
-    });
-    if (!role || role.companyId !== companyId) {
-      throw new NotFoundException('Role not found');
-    }
-    return this.prisma.companyRole.delete({ where: { id: roleId } });
+
+    const roleRows: { id: number }[] = await this.prisma.$queryRawUnsafe(
+      `SELECT id FROM finsync."CompanyRole" WHERE id = ${roleId} AND company_id = ${companyId}`,
+    );
+    if (!roleRows[0]) throw new NotFoundException('Role not found');
+
+    await this.prisma.$executeRawUnsafe(
+      `DELETE FROM finsync."CompanyRole" WHERE id = ${roleId}`,
+    );
+    return { success: true };
   }
 
   // Assign role to a staff member
@@ -155,24 +223,21 @@ export class RolesService {
   ) {
     await this.verifyOwnership(companyId, ownerId);
 
-    const member = await this.prisma.companyMember.findUnique({
-      where: { id: memberId },
-    });
-    if (!member || member.companyId !== companyId) {
-      throw new NotFoundException('Staff member not found');
-    }
+    const members: { id: number }[] = await this.prisma.$queryRawUnsafe(
+      `SELECT id FROM finsync."CompanyMember" WHERE id = ${memberId} AND company_id = ${companyId}`,
+    );
+    if (!members[0]) throw new NotFoundException('Staff member not found');
 
-    const role = await this.prisma.companyRole.findUnique({
-      where: { id: roleId },
-    });
-    if (!role || role.companyId !== companyId) {
+    const roles: { id: number }[] = await this.prisma.$queryRawUnsafe(
+      `SELECT id FROM finsync."CompanyRole" WHERE id = ${roleId} AND company_id = ${companyId}`,
+    );
+    if (!roles[0])
       throw new NotFoundException('Role not found for this company');
-    }
 
-    return this.prisma.companyMember.update({
-      where: { id: memberId },
-      data: { companyRoleId: roleId },
-    });
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE finsync."CompanyMember" SET company_role_id = ${roleId} WHERE id = ${memberId}`,
+    );
+    return { success: true };
   }
 
   // Remove role assignment from a staff member
@@ -183,16 +248,14 @@ export class RolesService {
   ) {
     await this.verifyOwnership(companyId, ownerId);
 
-    const member = await this.prisma.companyMember.findUnique({
-      where: { id: memberId },
-    });
-    if (!member || member.companyId !== companyId) {
-      throw new NotFoundException('Staff member not found');
-    }
+    const members: { id: number }[] = await this.prisma.$queryRawUnsafe(
+      `SELECT id FROM finsync."CompanyMember" WHERE id = ${memberId} AND company_id = ${companyId}`,
+    );
+    if (!members[0]) throw new NotFoundException('Staff member not found');
 
-    return this.prisma.companyMember.update({
-      where: { id: memberId },
-      data: { companyRoleId: null },
-    });
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE finsync."CompanyMember" SET company_role_id = NULL WHERE id = ${memberId}`,
+    );
+    return { success: true };
   }
 }

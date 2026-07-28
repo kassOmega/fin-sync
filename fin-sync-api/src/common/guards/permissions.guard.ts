@@ -16,51 +16,38 @@ export class PermissionsGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
 
-    // If no permissions required, allow
     if (!requiredPermissions || requiredPermissions.length === 0) {
       return true;
     }
 
-    const { user } = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
     if (!user) return false;
 
-    // Owners bypass permission checks (they have all permissions)
+    // Owners bypass permission checks
     if (user.role === 'Owner') return true;
 
-    // Get companyId from params if available
-    const req = context.switchToHttp().getRequest();
-    const companyId = req.params?.companyId
-      ? parseInt(req.params.companyId)
-      : null;
+    // Get companyId from params
+    const companyId = request.params?.companyId
+      ? parseInt(request.params.companyId)
+      : request.body?.companyId
+        ? parseInt(request.body.companyId)
+        : request.query?.companyId
+          ? parseInt(request.query.companyId)
+          : null;
 
-    if (!companyId) {
-      // Try to find from body or query
-      const bodyCompanyId = req.body?.companyId || req.query?.companyId;
-      if (!bodyCompanyId) return false;
-    }
+    if (!companyId) return false;
 
-    // Fetch user's roles and their permissions for this company
-    const member = await this.prisma.companyMember.findFirst({
-      where: {
-        userId: user.id,
-        companyId: companyId || parseInt(req.body.companyId),
-      },
-      include: {
-        companyRole: {
-          include: {
-            permissions: {
-              include: { permission: true },
-            },
-          },
-        },
-      },
-    });
-
-    if (!member?.companyRole) return false;
-
-    const userPermissionCodes = member.companyRole.permissions.map(
-      (rp) => rp.permission.code,
+    // Get the user's assigned role permissions via raw SQL
+    const rows: { code: string }[] = await this.prisma.$queryRawUnsafe(
+      `SELECT p.code FROM finsync."CompanyMember" cm
+       JOIN finsync."CompanyRole" r ON cm.company_role_id = r.id
+       JOIN finsync."CompanyRolePermission" crp ON crp.role_id = r.id
+       JOIN finsync."Permission" p ON p.id = crp.permission_id
+       WHERE cm.user_id = ${user.id} AND cm.company_id = ${companyId}`,
     );
+
+    const userPermissionCodes = rows.map((r) => r.code);
 
     // Check if user has ALL required permissions
     return requiredPermissions.every((p) => userPermissionCodes.includes(p));

@@ -16,46 +16,75 @@ export class UsersService {
 
   // Get logged in user's profile with permissions
   async getMyProfile(userId: number) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, name: true, email: true, phone: true, role: true },
-    });
-    if (!user) throw new NotFoundException('User not found');
+    const userRows: {
+      id: number;
+      name: string;
+      email: string;
+      phone: string | null;
+      role: string;
+    }[] = await this.prisma.$queryRawUnsafe(
+      `SELECT id, name, email, phone, role FROM finsync."User" WHERE id = ${userId}`,
+    );
+    if (!userRows[0]) throw new NotFoundException('User not found');
+    const user = userRows[0];
 
-    // Fetch permissions from first company membership with a role
-    const members = await this.prisma.companyMember.findMany({
-      where: { userId },
-      include: {
-        companyRole: {
-          include: {
-            permissions: {
-              include: { permission: true },
-            },
-          },
-        },
-        company: { select: { id: true, name: true } },
-      },
-    });
+    // Get company memberships with role and permissions via raw SQL
+    const memberRows: {
+      company_id: number;
+      company_name: string;
+      role: string;
+      company_role_id: number | null;
+    }[] = await this.prisma.$queryRawUnsafe(
+      `SELECT cm.company_id, c.name AS company_name, cm.role, cm.company_role_id
+       FROM finsync."CompanyMember" cm
+       JOIN finsync."Company" c ON cm.company_id = c.id
+       WHERE cm.user_id = ${userId}`,
+    );
 
-    // Collect all unique permission codes across roles
-    const permissionSet = new Set<string>();
-    for (const member of members) {
-      for (const rp of member.companyRole?.permissions || []) {
-        permissionSet.add(rp.permission.code);
+    // Get all permission codes across all company roles
+    const permRows: { code: string }[] = await this.prisma.$queryRawUnsafe(
+      `SELECT DISTINCT p.code FROM finsync."CompanyMember" cm
+       JOIN finsync."CompanyRole" r ON cm.company_role_id = r.id
+       JOIN finsync."CompanyRolePermission" crp ON crp.role_id = r.id
+       JOIN finsync."Permission" p ON p.id = crp.permission_id
+       WHERE cm.user_id = ${userId}`,
+    );
+
+    // Get per-company permissions
+    const companies: {
+      id: number;
+      name: string;
+      role: string;
+      companyRoleId: number | null;
+      permissions: string[];
+    }[] = [];
+    for (const m of memberRows) {
+      let perms: string[] = [];
+      if (m.company_role_id) {
+        const rolePerms: { code: string }[] = await this.prisma.$queryRawUnsafe(
+          `SELECT p.code FROM finsync."CompanyRolePermission" crp
+           JOIN finsync."Permission" p ON p.id = crp.permission_id
+           WHERE crp.role_id = ${m.company_role_id}`,
+        );
+        perms = rolePerms.map((p) => p.code);
       }
+      companies.push({
+        id: m.company_id,
+        name: m.company_name,
+        role: m.role,
+        companyRoleId: m.company_role_id,
+        permissions: perms,
+      });
     }
 
     return {
-      ...user,
-      companies: members.map((m) => ({
-        id: m.company.id,
-        name: m.company.name,
-        role: m.role,
-        companyRoleId: m.companyRoleId,
-        permissions:
-          m.companyRole?.permissions.map((rp) => rp.permission.code) || [],
-      })),
-      permissions: Array.from(permissionSet),
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      companies,
+      permissions: permRows.map((p) => p.code),
     };
   }
 

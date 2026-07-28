@@ -356,11 +356,11 @@ export default function RolesPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Permissions
               </label>
-              <div className="space-y-1 max-h-60 overflow-y-auto border border-gray-200 rounded-md p-2">
+              <div className="space-y-1 max-h-60 overflow-y-auto border border-gray-200 rounded-md p-2 bg-white">
                 {permissions.map((perm) => (
                   <label
                     key={perm.code}
-                    className="flex items-center px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer"
+                    className="flex items-center px-2 py-1.5 hover:bg-gray-100 rounded cursor-pointer"
                   >
                     <input
                       type="checkbox"
@@ -368,13 +368,13 @@ export default function RolesPage() {
                       onChange={() =>
                         togglePerm(perm.code, selectedPerms, setSelectedPerms)
                       }
-                      className="mr-2"
+                      className="mr-2 accent-indigo-600"
                     />
                     <div>
-                      <span className="text-sm font-medium text-gray-700">
+                      <span className="text-sm font-semibold text-gray-900">
                         {perm.code}
                       </span>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-gray-500">
                         {perm.description}
                       </p>
                     </div>
@@ -427,11 +427,11 @@ export default function RolesPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Permissions
               </label>
-              <div className="space-y-1 max-h-60 overflow-y-auto border border-gray-200 rounded-md p-2">
+              <div className="space-y-1 max-h-60 overflow-y-auto border border-gray-200 rounded-md p-2 bg-white">
                 {permissions.map((perm) => (
                   <label
                     key={perm.code}
-                    className="flex items-center px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer"
+                    className="flex items-center px-2 py-1.5 hover:bg-gray-100 rounded cursor-pointer"
                   >
                     <input
                       type="checkbox"
@@ -443,13 +443,13 @@ export default function RolesPage() {
                           setEditSelectedPerms,
                         )
                       }
-                      className="mr-2"
+                      className="mr-2 accent-indigo-600"
                     />
                     <div>
-                      <span className="text-sm font-medium text-gray-700">
+                      <span className="text-sm font-semibold text-gray-900">
                         {perm.code}
                       </span>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-gray-500">
                         {perm.description}
                       </p>
                     </div>
