@@ -22,6 +22,19 @@ export class MachineriesService {
     });
   }
 
+  // Operator/Driver sees only machines assigned to them
+  async findMyMachines(companyId: number, userId: number) {
+    return this.prisma.machinery.findMany({
+      where: {
+        companyId,
+        operators: { some: { userId } },
+      },
+      include: {
+        operators: { include: { user: { select: { id: true, name: true } } } },
+      },
+    });
+  }
+
   async update(id: number, dto: UpdateMachineryDto) {
     const machine = await this.prisma.machinery.findUnique({ where: { id } });
     if (!machine) throw new NotFoundException('Machinery not found');
