@@ -137,8 +137,8 @@ export default function SalesPage() {
     value: number | string,
   ) => {
     const updated = [...saleItems];
-    (updated[index] as Record<string, string | number | undefined>)[field] =
-      value;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (updated[index] as any)[field] = value;
     if (field === "categoryFilter" && typeof value === "number") {
       fetchStoreItems(value || undefined);
     }
