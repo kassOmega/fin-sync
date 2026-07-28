@@ -57,7 +57,15 @@ export class StoreItemsController {
 
   // --- Request Management ---
   @Get('requests')
-  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
+  @Roles(
+    SystemRole.Owner,
+    SystemRole.Storekeeper,
+    SystemRole.Cashier,
+    SystemRole.Sales,
+    SystemRole.OperatorDriver,
+    SystemRole.ProjectManager,
+    SystemRole.Foreman,
+  )
   getRequests(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.workflowService.getRequests(companyId);
   }
@@ -66,8 +74,11 @@ export class StoreItemsController {
   @Roles(
     SystemRole.Owner,
     SystemRole.Cashier,
+    SystemRole.Sales,
+    SystemRole.Storekeeper,
     SystemRole.OperatorDriver,
     SystemRole.ProjectManager,
+    SystemRole.Foreman,
   )
   createRequest(
     @Param('companyId', ParseIntPipe) companyId: number,
@@ -119,7 +130,15 @@ export class StoreItemsController {
   // --- Parameterized :id routes come AFTER all literal paths ---
 
   @Get()
-  @Roles(SystemRole.Owner, SystemRole.Storekeeper, SystemRole.ProjectManager)
+  @Roles(
+    SystemRole.Owner,
+    SystemRole.Storekeeper,
+    SystemRole.Cashier,
+    SystemRole.Sales,
+    SystemRole.OperatorDriver,
+    SystemRole.ProjectManager,
+    SystemRole.Foreman,
+  )
   findAll(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Query('categoryId') categoryId?: string,

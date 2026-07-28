@@ -3,7 +3,13 @@
 import api from "@/lib/api";
 import { SystemRole } from "@/lib/types";
 import { useAuthStore } from "@/store/authStore";
-import { ArrowUpCircle, ClipboardList, Package, Plus } from "lucide-react";
+import {
+  ArrowUpCircle,
+  ClipboardList,
+  Package,
+  Plus,
+  Wrench,
+} from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -16,6 +22,7 @@ interface StoreItem {
   quantity: number;
   lowStockThreshold?: number;
   unit: string;
+  isTool?: boolean;
 }
 
 interface Unit {
@@ -203,54 +210,114 @@ export default function StorePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
-          >
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-gray-100 rounded-lg">
-                  <Package className="h-6 w-6 text-gray-700" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">{item.name}</h3>
-                  <p className="text-xs text-gray-500">
-                    {typeof item.category === "object"
-                      ? (item.category as { name: string }).name
-                      : item.category}
-                  </p>
-                </div>
-              </div>
-              {item.quantity <= (item.lowStockThreshold || 0) && (
-                <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
-                  Low Stock
-                </span>
+      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Item
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Category
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Type
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  Qty
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Unit
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                  Status
+                </th>
+                {hasRole([SystemRole.Owner, SystemRole.Storekeeper]) && (
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                    Actions
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {items.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={
+                      hasRole([SystemRole.Owner, SystemRole.Storekeeper])
+                        ? 7
+                        : 6
+                    }
+                    className="px-6 py-8 text-center text-gray-500"
+                  >
+                    <Package className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                    No items in inventory yet.
+                  </td>
+                </tr>
+              ) : (
+                items.map((item) => {
+                  const isLow =
+                    !item.isTool &&
+                    item.quantity <= (item.lowStockThreshold || 0);
+                  return (
+                    <tr key={item.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                        {item.name}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {typeof item.category === "object"
+                          ? (item.category as { name: string }).name
+                          : item.category}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {item.isTool ? (
+                          <span className="inline-flex items-center text-xs bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full">
+                            <Wrench className="h-3 w-3 mr-1" /> Tool
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center text-xs bg-gray-50 text-gray-600 px-2 py-0.5 rounded-full">
+                            📦 Consumable
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-mono text-gray-900">
+                        {item.quantity}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {item.unit}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {isLow ? (
+                          <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                            Low Stock
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                            OK
+                          </span>
+                        )}
+                      </td>
+                      {hasRole([SystemRole.Owner, SystemRole.Storekeeper]) && (
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={() => {
+                              setRestockItem(item);
+                              setRestockQty(0);
+                            }}
+                            className="inline-flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-md hover:bg-green-100 text-sm"
+                          >
+                            <ArrowUpCircle className="h-4 w-4 mr-1" /> Restock
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
               )}
-            </div>
-            <div className="flex justify-between items-center border-t pt-4">
-              <div>
-                <p className="text-sm text-gray-500">In Stock</p>
-                <p className="text-xl font-bold text-gray-900">
-                  {item.quantity}{" "}
-                  <span className="text-sm font-normal">{item.unit}</span>
-                </p>
-              </div>
-              {hasRole([SystemRole.Owner, SystemRole.Storekeeper]) && (
-                <button
-                  onClick={() => {
-                    setRestockItem(item);
-                    setRestockQty(0);
-                  }}
-                  className="flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-md hover:bg-green-100 text-sm"
-                >
-                  <ArrowUpCircle className="h-4 w-4 mr-1" /> Restock
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Restock Modal */}

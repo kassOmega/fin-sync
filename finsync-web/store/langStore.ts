@@ -26,6 +26,10 @@ const translations: Record<Lang, Record<string, string>> = {
     "nav.machineries": "Machineries",
     "nav.store": "Store",
     "nav.reports": "Reports",
+    "nav.requisitions": "Requisitions",
+    "nav.sales": "Sales",
+    "nav.purchases": "Purchases",
+    "nav.machinery": "Machinery",
     "header.welcome": "Welcome",
 
     // Login
@@ -339,6 +343,10 @@ const translations: Record<Lang, Record<string, string>> = {
     "nav.machineries": "ማሽኖች",
     "nav.store": "ማከማቻ",
     "nav.reports": "ሪፖርቶች",
+    "nav.requisitions": "ጥያቄዎች",
+    "nav.sales": "ሽያጭ",
+    "nav.purchases": "ግዢ",
+    "nav.machinery": "ማሽኖች",
     "header.welcome": "እንኳን ደህና መጡ",
 
     // Login

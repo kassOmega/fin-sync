@@ -7,11 +7,14 @@ import { useLangStore } from "@/store/langStore";
 import {
   Bell,
   Building2,
+  ClipboardList,
   Globe,
   LayoutDashboard,
   LogOut,
   Menu,
+  Package,
   Wallet,
+  Wrench,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -53,9 +56,11 @@ export default function DashboardLayout({
       roles: [
         SystemRole.Owner,
         SystemRole.Cashier,
+        SystemRole.Sales,
         SystemRole.Storekeeper,
         SystemRole.OperatorDriver,
         SystemRole.ProjectManager,
+        SystemRole.Foreman,
       ],
     },
     {
@@ -71,6 +76,32 @@ export default function DashboardLayout({
       roles: [SystemRole.Owner],
     },
     {
+      name: t("nav.requisitions"),
+      href: "/dashboard/requisitions",
+      icon: ClipboardList,
+      roles: [
+        SystemRole.Owner,
+        SystemRole.Cashier,
+        SystemRole.Sales,
+        SystemRole.Storekeeper,
+        SystemRole.OperatorDriver,
+        SystemRole.ProjectManager,
+        SystemRole.Foreman,
+      ],
+    },
+    {
+      name: t("nav.projects"),
+      href: "/dashboard/projects",
+      icon: Package,
+      roles: [SystemRole.ProjectManager, SystemRole.Foreman],
+    },
+    {
+      name: t("nav.machinery"),
+      href: "/dashboard/machinery",
+      icon: Wrench,
+      roles: [SystemRole.OperatorDriver],
+    },
+    {
       name: t("nav.notifications"),
       href: "/dashboard/notifications",
       icon: Bell,
@@ -78,9 +109,11 @@ export default function DashboardLayout({
       roles: [
         SystemRole.Owner,
         SystemRole.Cashier,
+        SystemRole.Sales,
         SystemRole.Storekeeper,
         SystemRole.OperatorDriver,
         SystemRole.ProjectManager,
+        SystemRole.Foreman,
       ],
     },
   ];

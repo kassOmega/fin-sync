@@ -11,12 +11,61 @@ import { PrismaService } from '../prisma/prisma.service';
 export class StoreWorkflowService {
   constructor(private prisma: PrismaService) {}
 
+  // Get requests for a specific company
   async getRequests(companyId: number) {
     return this.prisma.storeRequest.findMany({
       where: { companyId },
       include: {
-        item: { select: { id: true, name: true, quantity: true, unit: true } },
+        item: {
+          select: {
+            id: true,
+            name: true,
+            quantity: true,
+            unit: true,
+            isTool: true,
+          },
+        },
         user: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // Get all requests across ALL companies (Owner view for /dashboard/requisitions)
+  async getAllRequests() {
+    return this.prisma.storeRequest.findMany({
+      include: {
+        item: {
+          select: {
+            id: true,
+            name: true,
+            quantity: true,
+            unit: true,
+            isTool: true,
+          },
+        },
+        user: { select: { id: true, name: true } },
+        company: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // Get current user's own requests across all companies
+  async getMyRequests(userId: number) {
+    return this.prisma.storeRequest.findMany({
+      where: { userId },
+      include: {
+        item: {
+          select: {
+            id: true,
+            name: true,
+            quantity: true,
+            unit: true,
+            isTool: true,
+          },
+        },
+        company: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -57,7 +106,7 @@ export class StoreWorkflowService {
     });
   }
 
-  // 3. Owner/Manager rejects the request
+  // 3. Owner rejects the request
   async rejectRequest(requestId: number, user: any) {
     if (user.role !== SystemRole.Owner)
       throw new ForbiddenException('Only owners can reject requests');
@@ -75,7 +124,9 @@ export class StoreWorkflowService {
     });
   }
 
-  // 4. Storekeeper issues the item (Updates inventory)
+  // 4. Storekeeper issues the item
+  //   - Consumables: permanent stock deduction, status → ISSUED (no return)
+  //   - Tools: stock deduction + tracked issuance, status → ISSUED (returnable)
   async issueItem(requestId: number, user: any) {
     if (
       user.role !== SystemRole.Storekeeper &&

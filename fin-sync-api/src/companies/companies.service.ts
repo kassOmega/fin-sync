@@ -32,7 +32,7 @@ export class CompaniesService {
     return company;
   }
 
-  // Add this method to the CompaniesService class
+  // Get all staff members of a company
   async getCompanyStaff(companyId: number) {
     return this.prisma.companyMember.findMany({
       where: { companyId },
@@ -48,6 +48,68 @@ export class CompaniesService {
         },
       },
     });
+  }
+
+  // Owner removes a staff member from the company (deletes CompanyMember + User)
+  async removeStaffMember(
+    companyId: number,
+    memberId: number,
+    ownerId: number,
+  ) {
+    await this.verifyOwnership(companyId, ownerId);
+
+    const member = await this.prisma.companyMember.findUnique({
+      where: { id: memberId },
+      include: { user: true },
+    });
+    if (!member || member.companyId !== companyId) {
+      throw new NotFoundException('Staff member not found in this company');
+    }
+
+    if (member.user.role === 'Owner') {
+      throw new ForbiddenException('Cannot remove owners from company staff');
+    }
+
+    // Delete the CompanyMember link AND the user
+    return this.prisma.$transaction([
+      this.prisma.companyMember.delete({ where: { id: memberId } }),
+      this.prisma.user.delete({ where: { id: member.userId } }),
+    ]);
+  }
+
+  // Owner updates a staff member's role within a specific company
+  async updateStaffRole(
+    companyId: number,
+    memberId: number,
+    newRole: string,
+    ownerId: number,
+  ) {
+    await this.verifyOwnership(companyId, ownerId);
+
+    if (newRole === 'Owner') {
+      throw new ForbiddenException(
+        'Cannot assign the Owner role to staff members',
+      );
+    }
+
+    const member = await this.prisma.companyMember.findUnique({
+      where: { id: memberId },
+    });
+    if (!member || member.companyId !== companyId) {
+      throw new NotFoundException('Staff member not found in this company');
+    }
+
+    // Update both the CompanyMember role and the User's system role
+    return this.prisma.$transaction([
+      this.prisma.companyMember.update({
+        where: { id: memberId },
+        data: { role: newRole as any },
+      }),
+      this.prisma.user.update({
+        where: { id: member.userId },
+        data: { role: newRole as any },
+      }),
+    ]);
   }
 
   async update(id: number, ownerId: number, dto: UpdateCompanyDto) {

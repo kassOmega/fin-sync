@@ -17,6 +17,7 @@ interface StoreItemData {
   unit: string;
   sellingPrice?: number;
   costPrice?: number;
+  isTool?: boolean;
 }
 
 interface StoreTransactionData {
@@ -257,6 +258,7 @@ const STORE_ITEMS: StoreItemData[] = [
     lowStockThreshold: 1,
     unit: 'pcs',
     costPrice: 850.0,
+    isTool: true,
   },
   {
     key: 'buildco_helmet',
@@ -591,6 +593,7 @@ const STORE_ITEMS: StoreItemData[] = [
     unit: 'pcs',
     sellingPrice: 129.99,
     costPrice: 75.0,
+    isTool: true,
   },
   {
     key: 'buildmart_circular_saw',
@@ -602,6 +605,7 @@ const STORE_ITEMS: StoreItemData[] = [
     unit: 'pcs',
     sellingPrice: 149.99,
     costPrice: 85.0,
+    isTool: true,
   },
   {
     key: 'buildmart_angle_grinder',
@@ -613,6 +617,7 @@ const STORE_ITEMS: StoreItemData[] = [
     unit: 'pcs',
     sellingPrice: 79.99,
     costPrice: 45.0,
+    isTool: true,
   },
   {
     key: 'buildmart_hammer_claw',
@@ -624,6 +629,7 @@ const STORE_ITEMS: StoreItemData[] = [
     unit: 'pcs',
     sellingPrice: 24.99,
     costPrice: 12.0,
+    isTool: true,
   },
   {
     key: 'buildmart_screwdriver_set',
@@ -635,6 +641,7 @@ const STORE_ITEMS: StoreItemData[] = [
     unit: 'sets',
     sellingPrice: 34.99,
     costPrice: 16.0,
+    isTool: true,
   },
   {
     key: 'buildmart_wrench_set',
@@ -646,6 +653,7 @@ const STORE_ITEMS: StoreItemData[] = [
     unit: 'sets',
     sellingPrice: 49.99,
     costPrice: 24.0,
+    isTool: true,
   },
   {
     key: 'buildmart_nails_assorted',
@@ -690,6 +698,7 @@ const STORE_ITEMS: StoreItemData[] = [
     unit: 'sets',
     sellingPrice: 15.99,
     costPrice: 7.0,
+    isTool: true,
   },
 ];
 
@@ -973,6 +982,7 @@ export async function seedStoreInventory(
         unit: item.unit,
         sellingPrice: item.sellingPrice || 0,
         costPrice: item.costPrice || 0,
+        isTool: item.isTool || false,
       },
     });
     ctx.storeItems[item.key] = created.id;

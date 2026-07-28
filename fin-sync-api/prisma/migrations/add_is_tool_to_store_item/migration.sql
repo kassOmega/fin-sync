@@ -1,0 +1,1 @@
+ALTER TABLE finsync."StoreItem" ADD COLUMN IF NOT EXISTS "is_tool" BOOLEAN NOT NULL DEFAULT false;

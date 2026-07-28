@@ -381,6 +381,7 @@ model StoreItem {
   lowStockThreshold Float    @default(5) @map("low_stock_threshold")
   sellingPrice      Float    @default(0) @map("selling_price")
   costPrice         Float    @default(0) @map("cost_price")
+  isTool            Boolean  @default(false) @map("is_tool")
   createdAt         DateTime @default(now())
   unit              String   @default("pcs")
 

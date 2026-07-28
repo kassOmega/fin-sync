@@ -53,6 +53,32 @@ export class CompaniesController {
     return this.companiesService.getCompanyStaff(id);
   }
 
+  @Patch(':id/staff/:memberId/role')
+  @Roles(SystemRole.Owner)
+  updateStaffRole(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('memberId', ParseIntPipe) memberId: number,
+    @Body() body: { role: string },
+    @CurrentUser('id') userId: number,
+  ) {
+    return this.companiesService.updateStaffRole(
+      id,
+      memberId,
+      body.role,
+      userId,
+    );
+  }
+
+  @Delete(':id/staff/:memberId')
+  @Roles(SystemRole.Owner)
+  removeStaff(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('memberId', ParseIntPipe) memberId: number,
+    @CurrentUser('id') userId: number,
+  ) {
+    return this.companiesService.removeStaffMember(id, memberId, userId);
+  }
+
   @Patch(':id')
   @Roles(SystemRole.Owner)
   update(

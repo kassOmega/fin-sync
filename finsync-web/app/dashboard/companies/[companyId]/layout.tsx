@@ -1,6 +1,8 @@
 "use client";
 
 import api from "@/lib/api";
+import { SystemRole } from "@/lib/types";
+import { useAuthStore } from "@/store/authStore";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
@@ -14,6 +16,7 @@ export default function CompanyLayout({
   const pathname = usePathname();
   const params = useParams();
   const companyId = params.companyId as string;
+  const { user, hasRole } = useAuthStore();
   const [company, setCompany] = useState<{
     name: string;
     industry?: string;
@@ -26,18 +29,68 @@ export default function CompanyLayout({
   }, [companyId]);
 
   const navItems = [
-    { name: "Overview", href: `` },
-    { name: "Incomes", href: `/incomes` },
-    { name: "Expenses", href: `/expenses` },
-    { name: "Staff", href: `/staff` },
-    { name: "Employees", href: `/employees` },
-    { name: "Projects", href: `/projects` },
-    { name: "Machineries", href: `/machineries` },
-    { name: "Store", href: `/store` },
-    { name: "Sales", href: `/sales` },
-    { name: "Purchases", href: `/purchases` },
-    { name: "Reports", href: `/reports` },
+    {
+      name: "Overview",
+      href: ``,
+      roles: [
+        SystemRole.Owner,
+        SystemRole.Cashier,
+        SystemRole.Sales,
+        SystemRole.Storekeeper,
+        SystemRole.OperatorDriver,
+        SystemRole.ProjectManager,
+        SystemRole.Foreman,
+      ],
+    },
+    {
+      name: "Incomes",
+      href: `/incomes`,
+      roles: [SystemRole.Owner, SystemRole.Cashier, SystemRole.Sales],
+    },
+    {
+      name: "Expenses",
+      href: `/expenses`,
+      roles: [SystemRole.Owner, SystemRole.Cashier],
+    },
+    { name: "Staff", href: `/staff`, roles: [SystemRole.Owner] },
+    {
+      name: "Employees",
+      href: `/employees`,
+      roles: [SystemRole.Owner, SystemRole.ProjectManager],
+    },
+    {
+      name: "Projects",
+      href: `/projects`,
+      roles: [SystemRole.Owner, SystemRole.ProjectManager, SystemRole.Foreman],
+    },
+    {
+      name: "Machineries",
+      href: `/machineries`,
+      roles: [
+        SystemRole.Owner,
+        SystemRole.OperatorDriver,
+        SystemRole.ProjectManager,
+      ],
+    },
+    {
+      name: "Store",
+      href: `/store`,
+      roles: [SystemRole.Owner, SystemRole.Storekeeper],
+    },
+    {
+      name: "Sales",
+      href: `/sales`,
+      roles: [SystemRole.Owner, SystemRole.Cashier, SystemRole.Sales],
+    },
+    {
+      name: "Purchases",
+      href: `/purchases`,
+      roles: [SystemRole.Owner, SystemRole.Cashier, SystemRole.Storekeeper],
+    },
+    { name: "Reports", href: `/reports`, roles: [SystemRole.Owner] },
   ];
+
+  const filteredNavItems = navItems.filter((item) => hasRole(item.roles));
 
   return (
     <div className="flex flex-col h-full -m-4 lg:-m-8 gap-8">
@@ -59,7 +112,7 @@ export default function CompanyLayout({
           </div>
         </div>
         <nav className="flex overflow-x-auto px-4 lg:px-8 border-t border-gray-100">
-          {navItems.map((item) => {
+          {filteredNavItems.map((item) => {
             const href = `/dashboard/companies/${companyId}${item.href}`;
             const isActive =
               item.href === "" ? pathname === href : pathname.startsWith(href);

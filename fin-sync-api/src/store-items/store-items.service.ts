@@ -73,6 +73,7 @@ export class StoreItemsService {
   }
 
   // 5. Storekeeper marks issued tool as returned (restores stock)
+  //    Only tools can be returned; consumables are permanently issued.
   async returnItem(requestId: number, user: any, companyId: number) {
     if (
       (user as { role: string }).role !== 'Storekeeper' &&
@@ -87,6 +88,17 @@ export class StoreItemsService {
     if (!request) throw new NotFoundException('Request not found');
     if (request.status !== 'ISSUED')
       throw new BadRequestException('Only issued items can be returned');
+
+    // Only tools can be returned — consumables stay issued
+    const item = await this.prisma.storeItem.findUnique({
+      where: { id: request.itemId },
+      select: { isTool: true },
+    });
+    if (!item?.isTool) {
+      throw new BadRequestException(
+        'Only tools can be returned. Consumables are permanently issued.',
+      );
+    }
 
     return this.prisma.$transaction(async (prisma) => {
       // Restore stock
