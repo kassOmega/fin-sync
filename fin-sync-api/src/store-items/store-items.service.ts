@@ -36,8 +36,28 @@ export class StoreItemsService {
     return item;
   }
 
-  async findAll(companyId: number) {
-    return this.prisma.storeItem.findMany({ where: { companyId } });
+  async findAll(companyId: number, categoryId?: number) {
+    const where: any = { companyId };
+    if (categoryId) where.categoryId = categoryId;
+
+    return this.prisma.storeItem.findMany({
+      where,
+      include: { category: true },
+    });
+  }
+
+  async getCategories(companyId: number) {
+    return this.prisma.storeCategory.findMany({
+      where: { companyId },
+      include: { _count: { select: { items: true } } },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async createCategory(companyId: number, name: string) {
+    return this.prisma.storeCategory.create({
+      data: { name, companyId },
+    });
   }
 
   async update(id: number, dto: UpdateStoreItemDto) {
@@ -50,6 +70,48 @@ export class StoreItemsService {
     const item = await this.prisma.storeItem.findUnique({ where: { id } });
     if (!item) throw new NotFoundException('Item not found');
     return this.prisma.storeItem.delete({ where: { id } });
+  }
+
+  // 5. Storekeeper marks issued tool as returned (restores stock)
+  async returnItem(requestId: number, user: any, companyId: number) {
+    if (
+      (user as { role: string }).role !== 'Storekeeper' &&
+      (user as { role: string }).role !== 'Owner'
+    ) {
+      throw new BadRequestException('Only storekeepers can return items');
+    }
+
+    const request = await this.prisma.storeRequest.findUnique({
+      where: { id: requestId },
+    });
+    if (!request) throw new NotFoundException('Request not found');
+    if (request.status !== 'ISSUED')
+      throw new BadRequestException('Only issued items can be returned');
+
+    return this.prisma.$transaction(async (prisma) => {
+      // Restore stock
+      await prisma.storeItem.update({
+        where: { id: request.itemId },
+        data: { quantity: { increment: request.quantity } },
+      });
+
+      // Log the return transaction
+      await prisma.storeTransaction.create({
+        data: {
+          itemId: request.itemId,
+          companyId,
+          type: 'RETURN',
+          quantity: request.quantity,
+          issuedToUserId: request.userId,
+        },
+      });
+
+      // Mark request as returned
+      return prisma.storeRequest.update({
+        where: { id: requestId },
+        data: { status: 'RETURNED' },
+      });
+    });
   }
 
   async handleTransaction(

@@ -11,6 +11,17 @@ import { PrismaService } from '../prisma/prisma.service';
 export class StoreWorkflowService {
   constructor(private prisma: PrismaService) {}
 
+  async getRequests(companyId: number) {
+    return this.prisma.storeRequest.findMany({
+      where: { companyId },
+      include: {
+        item: { select: { id: true, name: true, quantity: true, unit: true } },
+        user: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   // 1. Staff member requests an item
   async createRequest(
     companyId: number,
@@ -46,7 +57,25 @@ export class StoreWorkflowService {
     });
   }
 
-  // 3. Storekeeper issues the item (Updates inventory)
+  // 3. Owner/Manager rejects the request
+  async rejectRequest(requestId: number, user: any) {
+    if (user.role !== SystemRole.Owner)
+      throw new ForbiddenException('Only owners can reject requests');
+
+    const request = await this.prisma.storeRequest.findUnique({
+      where: { id: requestId },
+    });
+    if (!request) throw new NotFoundException('Request not found');
+    if (request.status !== 'PENDING')
+      throw new BadRequestException('Request is already processed');
+
+    return this.prisma.storeRequest.update({
+      where: { id: requestId },
+      data: { status: 'REJECTED' },
+    });
+  }
+
+  // 4. Storekeeper issues the item (Updates inventory)
   async issueItem(requestId: number, user: any) {
     if (
       user.role !== SystemRole.Storekeeper &&

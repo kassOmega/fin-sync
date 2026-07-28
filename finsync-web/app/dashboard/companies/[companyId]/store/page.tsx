@@ -3,7 +3,8 @@
 import api from "@/lib/api";
 import { SystemRole } from "@/lib/types";
 import { useAuthStore } from "@/store/authStore";
-import { ArrowUpCircle, Package, Plus } from "lucide-react";
+import { ArrowUpCircle, ClipboardList, Package, Plus } from "lucide-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -11,7 +12,7 @@ import toast from "react-hot-toast";
 interface StoreItem {
   id: number | string;
   name: string;
-  category: string;
+  category: { id: number; name: string } | string;
   quantity: number;
   lowStockThreshold?: number;
   unit: string;
@@ -27,19 +28,43 @@ export default function StorePage() {
   const companyId = params.companyId as string;
   const { hasRole } = useAuthStore();
   const [items, setItems] = useState<StoreItem[]>([]);
+  const [categories, setCategories] = useState<{ id: number; name: string }[]>(
+    [],
+  );
   const [units, setUnits] = useState<Unit[]>([]);
+  const [pageLoading, setPageLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [restockItem, setRestockItem] = useState<StoreItem | null>(null);
+  const [restockQty, setRestockQty] = useState<number>(0);
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [itemData, setItemData] = useState({
     name: "",
-    category: "CONSUMABLE",
+    type: "CONSUMABLE",
+    categoryId: null as number | null,
     quantity: 0,
     lowStockThreshold: 5,
     unit: "pcs",
   });
 
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get(
+        `/companies/${companyId}/store-items/categories`,
+      );
+      setCategories(res.data);
+    } catch {
+      /* silent */
+    }
+  };
+
   const fetchItems = async () => {
     try {
-      const res = await api.get(`/companies/${companyId}/store-items`);
+      const p = new URLSearchParams();
+      if (categoryFilter) p.append("categoryId", categoryFilter);
+      const qs = p.toString();
+      const res = await api.get(
+        `/companies/${companyId}/store-items${qs ? `?${qs}` : ""}`,
+      );
       setItems(res.data);
     } catch {
       toast.error("Failed to load store data");
@@ -51,27 +76,45 @@ export default function StorePage() {
       const res = await api.get("/measuring-units");
       setUnits(res.data);
     } catch {
-      console.error("Failed to fetch units");
+      /* silent */
     }
   };
 
   useEffect(() => {
-    fetchItems();
-    fetchUnits();
+    const load = async () => {
+      setPageLoading(true);
+      await Promise.all([fetchCategories(), fetchItems(), fetchUnits()]);
+      setPageLoading(false);
+    };
+    load();
   }, [companyId]);
+  useEffect(() => {
+    fetchItems();
+  }, [categoryFilter]);
 
   const handleCreateItem = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!itemData.categoryId) {
+      toast.error("Please select a category");
+      return;
+    }
     try {
-      const payload: Record<string, unknown> = { ...itemData };
-      if (payload.category === "TOOL") delete payload.lowStockThreshold;
-
+      const payload: Record<string, unknown> = {
+        name: itemData.name,
+        categoryId: itemData.categoryId,
+        quantity: itemData.quantity,
+        unit: itemData.unit,
+      };
+      if (itemData.type !== "TOOL") {
+        payload.lowStockThreshold = itemData.lowStockThreshold;
+      }
       await api.post(`/companies/${companyId}/store-items`, payload);
       toast.success("Item added");
       setIsModalOpen(false);
       setItemData({
         name: "",
-        category: "CONSUMABLE",
+        type: "CONSUMABLE",
+        categoryId: null,
         quantity: 0,
         lowStockThreshold: 5,
         unit: "pcs",
@@ -82,19 +125,23 @@ export default function StorePage() {
     }
   };
 
-  const handleRestock = async (id: number | string) => {
-    const amount = prompt("Enter quantity to restock:");
-    if (amount) {
-      try {
-        await api.post(
-          `/companies/${companyId}/store-items/${id}/transaction`,
-          { type: "RESTOCK", quantity: parseFloat(amount) },
-        );
-        toast.success("Restocked successfully");
-        fetchItems();
-      } catch {
-        toast.error("Failed to restock");
-      }
+  const handleRestock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!restockItem || restockQty <= 0) {
+      toast.error("Enter a valid quantity");
+      return;
+    }
+    try {
+      await api.post(
+        `/companies/${companyId}/store-items/${restockItem.id}/transaction`,
+        { type: "RESTOCK", quantity: restockQty },
+      );
+      toast.success("Restocked successfully");
+      setRestockItem(null);
+      setRestockQty(0);
+      fetchItems();
+    } catch {
+      toast.error("Failed to restock");
     }
   };
 
@@ -114,18 +161,46 @@ export default function StorePage() {
     }
   };
 
+  if (pageLoading) {
+    return (
+      <div className="flex justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-800">Store Inventory</h1>
-        {hasRole([SystemRole.Owner, SystemRole.Storekeeper]) && (
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+        <div className="flex items-center space-x-3">
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="border border-gray-300 rounded-md p-2 bg-white text-sm"
           >
-            <Plus className="h-5 w-5 mr-1" /> Add Item
-          </button>
-        )}
+            <option value="">All Categories</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+          <Link
+            href={`/dashboard/companies/${companyId}/store/requests`}
+            className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+          >
+            <ClipboardList className="h-5 w-5 mr-1" /> Requests
+          </Link>
+          {hasRole([SystemRole.Owner, SystemRole.Storekeeper]) && (
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+            >
+              <Plus className="h-5 w-5 mr-1" /> Add Item
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -141,7 +216,11 @@ export default function StorePage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">{item.name}</h3>
-                  <p className="text-xs text-gray-500">{item.category}</p>
+                  <p className="text-xs text-gray-500">
+                    {typeof item.category === "object"
+                      ? (item.category as { name: string }).name
+                      : item.category}
+                  </p>
                 </div>
               </div>
               {item.quantity <= (item.lowStockThreshold || 0) && (
@@ -160,7 +239,10 @@ export default function StorePage() {
               </div>
               {hasRole([SystemRole.Owner, SystemRole.Storekeeper]) && (
                 <button
-                  onClick={() => handleRestock(item.id)}
+                  onClick={() => {
+                    setRestockItem(item);
+                    setRestockQty(0);
+                  }}
                   className="flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-md hover:bg-green-100 text-sm"
                 >
                   <ArrowUpCircle className="h-4 w-4 mr-1" /> Restock
@@ -170,6 +252,71 @@ export default function StorePage() {
           </div>
         ))}
       </div>
+
+      {/* Restock Modal */}
+      {restockItem && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl text-gray-900">
+            <h2 className="text-xl font-bold mb-4">Restock Item</h2>
+            <form onSubmit={handleRestock} className="space-y-4">
+              <div className="bg-gray-50 p-3 rounded-md space-y-2 text-sm">
+                <p>
+                  <span className="text-gray-500">Item:</span>{" "}
+                  <span className="font-medium">{restockItem.name}</span>
+                </p>
+                <p>
+                  <span className="text-gray-500">Category:</span>{" "}
+                  <span className="font-medium">
+                    {typeof restockItem.category === "object"
+                      ? (restockItem.category as { name: string }).name
+                      : restockItem.category}
+                  </span>
+                </p>
+                <p>
+                  <span className="text-gray-500">Unit:</span>{" "}
+                  <span className="font-medium">{restockItem.unit}</span>
+                </p>
+                <p>
+                  <span className="text-gray-500">Current Stock:</span>{" "}
+                  <span className="font-medium">
+                    {restockItem.quantity} {restockItem.unit}
+                  </span>
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Quantity to Add
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={restockQty}
+                  onChange={(e) =>
+                    setRestockQty(parseFloat(e.target.value) || 0)
+                  }
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                />
+              </div>
+              <div className="flex justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRestockItem(null)}
+                  className="px-4 py-2 text-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                >
+                  Restock
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
@@ -193,12 +340,12 @@ export default function StorePage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Category
+                    Item Type
                   </label>
                   <select
-                    value={itemData.category}
+                    value={itemData.type}
                     onChange={(e) =>
-                      setItemData({ ...itemData, category: e.target.value })
+                      setItemData({ ...itemData, type: e.target.value })
                     }
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
                   >
@@ -235,6 +382,28 @@ export default function StorePage() {
                   </div>
                 </div>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Store Category
+                </label>
+                <select
+                  value={itemData.categoryId || ""}
+                  onChange={(e) =>
+                    setItemData({
+                      ...itemData,
+                      categoryId: parseInt(e.target.value) || null,
+                    })
+                  }
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
@@ -253,7 +422,7 @@ export default function StorePage() {
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
                   />
                 </div>
-                {itemData.category === "CONSUMABLE" && (
+                {itemData.type !== "TOOL" && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
                       Low Stock Alert

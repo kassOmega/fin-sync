@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { SystemRole } from '@prisma/client';
@@ -39,8 +40,30 @@ export class StoreItemsController {
 
   @Get()
   @Roles(SystemRole.Owner, SystemRole.Storekeeper, SystemRole.ProjectManager)
-  findAll(@Param('companyId', ParseIntPipe) companyId: number) {
-    return this.service.findAll(companyId);
+  findAll(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Query('categoryId') categoryId?: string,
+  ) {
+    return this.service.findAll(
+      companyId,
+      categoryId ? parseInt(categoryId) : undefined,
+    );
+  }
+
+  // --- Category Management ---
+
+  @Get('categories')
+  getCategories(@Param('companyId', ParseIntPipe) companyId: number) {
+    return this.service.getCategories(companyId);
+  }
+
+  @Post('categories')
+  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
+  createCategory(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Body() dto: { name: string },
+  ) {
+    return this.service.createCategory(companyId, dto.name);
   }
 
   @Patch(':id')
@@ -66,6 +89,12 @@ export class StoreItemsController {
     @Body() dto: StoreTransactionDto,
   ) {
     return this.service.handleTransaction(id, dto, companyId);
+  }
+
+  @Get('requests')
+  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
+  getRequests(@Param('companyId', ParseIntPipe) companyId: number) {
+    return this.workflowService.getRequests(companyId);
   }
 
   @Post('requests')
@@ -97,9 +126,28 @@ export class StoreItemsController {
     return this.workflowService.approveRequest(id, user);
   }
 
+  @Patch('requests/:id/reject')
+  @Roles(SystemRole.Owner)
+  rejectRequest(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+  ) {
+    return this.workflowService.rejectRequest(id, user);
+  }
+
   @Patch('requests/:id/issue')
   @Roles(SystemRole.Owner, SystemRole.Storekeeper)
   issueItem(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
     return this.workflowService.issueItem(id, user);
+  }
+
+  @Patch('requests/:id/return')
+  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
+  returnItem(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+    @Param('companyId', ParseIntPipe) companyId: number,
+  ) {
+    return this.service.returnItem(id, user, companyId);
   }
 }
