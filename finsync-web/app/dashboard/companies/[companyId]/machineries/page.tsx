@@ -46,6 +46,7 @@ export default function MachineriesPage() {
   const { hasRole } = useAuthStore();
   const [machines, setMachines] = useState<Machine[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [pageLoading, setPageLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMachine, setEditingMachine] = useState<Machine | null>(null);
   const [viewingMachine, setViewingMachine] = useState<Machine | null>(null);
@@ -80,8 +81,12 @@ export default function MachineriesPage() {
   };
 
   useEffect(() => {
-    fetchMachines();
-    fetchProjects();
+    const load = async () => {
+      setPageLoading(true);
+      await Promise.all([fetchMachines(), fetchProjects()]);
+      setPageLoading(false);
+    };
+    load();
   }, [companyId]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -165,6 +170,14 @@ export default function MachineriesPage() {
       setMachineReport(null);
     }
   };
+
+  if (pageLoading) {
+    return (
+      <div className="flex justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

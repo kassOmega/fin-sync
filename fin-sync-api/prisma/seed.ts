@@ -1,8 +1,8 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import {
   BudgetType,
+  CompanyType,
   EmploymentType,
-  ItemCategory,
   MachineryOwnership,
   MachineryStatus,
   PrismaClient,
@@ -41,6 +41,12 @@ const daysAgo = (days: number) => {
 
 async function main() {
   console.log('🧹 Clearing existing database records...');
+  await prisma.saleItem.deleteMany();
+  await prisma.sale.deleteMany();
+  await prisma.customer.deleteMany();
+  await prisma.purchaseItem.deleteMany();
+  await prisma.purchase.deleteMany();
+  await prisma.supplier.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.storeRequest.deleteMany();
   await prisma.storeTransaction.deleteMany();
@@ -70,9 +76,7 @@ async function main() {
   // MEASURING UNITS
   // ==========================================
   console.log('📐 Creating Measuring Units...');
-  await prisma.measuringUnit.create({
-    data: { name: 'Kilograms (kg)' },
-  });
+  await prisma.measuringUnit.create({ data: { name: 'Kilograms (kg)' } });
   const unitLiters = await prisma.measuringUnit.create({
     data: { name: 'Liters (L)' },
   });
@@ -82,12 +86,8 @@ async function main() {
   const unitPcs = await prisma.measuringUnit.create({
     data: { name: 'Pieces (pcs)' },
   });
-  await prisma.measuringUnit.create({
-    data: { name: 'Meters (m)' },
-  });
-  await prisma.measuringUnit.create({
-    data: { name: 'Hours (hrs)' },
-  });
+  await prisma.measuringUnit.create({ data: { name: 'Meters (m)' } });
+  await prisma.measuringUnit.create({ data: { name: 'Hours (hrs)' } });
 
   // ==========================================
   // USERS
@@ -102,7 +102,6 @@ async function main() {
       phone: '+1-555-0100',
     },
   });
-
   const owner2 = await prisma.user.create({
     data: {
       name: 'Sarah Jenkins',
@@ -112,7 +111,6 @@ async function main() {
       phone: '+1-555-0101',
     },
   });
-
   const pm1 = await prisma.user.create({
     data: {
       name: 'Alex Vance',
@@ -122,17 +120,6 @@ async function main() {
       phone: '+1-555-0102',
     },
   });
-
-  const pm2 = await prisma.user.create({
-    data: {
-      name: 'Elena Rostova',
-      email: 'elena.pm@finsync.com',
-      password: commonPassword,
-      role: SystemRole.ProjectManager,
-      phone: '+1-555-0108',
-    },
-  });
-
   const foreman = await prisma.user.create({
     data: {
       name: 'Marcus Brody',
@@ -142,7 +129,6 @@ async function main() {
       phone: '+1-555-0103',
     },
   });
-
   const storekeeper = await prisma.user.create({
     data: {
       name: 'Bob Miller',
@@ -152,7 +138,6 @@ async function main() {
       phone: '+1-555-0104',
     },
   });
-
   const cashier = await prisma.user.create({
     data: {
       name: 'Jane Cashier',
@@ -162,8 +147,7 @@ async function main() {
       phone: '+1-555-0105',
     },
   });
-
-  const operator1 = await prisma.user.create({
+  const operator = await prisma.user.create({
     data: {
       name: 'David Heavy',
       email: 'david.op@finsync.com',
@@ -172,17 +156,6 @@ async function main() {
       phone: '+1-555-0106',
     },
   });
-
-  const operator2 = await prisma.user.create({
-    data: {
-      name: 'Carlos Mendez',
-      email: 'carlos.op@finsync.com',
-      password: commonPassword,
-      role: SystemRole.OperatorDriver,
-      phone: '+1-555-0109',
-    },
-  });
-
   const salesRep = await prisma.user.create({
     data: {
       name: 'Emma Stone',
@@ -194,40 +167,41 @@ async function main() {
   });
 
   // ==========================================
-  // COMPANIES & MEMBERSHIPS
+  // COMPANIES — different types!
   // ==========================================
   console.log('🏢 Creating Companies & Memberships...');
   const buildCo = await prisma.company.create({
     data: {
       name: 'BuildCo Construction',
       industry: 'Commercial Construction',
+      type: CompanyType.CONSTRUCTION,
       currency: 'USD',
       ownerId: owner1.id,
     },
   });
-
   const horizonLogistics = await prisma.company.create({
     data: {
       name: 'Horizon Freight & Logistics',
       industry: 'Transportation',
+      type: CompanyType.LOGISTICS,
       currency: 'USD',
       ownerId: owner2.id,
     },
   });
-
   const greenAgro = await prisma.company.create({
     data: {
       name: 'GreenValley Farms',
       industry: 'Agriculture',
+      type: CompanyType.AGRICULTURE,
       currency: 'USD',
       ownerId: owner1.id,
     },
   });
-
   const urbanThreads = await prisma.company.create({
     data: {
       name: 'Urban Threads Boutique',
       industry: 'Retail / Clothing',
+      type: CompanyType.RETAIL,
       currency: 'USD',
       ownerId: owner1.id,
     },
@@ -240,11 +214,6 @@ async function main() {
         companyId: buildCo.id,
         role: SystemRole.ProjectManager,
       },
-      {
-        userId: pm2.id,
-        companyId: buildCo.id,
-        role: SystemRole.ProjectManager,
-      },
       { userId: foreman.id, companyId: buildCo.id, role: SystemRole.Foreman },
       {
         userId: storekeeper.id,
@@ -253,12 +222,7 @@ async function main() {
       },
       { userId: cashier.id, companyId: buildCo.id, role: SystemRole.Cashier },
       {
-        userId: operator1.id,
-        companyId: buildCo.id,
-        role: SystemRole.OperatorDriver,
-      },
-      {
-        userId: operator2.id,
+        userId: operator.id,
         companyId: buildCo.id,
         role: SystemRole.OperatorDriver,
       },
@@ -272,141 +236,51 @@ async function main() {
         companyId: urbanThreads.id,
         role: SystemRole.Cashier,
       },
-      {
-        userId: operator1.id,
-        companyId: horizonLogistics.id,
-        role: SystemRole.OperatorDriver,
-      },
     ],
   });
 
   // ==========================================
-  // PERSONAL FINANCE DATA (John Owner)
+  // PERSONAL FINANCE
   // ==========================================
-  console.log('💳 Creating Personal Accounts & Transfers...');
-  const mainChecking = await prisma.personalAccount.create({
-    data: {
-      userId: owner1.id,
-      name: 'Main Checking (Chase)',
-      balance: 18450.0,
-    },
-  });
-
-  const highYieldSavings = await prisma.personalAccount.create({
-    data: { userId: owner1.id, name: 'High-Yield Savings', balance: 45000.0 },
-  });
-
-  const cashWallet = await prisma.personalAccount.create({
-    data: { userId: owner1.id, name: 'Cash Wallet', balance: 620.0 },
-  });
-
-  await prisma.accountTransfer.createMany({
-    data: [
-      {
-        userId: owner1.id,
-        fromAccountId: mainChecking.id,
-        toAccountId: highYieldSavings.id,
-        amount: 2500,
-        note: 'Monthly savings contribution',
-        date: daysAgo(25),
-      },
-      {
-        userId: owner1.id,
-        fromAccountId: mainChecking.id,
-        toAccountId: cashWallet.id,
-        amount: 300,
-        note: 'ATM cash withdrawal',
-        date: daysAgo(10),
-      },
-    ],
-  });
-
-  console.log('💰 Creating Personal Incomes, Budgets & Expenses...');
-  await prisma.personalIncome.createMany({
-    data: [
-      {
-        userId: owner1.id,
-        accountId: mainChecking.id,
-        amount: 8500,
-        category: 'Owner Dividend',
-        note: 'BuildCo Q2 Profit Share',
-        date: daysAgo(30),
-      },
-      {
-        userId: owner1.id,
-        accountId: mainChecking.id,
-        amount: 3200,
-        category: 'Owner Dividend',
-        note: 'GreenValley Farms Payout',
-        date: daysAgo(15),
-      },
-      {
-        userId: owner1.id,
-        accountId: highYieldSavings.id,
-        amount: 145.5,
-        category: 'Interest',
-        note: 'Monthly Savings Interest',
-        date: daysAgo(2),
-      },
-    ],
-  });
-
+  console.log('💰 Creating Personal Finance Data...');
   await prisma.personalBudget.createMany({
     data: [
       {
         userId: owner1.id,
-        category: 'Dining & Food',
-        amount: 1200,
+        category: 'General',
+        amount: 3500,
         frequency: BudgetType.MONTHLY,
         startDate: daysAgo(30),
       },
       {
         userId: owner1.id,
-        category: 'Fuel & Transportation',
+        category: 'General',
         amount: 400,
-        frequency: BudgetType.MONTHLY,
-        startDate: daysAgo(30),
-      },
-      {
-        userId: owner1.id,
-        category: 'Entertainment',
-        amount: 150,
         frequency: BudgetType.WEEKLY,
         startDate: daysAgo(7),
-      },
-      {
-        userId: owner1.id,
-        category: 'Utilities & Subscriptions',
-        amount: 500,
-        frequency: BudgetType.MONTHLY,
-        startDate: daysAgo(30),
       },
     ],
   });
 
   const personalExpensesData: any[] = [];
-  const personalCats = [
-    'Dining & Food',
-    'Fuel & Transportation',
+  const personalCategories = [
+    'Dining',
+    'Fuel',
     'Groceries',
     'Entertainment',
-    'Utilities & Subscriptions',
+    'Utilities',
+    'Misc',
   ];
-  const accountIds = [mainChecking.id, cashWallet.id];
-
-  for (let i = 0; i < 45; i++) {
-    const isRecurring = i % 15 === 0;
+  for (let i = 0; i < 30; i++) {
     personalExpensesData.push({
       userId: owner1.id,
-      accountId: accountIds[Math.floor(Math.random() * accountIds.length)],
-      amount: Math.round((Math.random() * 120 + 15) * 100) / 100,
-      category: personalCats[Math.floor(Math.random() * personalCats.length)],
-      note: isRecurring
-        ? 'Recurring Subscription / Service'
-        : 'General personal expense',
-      isCategorized: true,
-      isRecurring,
-      recurringFrequency: isRecurring ? 'MONTHLY' : null,
+      amount: Math.round((Math.random() * 80 + 10) * 100) / 100,
+      category:
+        personalCategories[
+          Math.floor(Math.random() * personalCategories.length)
+        ],
+      note: 'Auto-generated expense',
+      isCategorized: Math.random() > 0.2,
       date: daysAgo(i),
     });
   }
@@ -416,56 +290,46 @@ async function main() {
     data: [
       {
         userId: owner1.id,
-        targetAmount: 50000,
-        currentAmount: 45000,
-        thresholdAmount: 2000,
-        frequency: BudgetType.YEARLY,
-        startDate: daysAgo(200),
+        targetAmount: 15000,
+        currentAmount: 8400,
+        thresholdAmount: 1000,
+        frequency: BudgetType.MONTHLY,
+        startDate: daysAgo(180),
       },
       {
         userId: owner1.id,
-        targetAmount: 5000,
+        targetAmount: 3000,
         currentAmount: 2100,
-        thresholdAmount: 500,
-        frequency: BudgetType.MONTHLY,
+        thresholdAmount: 300,
+        frequency: BudgetType.WEEKLY,
         startDate: daysAgo(60),
       },
     ],
   });
 
   // ==========================================
-  // PROJECTS & UPDATES
+  // PROJECTS
   // ==========================================
   console.log('🏗️ Creating Projects & Updates...');
   const project1 = await prisma.project.create({
     data: {
       companyId: buildCo.id,
       name: 'Downtown Commercial Skyscraper',
-      progress: 42.0,
+      progress: 35.0,
     },
   });
-
-  const project2 = await prisma.project.create({
+  await prisma.project.create({
     data: {
       companyId: buildCo.id,
       name: 'Westside Residential Complex',
-      progress: 88.5,
+      progress: 78.5,
     },
   });
-
-  const project3 = await prisma.project.create({
-    data: {
-      companyId: buildCo.id,
-      name: 'City Center Bridge Overpass',
-      progress: 15.0,
-    },
-  });
-
-  const retailProject = await prisma.project.create({
+  await prisma.project.create({
     data: {
       companyId: urbanThreads.id,
       name: 'Winter Collection Launch',
-      progress: 60.0,
+      progress: 45.0,
     },
   });
 
@@ -474,50 +338,22 @@ async function main() {
       {
         projectId: project1.id,
         userId: pm1.id,
-        note: 'Foundation pouring completed successfully.',
+        note: 'Foundation pouring completed.',
         newProgress: 25.0,
-        date: daysAgo(45),
+        date: daysAgo(40),
       },
       {
         projectId: project1.id,
         userId: foreman.id,
-        note: 'Steel framing for floors 1 to 5 erected.',
+        note: 'Steel framing levels 1-3 erected.',
         newProgress: 35.0,
-        date: daysAgo(20),
-      },
-      {
-        projectId: project1.id,
-        userId: pm1.id,
-        note: 'Concrete slab installation for floors 1-3.',
-        newProgress: 42.0,
-        date: daysAgo(4),
-      },
-      {
-        projectId: project2.id,
-        userId: pm2.id,
-        note: 'Interior drywalls and plumbing inspected and passed.',
-        newProgress: 88.5,
-        date: daysAgo(2),
-      },
-      {
-        projectId: project3.id,
-        userId: pm2.id,
-        note: 'Site clearance and excavation initiated.',
-        newProgress: 15.0,
-        date: daysAgo(10),
-      },
-      {
-        projectId: retailProject.id,
-        userId: salesRep.id,
-        note: 'Garment manufacturing completed, distribution started.',
-        newProgress: 60.0,
-        date: daysAgo(3),
+        date: daysAgo(7),
       },
     ],
   });
 
   // ==========================================
-  // MACHINERY & FLEET
+  // MACHINERY
   // ==========================================
   console.log('🚜 Creating Machinery & Operators...');
   const excavator = await prisma.machinery.create({
@@ -527,38 +363,23 @@ async function main() {
       category: 'Excavation',
       status: MachineryStatus.WORKING,
       ownershipType: MachineryOwnership.OWNED,
-      runningHours: 1320.5,
-      lastMaintenanceHours: 1200.0,
+      runningHours: 1240.5,
+      lastMaintenanceHours: 1100.0,
       projectId: project1.id,
     },
   });
-
-  const crane = await prisma.machinery.create({
+  await prisma.machinery.create({
     data: {
       companyId: buildCo.id,
       name: 'Liebherr LTM 1120 Crane',
       category: 'Lifting Equipment',
       status: MachineryStatus.MAINTENANCE,
       ownershipType: MachineryOwnership.RENTED,
-      runningHours: 910.0,
-      lastMaintenanceHours: 900.0,
+      runningHours: 850.0,
+      lastMaintenanceHours: 850.0,
       projectId: project1.id,
     },
   });
-
-  const bulldozer = await prisma.machinery.create({
-    data: {
-      companyId: buildCo.id,
-      name: 'Komatsu D85 Crawler Dozer',
-      category: 'Earthmoving',
-      status: MachineryStatus.WORKING,
-      ownershipType: MachineryOwnership.OWNED,
-      runningHours: 640.0,
-      lastMaintenanceHours: 500.0,
-      projectId: project3.id,
-    },
-  });
-
   await prisma.machinery.create({
     data: {
       companyId: greenAgro.id,
@@ -566,27 +387,20 @@ async function main() {
       category: 'Farming Equipment',
       status: MachineryStatus.IDLE,
       ownershipType: MachineryOwnership.OWNED,
-      runningHours: 450.0,
-      lastMaintenanceHours: 400.0,
+      runningHours: 410.0,
+      lastMaintenanceHours: 350.0,
     },
   });
-
   await prisma.machineryOperator.createMany({
-    data: [
-      { machineryId: excavator.id, userId: operator1.id, isHelper: false },
-      { machineryId: crane.id, userId: operator1.id, isHelper: false },
-      { machineryId: crane.id, userId: operator2.id, isHelper: true },
-      { machineryId: bulldozer.id, userId: operator2.id, isHelper: false },
-    ],
+    data: [{ machineryId: excavator.id, userId: operator.id, isHelper: false }],
   });
 
   // ==========================================
   // COMPANY FINANCE
   // ==========================================
-  console.log('💵 Generating Bulk Financial Records for Companies...');
+  console.log('💳 Generating 90 days of Company Financial Records...');
   const companyExpensesData: any[] = [];
   const companyIncomesData: any[] = [];
-
   const expenseCats = [
     'Fuel',
     'Salary',
@@ -594,75 +408,73 @@ async function main() {
     'Rent',
     'Utilities',
     'Maintenance',
-    'Equipment Rental',
+    'Misc',
   ];
   const incomeCats = [
-    'Client Milestone Payment',
-    'Consulting Service',
-    'Rental Income',
     'Sales',
+    'Client Milestone Payment',
+    'Service',
+    'Rental Income',
   ];
 
-  for (let i = 0; i < 60; i++) {
-    // BuildCo Expenses & Incomes
-    if (Math.random() > 0.2) {
+  for (let i = 0; i < 90; i++) {
+    if (Math.random() > 0.3) {
       companyExpensesData.push({
         companyId: buildCo.id,
         registeredBy: cashier.id,
-        amount: Math.round((Math.random() * 3500 + 200) * 100) / 100,
+        amount: Math.round((Math.random() * 2000 + 100) * 100) / 100,
         category: expenseCats[Math.floor(Math.random() * expenseCats.length)],
-        note: `Project operational expense #${i + 1}`,
-        projectId: Math.random() > 0.5 ? project1.id : project2.id,
-        machineryId: Math.random() > 0.6 ? excavator.id : null,
-        measuringUnitId: unitLiters.id,
-        unit: 'Liters',
-        isRecurring: i % 10 === 0,
-        recurringFrequency: i % 10 === 0 ? 'MONTHLY' : null,
+        note: 'Auto-gen',
         date: daysAgo(i),
       });
     }
-
-    if (Math.random() > 0.6) {
+    if (Math.random() > 0.7) {
       companyIncomesData.push({
         companyId: buildCo.id,
         registeredBy: owner1.id,
-        amount: Math.round((Math.random() * 25000 + 5000) * 100) / 100,
+        amount: Math.round((Math.random() * 10000 + 1000) * 100) / 100,
         category: incomeCats[Math.floor(Math.random() * incomeCats.length)],
-        note: 'Project installment received',
-        projectId: project1.id,
+        note: 'Auto-gen',
         date: daysAgo(i),
       });
     }
-
-    // Urban Threads Retail Incomes (Daily POS Sales)
-    if (Math.random() > 0.1) {
+    if (Math.random() > 0.5) {
+      companyExpensesData.push({
+        companyId: urbanThreads.id,
+        registeredBy: cashier.id,
+        amount: Math.round((Math.random() * 500 + 20) * 100) / 100,
+        category: ['Purchasing', 'Rent', 'Utilities'][
+          Math.floor(Math.random() * 3)
+        ],
+        note: 'Auto-gen',
+        date: daysAgo(i),
+      });
+    }
+    if (Math.random() > 0.2) {
       companyIncomesData.push({
         companyId: urbanThreads.id,
         registeredBy: salesRep.id,
-        amount: Math.round((Math.random() * 1200 + 100) * 100) / 100,
+        amount: Math.round((Math.random() * 800 + 50) * 100) / 100,
         category: 'Sales',
-        note: 'Daily POS Retail Sales',
+        note: 'POS Transaction',
         date: daysAgo(i),
       });
     }
   }
-
-  // Large explicit milestone payment
   companyIncomesData.push({
     companyId: buildCo.id,
     registeredBy: owner1.id,
-    amount: 185000,
+    amount: 150000,
     category: 'Client Milestone Payment',
-    note: 'Phase 2 Completion Milestone for Downtown Skyscraper',
+    note: 'Milestone 2 payment',
     projectId: project1.id,
-    date: daysAgo(12),
+    date: daysAgo(20),
   });
-
   await prisma.companyExpense.createMany({ data: companyExpensesData });
   await prisma.companyIncome.createMany({ data: companyIncomesData });
 
   // ==========================================
-  // HR & EMPLOYEES
+  // EMPLOYEES
   // ==========================================
   console.log('👷 Creating Employees...');
   await prisma.employee.createMany({
@@ -671,101 +483,70 @@ async function main() {
         companyId: buildCo.id,
         name: 'Carlos Ruiz',
         employmentType: EmploymentType.PERMANENT,
-        wage: 4500,
+        wage: 4200,
         nextPayDate: daysAgo(-5),
       },
       {
         companyId: buildCo.id,
         name: "Liam O'Connor",
         employmentType: EmploymentType.DAILY_LABORER,
-        wage: 75,
+        wage: 65,
         nextPayDate: daysAgo(-1),
-      },
-      {
-        companyId: buildCo.id,
-        name: 'Samira Patel',
-        employmentType: EmploymentType.DAILY_LABORER,
-        wage: 80,
-        nextPayDate: daysAgo(-1),
-      },
-      {
-        companyId: greenAgro.id,
-        name: 'Jacob Thorne',
-        employmentType: EmploymentType.PERMANENT,
-        wage: 3200,
-        nextPayDate: daysAgo(-10),
       },
       {
         companyId: urbanThreads.id,
-        name: 'Retail Store Associate',
+        name: 'Retail Staff 1',
         employmentType: EmploymentType.PERMANENT,
-        wage: 2800,
-        nextPayDate: daysAgo(-3),
+        wage: 2500,
+        nextPayDate: daysAgo(-5),
       },
     ],
   });
 
   // ==========================================
-  // INVENTORY, TRANSACTIONS & REQUESTS
+  // STORE INVENTORY
   // ==========================================
-  console.log('📦 Creating Store Items, Requests & Transactions...');
+  console.log('📦 Creating Store Categories & Items...');
+
+  // Create categories for BuildCo
+  const catBuildCoGeneral = await prisma.storeCategory.create({
+    data: { companyId: buildCo.id, name: 'General' },
+  });
+  const catBuildCoConsumable = await prisma.storeCategory.create({
+    data: { companyId: buildCo.id, name: 'Consumables' },
+  });
+  const catBuildCoTools = await prisma.storeCategory.create({
+    data: { companyId: buildCo.id, name: 'Tools' },
+  });
+
   const cement = await prisma.storeItem.create({
     data: {
       companyId: buildCo.id,
       name: 'Portland Cement Bags (50kg)',
-      category: ItemCategory.CONSUMABLE,
-      quantity: 320,
-      lowStockThreshold: 100,
+      categoryId: catBuildCoConsumable.id,
+      quantity: 250,
+      lowStockThreshold: 50,
       unit: 'bags',
-      measuringUnitId: unitBags.id,
     },
   });
-
   const rebar = await prisma.storeItem.create({
     data: {
       companyId: buildCo.id,
       name: 'Steel Rebar T12 (12m)',
-      category: ItemCategory.CONSUMABLE,
-      quantity: 12, // Low stock triggered!
-      lowStockThreshold: 50,
+      categoryId: catBuildCoConsumable.id,
+      quantity: 18,
+      lowStockThreshold: 30,
       unit: 'pieces',
-      measuringUnitId: unitPcs.id,
     },
   });
-
-  const jackhammer = await prisma.storeItem.create({
+  await prisma.storeItem.create({
     data: {
       companyId: buildCo.id,
       name: 'Bosch Industrial Jackhammer',
-      category: ItemCategory.TOOL,
-      quantity: 5,
-      lowStockThreshold: 2,
+      categoryId: catBuildCoTools.id,
+      quantity: 4,
+      lowStockThreshold: 1,
       unit: 'pcs',
-      measuringUnitId: unitPcs.id,
-    },
-  });
-
-  const dieselFuel = await prisma.storeItem.create({
-    data: {
-      companyId: buildCo.id,
-      name: 'Industrial Diesel Fuel',
-      category: ItemCategory.CONSUMABLE,
-      quantity: 450,
-      lowStockThreshold: 1000, // Low stock triggered!
-      unit: 'liters',
-      measuringUnitId: unitLiters.id,
-    },
-  });
-
-  await prisma.storeItem.create({
-    data: {
-      companyId: urbanThreads.id,
-      name: 'Cotton T-Shirts (Assorted Sizes)',
-      category: ItemCategory.CONSUMABLE,
-      quantity: 210,
-      lowStockThreshold: 30,
-      unit: 'pcs',
-      measuringUnitId: unitPcs.id,
     },
   });
 
@@ -775,81 +556,204 @@ async function main() {
         itemId: cement.id,
         companyId: buildCo.id,
         type: StoreTxType.RESTOCK,
-        quantity: 500,
+        quantity: 300,
         status: 'APPROVED',
-        date: daysAgo(40),
+        date: daysAgo(30),
       },
       {
         itemId: cement.id,
         companyId: buildCo.id,
         type: StoreTxType.ISSUE,
-        quantity: 180,
+        quantity: 50,
         issuedToUserId: foreman.id,
         status: 'APPROVED',
-        date: daysAgo(15),
-      },
-      {
-        itemId: dieselFuel.id,
-        companyId: buildCo.id,
-        type: StoreTxType.RESTOCK,
-        quantity: 2000,
-        status: 'APPROVED',
-        date: daysAgo(30),
-      },
-      {
-        itemId: dieselFuel.id,
-        companyId: buildCo.id,
-        type: StoreTxType.ISSUE,
-        quantity: 1550,
-        issuedToUserId: operator1.id,
-        status: 'APPROVED',
-        date: daysAgo(5),
-      },
-      {
-        itemId: jackhammer.id,
-        companyId: buildCo.id,
-        type: StoreTxType.ISSUE,
-        quantity: 1,
-        issuedToUserId: operator2.id,
-        status: 'APPROVED',
-        date: daysAgo(8),
-      },
-      {
-        itemId: jackhammer.id,
-        companyId: buildCo.id,
-        type: StoreTxType.RETURN,
-        quantity: 1,
-        issuedToUserId: operator2.id,
-        status: 'APPROVED',
-        date: daysAgo(2),
+        date: daysAgo(20),
       },
     ],
   });
-
   await prisma.storeRequest.createMany({
     data: [
       {
         itemId: rebar.id,
         companyId: buildCo.id,
         userId: foreman.id,
-        quantity: 100,
+        quantity: 40,
         status: 'PENDING',
-      },
-      {
-        itemId: dieselFuel.id,
-        companyId: buildCo.id,
-        userId: operator1.id,
-        quantity: 500,
-        status: 'PENDING',
-      },
-      {
-        itemId: jackhammer.id,
-        companyId: buildCo.id,
-        userId: operator2.id,
-        quantity: 1,
-        status: 'APPROVED',
       },
     ],
+  });
+
+  // ==========================================
+  // RETAIL DATA — Urban Threads
+  // ==========================================
+  console.log('🛍️ Creating Retail Customers, Suppliers & Sales...');
+
+  const customer1 = await prisma.customer.create({
+    data: {
+      companyId: urbanThreads.id,
+      name: 'Alice Johnson',
+      phone: '+1-555-0201',
+      email: 'alice@example.com',
+    },
+  });
+  const customer2 = await prisma.customer.create({
+    data: {
+      companyId: urbanThreads.id,
+      name: 'Michael Chen',
+      phone: '+1-555-0202',
+    },
+  });
+  const walkIn = await prisma.customer.create({
+    data: { companyId: urbanThreads.id, name: 'Walk-in Customer' },
+  });
+
+  const supplier1 = await prisma.supplier.create({
+    data: {
+      companyId: urbanThreads.id,
+      name: 'Royal Textile Mills Ltd.',
+      phone: '+1-555-0301',
+      email: 'orders@royaltextile.com',
+    },
+  });
+  const supplier2 = await prisma.supplier.create({
+    data: {
+      companyId: urbanThreads.id,
+      name: 'Premium Fabrics Co.',
+      phone: '+1-555-0302',
+    },
+  });
+
+  // Create categories for Urban Threads
+  const catUrbanGeneral = await prisma.storeCategory.create({
+    data: { companyId: urbanThreads.id, name: 'General' },
+  });
+  const catUrbanClothing = await prisma.storeCategory.create({
+    data: { companyId: urbanThreads.id, name: 'Clothing' },
+  });
+
+  // Retail store items with prices
+  const tShirt = await prisma.storeItem.create({
+    data: {
+      companyId: urbanThreads.id,
+      name: 'Cotton T-Shirt (White)',
+      categoryId: catUrbanClothing.id,
+      quantity: 85,
+      lowStockThreshold: 20,
+      sellingPrice: 24.99,
+      costPrice: 12.5,
+      unit: 'pcs',
+    },
+  });
+  const jeans = await prisma.storeItem.create({
+    data: {
+      companyId: urbanThreads.id,
+      name: 'Denim Jeans (Blue)',
+      categoryId: catUrbanClothing.id,
+      quantity: 42,
+      lowStockThreshold: 15,
+      sellingPrice: 59.99,
+      costPrice: 28.0,
+      unit: 'pcs',
+    },
+  });
+  const jacket = await prisma.storeItem.create({
+    data: {
+      companyId: urbanThreads.id,
+      name: 'Winter Jacket (Black)',
+      categoryId: catUrbanClothing.id,
+      quantity: 18,
+      lowStockThreshold: 10,
+      sellingPrice: 129.99,
+      costPrice: 65.0,
+      unit: 'pcs',
+    },
+  });
+
+  // Sales transactions
+  await prisma.sale.create({
+    data: {
+      companyId: urbanThreads.id,
+      customerId: customer1.id,
+      registeredBy: salesRep.id,
+      totalAmount: 204.97,
+      discount: 10,
+      note: 'Regular customer',
+      date: daysAgo(3),
+      items: {
+        create: [
+          { itemId: tShirt.id, quantity: 3, unitPrice: 24.99, total: 74.97 },
+          { itemId: jeans.id, quantity: 2, unitPrice: 59.99, total: 119.98 },
+        ],
+      },
+    },
+  });
+
+  await prisma.sale.create({
+    data: {
+      companyId: urbanThreads.id,
+      customerId: customer2.id,
+      registeredBy: salesRep.id,
+      totalAmount: 389.97,
+      discount: 0,
+      date: daysAgo(7),
+      items: {
+        create: [
+          { itemId: jacket.id, quantity: 3, unitPrice: 129.99, total: 389.97 },
+        ],
+      },
+    },
+  });
+
+  await prisma.sale.create({
+    data: {
+      companyId: urbanThreads.id,
+      customerId: walkIn.id,
+      registeredBy: salesRep.id,
+      totalAmount: 74.97,
+      discount: 0,
+      note: 'Walk-in',
+      date: daysAgo(1),
+      items: {
+        create: [
+          { itemId: tShirt.id, quantity: 3, unitPrice: 24.99, total: 74.97 },
+        ],
+      },
+    },
+  });
+
+  // Purchases (restocking)
+  await prisma.purchase.create({
+    data: {
+      companyId: urbanThreads.id,
+      supplierId: supplier1.id,
+      registeredBy: storekeeper.id,
+      totalAmount: 3750,
+      note: 'Monthly restock',
+      date: daysAgo(20),
+      items: {
+        create: [
+          { itemId: tShirt.id, quantity: 100, unitCost: 12.5, total: 1250 },
+          { itemId: jeans.id, quantity: 50, unitCost: 28.0, total: 1400 },
+          { itemId: jacket.id, quantity: 20, unitCost: 55.0, total: 1100 },
+        ],
+      },
+    },
+  });
+
+  await prisma.purchase.create({
+    data: {
+      companyId: urbanThreads.id,
+      supplierId: supplier2.id,
+      registeredBy: storekeeper.id,
+      totalAmount: 650,
+      note: 'Premium jacket restock',
+      date: daysAgo(10),
+      items: {
+        create: [
+          { itemId: jacket.id, quantity: 10, unitCost: 65.0, total: 650 },
+        ],
+      },
+    },
   });
 
   // ==========================================
@@ -860,40 +764,32 @@ async function main() {
     data: [
       {
         userId: owner1.id,
-        title: '⚠️ Low Stock Warning',
-        message:
-          'Steel Rebar T12 quantity (12 pcs) is below threshold (50 pcs).',
+        title: '⚠️ Low Stock Alert',
+        message: 'Steel Rebar T12 quantity (18) is below threshold (30).',
         isRead: false,
       },
       {
         userId: owner1.id,
-        title: '⚠️ Fuel Level Alert',
-        message:
-          'Industrial Diesel Fuel quantity (450 L) is below threshold (1000 L).',
+        title: '📅 Daily Wage Due',
+        message: 'Payment due tomorrow for 2 daily laborers.',
         isRead: false,
-      },
-      {
-        userId: owner1.id,
-        title: '📅 Payroll Due Reminder',
-        message: 'Daily wage payment due tomorrow for 2 laborers.',
-        isRead: true,
       },
       {
         userId: storekeeper.id,
-        title: '📦 Pending Store Requisition',
-        message: 'Marcus Brody requested 100 Steel Rebar T12 pieces.',
-        isRead: false,
+        title: '📦 New Store Request',
+        message: 'Marcus Brody requested 40 Steel Rebar T12.',
+        isRead: true,
       },
       {
         userId: pm1.id,
-        title: '🔧 Equipment Maintenance Status',
-        message: 'Liebherr LTM 1120 Crane status updated to MAINTENANCE.',
+        title: '🔧 Equipment Maintenance Needed',
+        message: 'Liebherr Crane status updated to MAINTENANCE.',
         isRead: false,
       },
     ],
   });
 
-  console.log('🎉 Comprehensive database seed successfully completed!');
+  console.log('✅ Rich, dynamic relational seeds inserted successfully!');
 }
 
 main()

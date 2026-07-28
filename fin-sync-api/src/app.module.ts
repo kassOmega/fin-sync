@@ -20,7 +20,9 @@ import { PersonalFinanceModule } from './personal-finance/personal-finance.modul
 import { PersonalIncomesModule } from './personal-incomes/personal-incomes.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProjectsModule } from './projects/projects.module';
+import { PurchasesModule } from './purchases/purchases.module';
 import { ReportsModule } from './reports/reports.module';
+import { SalesModule } from './sales/sales.module';
 import { SavingsModule } from './savings/savings.module';
 import { StoreItemsModule } from './store-items/store-items.module';
 import { UsersModule } from './users/users.module';
@@ -47,6 +49,8 @@ import { UsersModule } from './users/users.module';
     PersonalAccountsModule,
     PersonalIncomesModule,
     PersonalFinanceModule,
+    SalesModule,
+    PurchasesModule,
     ScheduleModule.forRoot(),
     AutomationModule,
   ],

@@ -20,6 +20,7 @@ export default function StaffPage() {
   const params = useParams();
   const companyId = params.companyId as string;
   const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [pageLoading, setPageLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -39,7 +40,12 @@ export default function StaffPage() {
   };
 
   useEffect(() => {
-    fetchStaff();
+    const load = async () => {
+      setPageLoading(true);
+      await fetchStaff();
+      setPageLoading(false);
+    };
+    load();
   }, [companyId]);
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -77,6 +83,14 @@ export default function StaffPage() {
       }
     }
   };
+
+  if (pageLoading) {
+    return (
+      <div className="flex justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -120,7 +134,6 @@ export default function StaffPage() {
         ))}
       </div>
 
-      {/* Add Staff Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
