@@ -24,6 +24,12 @@ export class MachineriesService {
     );
   }
 
+  async findByProject(projectId: number) {
+    return this.prisma.$queryRawUnsafe(
+      `SELECT m.* FROM finsync.machineries m WHERE m."projectId" = ${projectId} ORDER BY m.name`,
+    );
+  }
+
   async findMyMachines(companyId: number, userId: number) {
     return this.prisma.$queryRawUnsafe(
       `SELECT m.* FROM finsync.machineries m
