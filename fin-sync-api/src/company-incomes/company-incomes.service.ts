@@ -35,9 +35,27 @@ export class CompanyIncomesService {
   async findAll(companyId: number) {
     return this.prisma.companyIncome.findMany({
       where: { companyId },
-      include: { user: { select: { name: true } } }, // <-- Add this
+      include: { user: { select: { name: true } } },
       orderBy: { date: 'desc' },
     });
+  }
+
+  async findByProject(projectId: number) {
+    return this.prisma.companyIncome.findMany({
+      where: { projectId },
+      include: { user: { select: { name: true } } },
+      orderBy: { date: 'desc' },
+    });
+  }
+
+  async getCategoriesByProject(companyId: number, projectId: number) {
+    const incomes = await this.prisma.companyIncome.findMany({
+      where: { companyId, projectId },
+      select: { category: true },
+      distinct: ['category'],
+      orderBy: { category: 'asc' },
+    });
+    return incomes.map((i) => i.category);
   }
 
   async update(id: number, dto: UpdateCompanyIncomeDto) {
@@ -45,7 +63,6 @@ export class CompanyIncomesService {
       where: { id },
     });
     if (!income) throw new NotFoundException('Income record not found');
-
     return this.prisma.companyIncome.update({
       where: { id },
       data: { ...dto, date: dto.date ? new Date(dto.date) : undefined },
@@ -53,10 +70,7 @@ export class CompanyIncomesService {
   }
 
   async remove(id: number) {
-    const income = await this.prisma.companyIncome.findUnique({
-      where: { id },
-    });
-    if (!income) throw new NotFoundException('Income record not found');
-    return this.prisma.companyIncome.delete({ where: { id } });
+    await this.prisma.companyIncome.delete({ where: { id } });
+    return { id, deleted: true };
   }
 }

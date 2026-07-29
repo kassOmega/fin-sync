@@ -50,6 +50,24 @@ export class CompanyExpensesService {
     return expense;
   }
 
+  async findByProject(projectId: number) {
+    return this.prisma.companyExpense.findMany({
+      where: { projectId },
+      include: { user: { select: { name: true } } },
+      orderBy: { date: 'desc' },
+    });
+  }
+
+  async getCategoriesByProject(companyId: number, projectId: number) {
+    const expenses = await this.prisma.companyExpense.findMany({
+      where: { companyId, projectId },
+      select: { category: true },
+      distinct: ['category'],
+      orderBy: { category: 'asc' },
+    });
+    return expenses.map((e) => e.category);
+  }
+
   async getCategories(companyId: number) {
     const expenses = await this.prisma.companyExpense.findMany({
       where: { companyId },
