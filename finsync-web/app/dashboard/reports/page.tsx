@@ -85,34 +85,6 @@ export default function ReportsDashboardPage() {
 
       {!loading && tab === "personal" && personalReport && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-lg shadow-sm border">
-              <p className="text-xs text-gray-500">Total Income</p>
-              <p className="text-xl font-bold text-gray-900">
-                ${personalReport.totalIncome}
-              </p>
-            </div>
-            <div className="bg-white p-5 rounded-lg shadow-sm border">
-              <p className="text-xs text-gray-500">Total Spent</p>
-              <p className="text-xl font-bold text-gray-900">
-                ${personalReport.totalSpent}
-              </p>
-            </div>
-            <div className="bg-white p-5 rounded-lg shadow-sm border">
-              <p className="text-xs text-gray-500">Net Worth</p>
-              <p className="text-xl font-bold text-gray-900">
-                ${personalReport.netWorth}
-              </p>
-            </div>
-            <div className="bg-white p-5 rounded-lg shadow-sm border">
-              <p className="text-xs text-gray-500">Savings</p>
-              <p className="text-xl font-bold text-gray-900">
-                ${personalReport.totalSavingsCurrent} / $
-                {personalReport.totalSavingsTarget}
-              </p>
-            </div>
-          </div>
-
           {monthlyChart.length > 0 && (
             <div className="bg-white p-6 rounded-lg shadow-sm border">
               <h3 className="text-sm font-semibold text-gray-500 mb-4">
@@ -188,35 +160,6 @@ export default function ReportsDashboardPage() {
 
       {!loading && tab === "company" && companyReport && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-lg shadow-sm border">
-              <p className="text-xs text-gray-500">Total Income</p>
-              <p className="text-xl font-bold text-gray-900">
-                ${companyReport.totalIncome}
-              </p>
-            </div>
-            <div className="bg-white p-5 rounded-lg shadow-sm border">
-              <p className="text-xs text-gray-500">Total Expenses</p>
-              <p className="text-xl font-bold text-gray-900">
-                ${companyReport.totalExpense}
-              </p>
-            </div>
-            <div className="bg-white p-5 rounded-lg shadow-sm border">
-              <p className="text-xs text-gray-500">Profit</p>
-              <p
-                className={`text-xl font-bold ${companyReport.profit >= 0 ? "text-gray-900" : "text-red-600"}`}
-              >
-                ${companyReport.profit}
-              </p>
-            </div>
-            <div className="bg-white p-5 rounded-lg shadow-sm border">
-              <p className="text-xs text-gray-500">Sales</p>
-              <p className="text-xl font-bold text-gray-900">
-                ${companyReport.totalSales} ({companyReport.salesCount})
-              </p>
-            </div>
-          </div>
-
           {companyChart.length > 0 && (
             <div className="bg-white p-6 rounded-lg shadow-sm border">
               <h3 className="text-sm font-semibold text-gray-500 mb-4">
