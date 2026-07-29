@@ -1,6 +1,8 @@
 "use client";
 
 import api from "@/lib/api";
+import { SystemRole } from "@/lib/types";
+import { useAuthStore } from "@/store/authStore";
 import { Eye, Flag, Pencil, Plus, Trash2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -33,6 +35,7 @@ export default function ProjectsPage() {
   const params = useParams();
   const companyId = params.companyId as string;
   const router = useRouter();
+  const { user } = useAuthStore();
   const [projects, setProjects] = useState<Project[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -43,7 +46,13 @@ export default function ProjectsPage() {
 
   const fetchProjects = async () => {
     try {
-      const res = await api.get(`/companies/${companyId}/projects`);
+      const isScopedRole =
+        user?.role === SystemRole.ProjectManager ||
+        user?.role === SystemRole.Foreman;
+      const endpoint = isScopedRole
+        ? `/companies/${companyId}/projects/my`
+        : `/companies/${companyId}/projects`;
+      const res = await api.get(endpoint);
       setProjects(res.data);
     } catch {
       toast.error("Failed to load projects");

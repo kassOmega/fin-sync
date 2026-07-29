@@ -44,7 +44,7 @@ export default function MachineriesPage() {
   const companyId = params.companyId as string;
   const router = useRouter();
 
-  const { hasRole } = useAuthStore();
+  const { hasRole, user } = useAuthStore();
   const [machines, setMachines] = useState<Machine[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
@@ -64,7 +64,11 @@ export default function MachineriesPage() {
   const fetchMachines = async () => {
     if (!companyId) return;
     try {
-      const res = await api.get(`/companies/${companyId}/machineries`);
+      const endpoint =
+        user?.role === SystemRole.OperatorDriver
+          ? `/companies/${companyId}/machineries/my`
+          : `/companies/${companyId}/machineries`;
+      const res = await api.get(endpoint);
       setMachines(res.data);
     } catch {
       toast.error("Failed to load machineries");
