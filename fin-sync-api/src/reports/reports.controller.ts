@@ -21,6 +21,12 @@ import { PermissionsGuard } from '../common/guards/permissions.guard';
 export class ReportsController {
   constructor(private readonly service: ReportsService) {}
 
+  @Get('reports/cumulative')
+  @RequirePermissions(PermissionCode.REPORTS_VIEW)
+  getCumulativeReport() {
+    return this.service.getCumulativeReport();
+  }
+
   @Get('companies/:companyId/reports')
   @RequirePermissions(PermissionCode.REPORTS_VIEW)
   getCompanyReport(

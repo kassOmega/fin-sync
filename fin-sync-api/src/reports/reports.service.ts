@@ -632,6 +632,88 @@ export class ReportsService {
     };
   }
 
+  async getCumulativeReport() {
+    const companies = await this.prisma.company.findMany({
+      select: { id: true, name: true },
+    });
+    const companyIds = companies.map((c) => c.id);
+    const [
+      incomes,
+      expenses,
+      sales,
+      purchases,
+      projects,
+      employees,
+      machineries,
+    ] = await Promise.all([
+      this.prisma.companyIncome.findMany({
+        where: { companyId: { in: companyIds } },
+      }),
+      this.prisma.companyExpense.findMany({
+        where: { companyId: { in: companyIds } },
+      }),
+      this.prisma.sale.findMany({ where: { companyId: { in: companyIds } } }),
+      this.prisma.purchase.findMany({
+        where: { companyId: { in: companyIds } },
+      }),
+      this.prisma.project.findMany({
+        where: { companyId: { in: companyIds } },
+      }),
+      this.prisma.employee.findMany({
+        where: { companyId: { in: companyIds } },
+      }),
+      this.prisma.machinery.findMany({
+        where: { companyId: { in: companyIds } },
+      }),
+    ]);
+    const totalIncome =
+      incomes.reduce((s, i) => s + i.amount, 0) +
+      sales.reduce((s, sa) => s + sa.totalAmount, 0);
+    const totalExpense =
+      expenses.reduce((s, e) => s + e.amount, 0) +
+      purchases.reduce((s, p) => s + p.totalAmount, 0);
+    const expensesByCategory: Record<string, number> = {};
+    expenses.forEach((e) => {
+      expensesByCategory[e.category] =
+        (expensesByCategory[e.category] || 0) + e.amount;
+    });
+    const incomesByCategory: Record<string, number> = {};
+    incomes.forEach((i) => {
+      incomesByCategory[i.category] =
+        (incomesByCategory[i.category] || 0) + i.amount;
+    });
+    const perCompany = companies.map((c) => ({
+      name: c.name,
+      Income: incomes
+        .filter((i) => i.companyId === c.id)
+        .reduce((s, i) => s + i.amount, 0),
+      Expenses: expenses
+        .filter((e) => e.companyId === c.id)
+        .reduce((s, e) => s + e.amount, 0),
+      Profit:
+        incomes
+          .filter((i) => i.companyId === c.id)
+          .reduce((s, i) => s + i.amount, 0) -
+        expenses
+          .filter((e) => e.companyId === c.id)
+          .reduce((s, e) => s + e.amount, 0),
+    }));
+    return {
+      summary: {
+        totalIncome,
+        totalExpense,
+        totalProfit: totalIncome - totalExpense,
+        companyCount: companies.length,
+        projectCount: projects.length,
+        employeeCount: employees.length,
+        machineryCount: machineries.length,
+      },
+      perCompany,
+      expensesByCategory,
+      incomesByCategory,
+    };
+  }
+
   async getCompanyExportData(companyId: number) {
     const incomes = await this.prisma.companyIncome.findMany({
       where: { companyId },

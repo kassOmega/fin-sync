@@ -28,7 +28,7 @@ export default function ReportsDashboardPage() {
         const pRes = await api.get(`/personal/reports`);
         setPersonalReport(pRes.data);
         if (tab === "company") {
-          const cRes = await api.get(`/companies/${activeCompanyId}/reports`);
+          const cRes = await api.get(`/reports/cumulative`);
           setCompanyReport(cRes.data);
         }
       } catch {
@@ -41,17 +41,15 @@ export default function ReportsDashboardPage() {
   }, [tab]);
 
   const monthlyChart = personalReport?.monthlyChart || [];
-  const companyChart = companyReport
+  const cum = companyReport?.summary;
+  const companyChart = cum
     ? [
-        { name: "Income", amount: companyReport.totalIncome, fill: "#10b981" },
-        {
-          name: "Expenses",
-          amount: companyReport.totalExpense,
-          fill: "#ef4444",
-        },
-        { name: "Profit", amount: companyReport.profit, fill: "#4f46e5" },
+        { name: "Income", amount: cum.totalIncome, fill: "#10b981" },
+        { name: "Expenses", amount: cum.totalExpense, fill: "#ef4444" },
+        { name: "Profit", amount: cum.totalProfit, fill: "#4f46e5" },
       ]
     : [];
+  const perCompanyChart = companyReport?.perCompany || [];
 
   return (
     <div className="space-y-6">
