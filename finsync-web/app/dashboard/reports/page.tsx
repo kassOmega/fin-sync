@@ -16,7 +16,7 @@ import {
 } from "recharts";
 
 export default function ReportsDashboardPage() {
-  const { user } = useAuthStore();
+  const { user, activeCompanyId } = useAuthStore();
   const [tab, setTab] = useState<"personal" | "company">("personal");
   const [personalReport, setPersonalReport] = useState<any>(null);
   const [companyReport, setCompanyReport] = useState<any>(null);
@@ -25,12 +25,12 @@ export default function ReportsDashboardPage() {
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const [pRes, cRes] = await Promise.all([
-          api.get(`/reports/personal`),
-          ...(tab === "company" ? [api.get(`/reports/company`)] : []),
-        ]);
-        if (pRes) setPersonalReport(pRes.data);
-        if (cRes) setCompanyReport(cRes.data);
+        const pRes = await api.get(`/personal/reports`);
+        setPersonalReport(pRes.data);
+        if (tab === "company") {
+          const cRes = await api.get(`/companies/${activeCompanyId}/reports`);
+          setCompanyReport(cRes.data);
+        }
       } catch {
       } finally {
         setLoading(false);
