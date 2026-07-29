@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 
 interface Employee {
   id: number;
+  userId: number | null;
   firstName: string;
   lastName: string;
   employeeCode: string;
@@ -20,10 +21,9 @@ export default function ProjectPersonnelPage() {
   const projectId = params.projectId as string;
   const router = useRouter();
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [assignedIds, setAssignedIds] = useState<number[]>([]);
+  const [assignedUserIds, setAssignedUserIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [selectedEmp, setSelectedEmp] = useState("");
 
   const fetchData = async () => {
     try {
@@ -32,11 +32,11 @@ export default function ProjectPersonnelPage() {
         api.get(`/companies/${companyId}/projects`),
       ]);
       setEmployees(empRes.data);
-      // Extract assigned user IDs from all project assignments
-      const allProjs = Array.isArray(projRes.data) ? projRes.data : [];
+      // Extract assigned user IDs from this project's assignments
+      const allProjs: any[] = Array.isArray(projRes.data) ? projRes.data : [];
       const thisProj = allProjs.find((p: any) => String(p.id) === projectId);
       const assignments = thisProj?.assignments || [];
-      setAssignedIds(
+      setAssignedUserIds(
         assignments.map((a: any) => a.user?.id || a.userId).filter(Boolean),
       );
     } catch {
@@ -54,15 +54,12 @@ export default function ProjectPersonnelPage() {
     fetchData();
   }, [companyId, projectId]);
 
-  const handleAssign = async () => {
-    if (!selectedEmp) return;
+  const handleAssign = async (userId: number) => {
     try {
       await api.post(`/companies/${companyId}/projects/${projectId}/assign`, {
-        userId: parseInt(selectedEmp),
+        userId,
       });
       toast.success("Assigned");
-      setAssignOpen(false);
-      setSelectedEmp("");
       fetchData();
     } catch {
       toast.error("Failed");
@@ -97,7 +94,7 @@ export default function ProjectPersonnelPage() {
           onClick={() => setAssignOpen(true)}
           className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
         >
-          <UserPlus className="h-5 w-5 mr-1" /> Assign Worker
+          <UserPlus className="h-5 w-5 mr-1" /> Assign
         </button>
       </div>
 
@@ -115,7 +112,7 @@ export default function ProjectPersonnelPage() {
                 Designation
               </th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
-                Status
+                Assigned
               </th>
               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                 Actions
@@ -131,7 +128,11 @@ export default function ProjectPersonnelPage() {
               </tr>
             ) : (
               employees.map((emp) => {
-                const isAssigned = assignedIds.includes(emp.id);
+                const uid = emp.userId;
+                const isAssigned =
+                  uid !== null &&
+                  uid !== undefined &&
+                  assignedUserIds.includes(uid);
                 return (
                   <tr key={emp.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm font-mono text-gray-500">
@@ -157,21 +158,22 @@ export default function ProjectPersonnelPage() {
                     <td className="px-4 py-3 text-right">
                       {isAssigned ? (
                         <button
-                          onClick={() => handleRemove(emp.id)}
+                          onClick={() => handleRemove(uid!)}
                           className="text-red-500 hover:text-red-700"
                         >
                           <UserX className="h-4 w-4" />
                         </button>
-                      ) : (
+                      ) : uid !== null ? (
                         <button
-                          onClick={() => {
-                            setSelectedEmp(String(emp.id));
-                            setAssignOpen(true);
-                          }}
-                          className="text-indigo-600 hover:text-indigo-900"
+                          onClick={() => handleAssign(uid)}
+                          className="text-sm text-indigo-600 hover:text-indigo-900 font-medium"
                         >
-                          Assign
+                          Assign to Project
                         </button>
+                      ) : (
+                        <span className="text-xs text-gray-400">
+                          No user linked
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -185,35 +187,17 @@ export default function ProjectPersonnelPage() {
       {assignOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
-            <h2 className="text-lg font-bold mb-4">Assign Worker to Project</h2>
-            <select
-              value={selectedEmp}
-              onChange={(e) => setSelectedEmp(e.target.value)}
-              className="w-full border border-gray-300 rounded p-2 mb-4 bg-white text-gray-900"
+            <h2 className="text-lg font-bold mb-4">Assign Employee</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Click "Assign to Project" next to any unassigned employee in the
+              table above.
+            </p>
+            <button
+              onClick={() => setAssignOpen(false)}
+              className="w-full px-4 py-2 bg-gray-100 rounded-md text-sm"
             >
-              <option value="">Select employee...</option>
-              {employees
-                .filter((e) => !assignedIds.includes(e.id))
-                .map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.firstName} {e.lastName} — {e.designation}
-                  </option>
-                ))}
-            </select>
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => setAssignOpen(false)}
-                className="px-4 py-2 text-gray-600 text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAssign}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm"
-              >
-                Assign
-              </button>
-            </div>
+              Close
+            </button>
           </div>
         </div>
       )}
