@@ -22,7 +22,7 @@ export class ProjectPurchasesController {
   @Get()
   @RequirePermissions(PermissionCode.PURCHASES_READ)
   findAll(@Param('projectId', ParseIntPipe) projectId: number) {
-    return this.service.findByProject(projectId);
+    return this.service.findAll(projectId);
   }
 
   @Post()
@@ -34,6 +34,6 @@ export class ProjectPurchasesController {
     @CurrentUser('id') userId: number,
   ) {
     body.projectId = projectId;
-    return this.service.create(companyId, userId, body);
+    return this.service.create(companyId, body, userId);
   }
 }
