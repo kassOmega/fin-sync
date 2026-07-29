@@ -1,5 +1,4 @@
 "use client";
-
 import api from "@/lib/api";
 import { Plus, Trash2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -7,7 +6,7 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 interface Expense {
-  id: number | string;
+  id: number;
   amount: number;
   category: string;
   note?: string;
@@ -62,7 +61,7 @@ export default function ProjectExpensesPage() {
     }
   };
 
-  const handleDelete = async (id: number | string) => {
+  const handleDelete = async (id: number) => {
     if (!confirm("Delete?")) return;
     try {
       await api.delete(
@@ -78,19 +77,19 @@ export default function ProjectExpensesPage() {
   if (loading)
     return (
       <div className="flex justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500" />
+        <div className="animate-spin h-8 w-8 border-t-2 border-b-2 border-indigo-500 rounded-full" />
       </div>
     );
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-gray-800">Project Expenses</h2>
+        <h2 className="text-xl font-bold text-gray-900">Project Expenses</h2>
         <button
           onClick={() => setModalOpen(true)}
           className="flex items-center px-3 py-1.5 bg-indigo-600 text-white rounded-md text-sm"
         >
-          <Plus className="h-4 w-4 mr-1" /> Add
+          <Plus className="h-4 w-4 mr-1" /> Add Expense
         </button>
       </div>
       <div className="bg-white shadow-sm rounded-lg border overflow-hidden">
@@ -103,7 +102,7 @@ export default function ProjectExpensesPage() {
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 Category
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                 Amount
               </th>
               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
@@ -119,18 +118,20 @@ export default function ProjectExpensesPage() {
                 </td>
               </tr>
             ) : (
-              expenses.map((exp) => (
-                <tr key={exp.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm">
-                    {new Date(exp.date).toLocaleDateString()}
+              expenses.map((e) => (
+                <tr key={e.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {new Date(e.date).toLocaleDateString()}
                   </td>
-                  <td className="px-4 py-3 text-sm">{exp.category}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-red-600">
-                    ${exp.amount}
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {e.category}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right font-medium text-red-600">
+                    ${e.amount}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
-                      onClick={() => handleDelete(exp.id)}
+                      onClick={() => handleDelete(e.id)}
                       className="text-red-500 hover:text-red-700"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -142,44 +143,64 @@ export default function ProjectExpensesPage() {
           </tbody>
         </table>
       </div>
+
       {modalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
-            <h2 className="text-lg font-bold mb-4">Add Expense</h2>
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <input
-                type="number"
-                step="0.01"
-                required
-                placeholder="Amount"
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
-              />
-              <input
-                required
-                placeholder="Category"
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
-              />
-              <input
-                placeholder="Note"
-                value={form.note}
-                onChange={(e) => setForm({ ...form, note: e.target.value })}
-                className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
-              />
+            <h2 className="text-lg font-bold text-gray-900 mb-4">
+              Add Expense
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount ($)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  placeholder="0.00"
+                  value={form.amount}
+                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                  className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Category
+                </label>
+                <input
+                  required
+                  placeholder="e.g. Materials, Labor"
+                  value={form.category}
+                  onChange={(e) =>
+                    setForm({ ...form, category: e.target.value })
+                  }
+                  className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Note (optional)
+                </label>
+                <input
+                  placeholder="Description or reference"
+                  value={form.note}
+                  onChange={(e) => setForm({ ...form, note: e.target.value })}
+                  className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
+                />
+              </div>
               <div className="flex justify-end space-x-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 text-gray-600 text-sm"
+                  className="px-4 py-2 text-sm text-gray-600"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm"
+                  className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
                 >
                   Save
                 </button>
