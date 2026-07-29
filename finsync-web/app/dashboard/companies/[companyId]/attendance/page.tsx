@@ -111,7 +111,7 @@ export default function AttendancePage() {
             setDate(e.target.value);
             setLoading(true);
           }}
-          className="border rounded-md p-2 text-sm"
+          className="border border-gray-300 rounded-md p-2 text-sm bg-white text-gray-900"
         />
       </div>
 
