@@ -3,7 +3,14 @@
 import { SystemRole } from "@/lib/types";
 import { useAuthStore } from "@/store/authStore";
 import { useLangStore } from "@/store/langStore";
-import { ClipboardList, Package, Store, Truck, Wrench } from "lucide-react";
+import {
+  BarChart3,
+  ClipboardList,
+  Package,
+  Store,
+  Truck,
+  Wrench,
+} from "lucide-react";
 import Link from "next/link";
 
 export default function DashboardHome() {
@@ -46,6 +53,25 @@ export default function DashboardHome() {
                 className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500"
               >
                 {t("overview.goCompanies")}
+              </Link>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="flex items-center space-x-2">
+                <BarChart3 className="h-5 w-5 text-purple-500" />
+                <h3 className="text-lg font-semibold text-gray-700">
+                  Reports & Analytics
+                </h3>
+              </div>
+              <p className="mt-2 text-sm text-gray-500">
+                View personal finance and company reports with interactive
+                charts and breakdowns.
+              </p>
+              <Link
+                href="/dashboard/reports"
+                className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                View Reports →
               </Link>
             </div>
 
