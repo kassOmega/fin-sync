@@ -9,31 +9,20 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { SystemRole } from '@prisma/client';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { UpdateStaffRoleDto, UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
 @Controller('users')
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   // Any logged in user can get their own profile
   @Get('me')
-  @Roles(
-    SystemRole.Owner,
-    SystemRole.Cashier,
-    SystemRole.Sales,
-    SystemRole.Storekeeper,
-    SystemRole.OperatorDriver,
-    SystemRole.ProjectManager,
-    SystemRole.Foreman,
-  )
   getMyProfile(@CurrentUser('id') userId: number) {
     return this.usersService.getMyProfile(userId);
   }
@@ -44,16 +33,14 @@ export class UsersController {
     return this.usersService.getMyCompany(userId);
   }
 
-  // ONLY Owner can create staff
+  // ONLY Owner can create staff (service layer enforces this)
   @Post('staff')
-  @Roles(SystemRole.Owner)
   createStaff(@Body() dto: CreateStaffDto, @CurrentUser('id') ownerId: number) {
     return this.usersService.createStaff(dto, ownerId);
   }
 
   // ONLY Owner can update staff
   @Patch(':id')
-  @Roles(SystemRole.Owner)
   updateStaff(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUserDto,
@@ -64,7 +51,6 @@ export class UsersController {
 
   // ONLY Owner can change a staff member's role
   @Patch(':id/role')
-  @Roles(SystemRole.Owner)
   updateStaffRole(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateStaffRoleDto,
@@ -75,7 +61,6 @@ export class UsersController {
 
   // ONLY Owner can delete staff
   @Delete(':id')
-  @Roles(SystemRole.Owner)
   deleteStaff(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser('id') ownerId: number,

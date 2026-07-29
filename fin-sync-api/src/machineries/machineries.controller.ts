@@ -9,11 +9,12 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { SystemRole } from '@prisma/client';
 
+import { PermissionCode } from '../common/constants/permission-codes';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { RequirePermissions } from '../common/decorators/permission.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { CreateMachineryDto } from './dto/create-machinery.dto';
 import { LogHoursDto } from './dto/log-hours.dto';
 import { UpdateMachineryDto } from './dto/update-machinery.dto';
@@ -21,17 +22,17 @@ import { MachineriesService } from './machineries.service';
 import { MaintenanceService } from './maintenance.service';
 
 @Controller('companies/:companyId/machineries')
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class MachineriesController {
   constructor(
     private readonly service: MachineriesService,
     private readonly maintenanceService: MaintenanceService,
   ) {}
 
-  // --- Owner-only: manage machinery catalog ---
+  // --- Manage machinery catalog ---
 
   @Post()
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.MACHINERY_WRITE)
   create(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Body() dto: CreateMachineryDto,
@@ -40,7 +41,7 @@ export class MachineriesController {
   }
 
   @Patch(':id')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.MACHINERY_WRITE)
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateMachineryDto,
@@ -49,7 +50,7 @@ export class MachineriesController {
   }
 
   @Delete(':id')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.MACHINERY_DELETE)
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);
   }
@@ -57,7 +58,6 @@ export class MachineriesController {
   // --- Read: all authorized roles see full list; operators see assigned only ---
 
   @Get('my')
-  @Roles(SystemRole.OperatorDriver)
   findMyMachines(
     @Param('companyId', ParseIntPipe) companyId: number,
     @CurrentUser('id') userId: number,
@@ -66,15 +66,15 @@ export class MachineriesController {
   }
 
   @Get()
-  @Roles(SystemRole.Owner, SystemRole.OperatorDriver, SystemRole.ProjectManager)
+  @RequirePermissions(PermissionCode.MACHINERY_READ)
   findAll(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.service.findAll(companyId);
   }
 
-  // --- Operator assignment (Owner only) ---
+  // --- Operator assignment ---
 
   @Post(':id/operators')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.MACHINERY_OPERATE)
   assignOperator(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: { userId: number; isHelper?: boolean },
@@ -85,7 +85,7 @@ export class MachineriesController {
   // --- Log hours: allowed for assigned operators + Owner ---
 
   @Post(':id/log-hours')
-  @Roles(SystemRole.Owner, SystemRole.OperatorDriver)
+  @RequirePermissions(PermissionCode.MACHINERY_OPERATE)
   logHours(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: LogHoursDto,
@@ -94,10 +94,10 @@ export class MachineriesController {
     return this.maintenanceService.logHours(id, dto.hours, userId);
   }
 
-  // --- Complete maintenance: Owner, Storekeeper, or assigned Operator can trigger ---
+  // --- Complete maintenance ---
 
   @Post(':id/complete-maintenance')
-  @Roles(SystemRole.Owner, SystemRole.Storekeeper, SystemRole.OperatorDriver)
+  @RequirePermissions(PermissionCode.MACHINERY_MAINTAIN)
   completeMaintenance(@Param('id', ParseIntPipe) id: number) {
     return this.maintenanceService.completeMaintenance(id);
   }

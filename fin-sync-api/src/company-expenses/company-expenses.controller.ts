@@ -9,21 +9,22 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { SystemRole } from '@prisma/client';
+import { PermissionCode } from '../common/constants/permission-codes';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { RequirePermissions } from '../common/decorators/permission.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { CompanyExpensesService } from './company-expenses.service';
 import { CreateCompanyExpenseDto } from './dto/create-company-expense.dto';
 import { UpdateCompanyExpenseDto } from './dto/update-company-expense.dto';
 
 @Controller('companies/:companyId/expenses')
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class CompanyExpensesController {
   constructor(private readonly service: CompanyExpensesService) {}
 
   @Post()
-  @Roles(SystemRole.Owner, SystemRole.Cashier, SystemRole.OperatorDriver)
+  @RequirePermissions(PermissionCode.FINANCE_EXPENSE_WRITE)
   create(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Body() dto: CreateCompanyExpenseDto,
@@ -38,7 +39,7 @@ export class CompanyExpensesController {
   }
 
   @Get()
-  @Roles(SystemRole.Owner, SystemRole.Cashier, SystemRole.ProjectManager)
+  @RequirePermissions(PermissionCode.FINANCE_EXPENSE_READ)
   findAll(
     @Param('companyId', ParseIntPipe) companyId: number,
     @CurrentUser() user: any,
@@ -47,7 +48,7 @@ export class CompanyExpensesController {
   }
 
   @Patch(':id')
-  @Roles(SystemRole.Owner, SystemRole.Cashier)
+  @RequirePermissions(PermissionCode.FINANCE_EXPENSE_WRITE)
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateCompanyExpenseDto,
@@ -57,7 +58,7 @@ export class CompanyExpensesController {
   }
 
   @Delete(':id')
-  @Roles(SystemRole.Owner, SystemRole.Cashier)
+  @RequirePermissions(PermissionCode.FINANCE_EXPENSE_WRITE)
   remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
     return this.service.remove(id, user);
   }

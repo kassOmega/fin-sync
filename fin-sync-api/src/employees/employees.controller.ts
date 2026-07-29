@@ -13,17 +13,18 @@ import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { EmployeesService } from './employees.service';
 
-import { SystemRole } from '@prisma/client';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { PermissionCode } from '../common/constants/permission-codes';
+import { RequirePermissions } from '../common/decorators/permission.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
 
 @Controller('companies/:companyId/employees')
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class EmployeesController {
   constructor(private readonly service: EmployeesService) {}
 
   @Post()
-  @Roles(SystemRole.Owner, SystemRole.ProjectManager, SystemRole.Foreman)
+  @RequirePermissions(PermissionCode.EMPLOYEES_MANAGE)
   create(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Body() dto: CreateEmployeeDto,
@@ -32,13 +33,13 @@ export class EmployeesController {
   }
 
   @Get()
-  @Roles(SystemRole.Owner, SystemRole.ProjectManager, SystemRole.Foreman)
+  @RequirePermissions(PermissionCode.EMPLOYEES_MANAGE)
   findAll(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.service.findAll(companyId);
   }
 
   @Patch(':id')
-  @Roles(SystemRole.Owner, SystemRole.ProjectManager)
+  @RequirePermissions(PermissionCode.EMPLOYEES_MANAGE)
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateEmployeeDto,
@@ -47,7 +48,7 @@ export class EmployeesController {
   }
 
   @Delete(':id')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.EMPLOYEES_MANAGE)
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);
   }

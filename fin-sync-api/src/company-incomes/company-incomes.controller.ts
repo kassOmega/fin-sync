@@ -9,22 +9,23 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { SystemRole } from '@prisma/client';
+import { PermissionCode } from '../common/constants/permission-codes';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { RequirePermissions } from '../common/decorators/permission.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { CompanyIncomesService } from './company-incomes.service';
 import { CreateCompanyIncomeDto } from './dto/create-company-income.dto';
 import { UpdateCompanyIncomeDto } from './dto/update-company-income.dto';
 
 @Controller('companies/:companyId/incomes')
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class CompanyIncomesController {
   constructor(private readonly service: CompanyIncomesService) {}
 
   @Post()
-  @Roles(SystemRole.Owner, SystemRole.Cashier, SystemRole.Sales)
+  @RequirePermissions(PermissionCode.FINANCE_INCOME_WRITE)
   create(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Body() dto: CreateCompanyIncomeDto,
@@ -39,13 +40,13 @@ export class CompanyIncomesController {
   }
 
   @Get()
-  @Roles(SystemRole.Owner, SystemRole.Cashier, SystemRole.ProjectManager)
+  @RequirePermissions(PermissionCode.FINANCE_INCOME_READ)
   findAll(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.service.findAll(companyId);
   }
 
   @Patch(':id')
-  @Roles(SystemRole.Owner, SystemRole.Cashier)
+  @RequirePermissions(PermissionCode.FINANCE_INCOME_WRITE)
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateCompanyIncomeDto,
@@ -54,7 +55,7 @@ export class CompanyIncomesController {
   }
 
   @Delete(':id')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.FINANCE_INCOME_WRITE)
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);
   }

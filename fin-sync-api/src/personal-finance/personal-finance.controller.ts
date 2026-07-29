@@ -1,14 +1,11 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
-import { SystemRole } from '@prisma/client';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PersonalFinanceService } from './personal-finance.service';
 
 @Controller('personal-finance')
-@UseGuards(RolesGuard)
-@Roles(SystemRole.Owner)
+@UseGuards(JwtAuthGuard)
 export class PersonalFinanceController {
   constructor(private readonly service: PersonalFinanceService) {}
 

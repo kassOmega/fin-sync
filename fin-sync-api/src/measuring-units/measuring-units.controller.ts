@@ -1,11 +1,9 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
-import { SystemRole } from '@prisma/client';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { MeasuringUnitsService } from './measuring-units.service';
 
 @Controller('measuring-units')
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard)
 export class MeasuringUnitsController {
   constructor(private readonly service: MeasuringUnitsService) {}
 
@@ -15,7 +13,6 @@ export class MeasuringUnitsController {
   }
 
   @Post()
-  @Roles(SystemRole.Owner, SystemRole.Storekeeper, SystemRole.Cashier)
   create(@Body() body: { name: string }) {
     return this.service.create(body.name);
   }

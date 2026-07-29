@@ -8,17 +8,14 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { SystemRole } from '@prisma/client';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CreatePersonalIncomeDto } from './dto/create-personal-income.dto';
 import { PersonalIncomesService } from './personal-incomes.service';
 
 @Controller('personal-incomes')
-@UseGuards(RolesGuard)
-@Roles(SystemRole.Owner)
+@UseGuards(JwtAuthGuard)
 export class PersonalIncomesController {
   constructor(private readonly service: PersonalIncomesService) {}
 

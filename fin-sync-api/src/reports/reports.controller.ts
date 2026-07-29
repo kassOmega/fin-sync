@@ -10,18 +10,19 @@ import {
 import type { Response } from 'express';
 import { ReportsService } from './reports.service';
 
-import { SystemRole } from '@prisma/client';
+import { PermissionCode } from '../common/constants/permission-codes';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { RequirePermissions } from '../common/decorators/permission.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
 
 @Controller()
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ReportsController {
   constructor(private readonly service: ReportsService) {}
 
   @Get('companies/:companyId/reports')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.REPORTS_VIEW)
   getCompanyReport(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Query('startDate') startDate?: string,
@@ -31,49 +32,49 @@ export class ReportsController {
   }
 
   @Get('personal/reports')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.REPORTS_VIEW)
   getPersonalReport(@CurrentUser('id') userId: number) {
     return this.service.getPersonalReport(userId);
   }
 
   @Get('companies/:companyId/forecast')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.REPORTS_VIEW)
   getCompanyForecast(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.service.getCompanyForecast(companyId);
   }
-  // Add these routes to the class
+
   @Get('machineries/:machineryId/reports')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.REPORTS_VIEW)
   getMachineryReport(@Param('machineryId', ParseIntPipe) machineryId: number) {
     return this.service.getMachineryReport(machineryId);
   }
 
   @Get('projects/:projectId/reports')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.REPORTS_VIEW)
   getProjectReport(@Param('projectId', ParseIntPipe) projectId: number) {
     return this.service.getProjectReport(projectId);
   }
 
   @Get('companies/:companyId/reports/projects')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.REPORTS_VIEW)
   getAllProjectsReport(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.service.getAllProjectsReport(companyId);
   }
 
   @Get('companies/:companyId/reports/machineries')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.REPORTS_VIEW)
   getAllMachineriesReport(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.service.getAllMachineriesReport(companyId);
   }
 
   @Get('companies/:companyId/reports/inventory')
-  @Roles(SystemRole.Owner, SystemRole.Storekeeper, SystemRole.Sales)
+  @RequirePermissions(PermissionCode.REPORTS_VIEW)
   getInventoryReport(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.service.getInventoryReport(companyId);
   }
 
   @Get('companies/:companyId/reports/sales')
-  @Roles(SystemRole.Owner, SystemRole.Sales)
+  @RequirePermissions(PermissionCode.REPORTS_VIEW)
   getSalesReport(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Query('startDate') startDate?: string,
@@ -83,7 +84,7 @@ export class ReportsController {
   }
 
   @Get('companies/:companyId/reports/purchases')
-  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
+  @RequirePermissions(PermissionCode.REPORTS_VIEW)
   getPurchasesReport(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Query('startDate') startDate?: string,
@@ -93,7 +94,7 @@ export class ReportsController {
   }
 
   @Get('companies/:companyId/reports/export')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.REPORTS_EXPORT)
   async exportCompanyReport(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Res() res: Response,

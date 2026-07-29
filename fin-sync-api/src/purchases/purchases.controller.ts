@@ -7,19 +7,20 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { SystemRole } from '@prisma/client';
+import { PermissionCode } from '../common/constants/permission-codes';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { RequirePermissions } from '../common/decorators/permission.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { PurchasesService } from './purchases.service';
 
 @Controller('companies/:companyId/purchases')
-@UseGuards(RolesGuard)
-@Roles(SystemRole.Owner, SystemRole.Storekeeper)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PurchasesController {
   constructor(private readonly service: PurchasesService) {}
 
   @Post()
+  @RequirePermissions(PermissionCode.PURCHASES_WRITE)
   create(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Body()
@@ -43,16 +44,19 @@ export class PurchasesController {
   }
 
   @Get()
+  @RequirePermissions(PermissionCode.PURCHASES_READ)
   findAll(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.service.findAll(companyId);
   }
 
   @Get('suppliers/list')
+  @RequirePermissions(PermissionCode.SUPPLIER_MANAGE)
   getSuppliers(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.service.getSuppliers(companyId);
   }
 
   @Post('suppliers')
+  @RequirePermissions(PermissionCode.SUPPLIER_MANAGE)
   createSupplier(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Body()

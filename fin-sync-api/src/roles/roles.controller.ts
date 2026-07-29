@@ -9,22 +9,23 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { SystemRole } from '@prisma/client';
+import { PermissionCode } from '../common/constants/permission-codes';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { RequirePermissions } from '../common/decorators/permission.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RolesService } from './roles.service';
 
 @Controller('companies/:companyId')
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   // --- Permissions (read-only, system-level) ---
 
   @Get('permissions')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.ROLE_MANAGE)
   getPermissions() {
     return this.rolesService.getPermissions();
   }
@@ -32,7 +33,7 @@ export class RolesController {
   // --- Custom Roles CRUD ---
 
   @Post('roles')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.ROLE_MANAGE)
   createRole(
     @Param('companyId', ParseIntPipe) companyId: number,
     @CurrentUser('id') ownerId: number,
@@ -47,7 +48,7 @@ export class RolesController {
   }
 
   @Get('roles')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.ROLE_MANAGE)
   getRoles(
     @Param('companyId', ParseIntPipe) companyId: number,
     @CurrentUser('id') ownerId: number,
@@ -56,7 +57,7 @@ export class RolesController {
   }
 
   @Get('roles/:id')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.ROLE_MANAGE)
   getRole(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Param('id', ParseIntPipe) id: number,
@@ -66,7 +67,7 @@ export class RolesController {
   }
 
   @Patch('roles/:id')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.ROLE_MANAGE)
   updateRole(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Param('id', ParseIntPipe) id: number,
@@ -83,7 +84,7 @@ export class RolesController {
   }
 
   @Delete('roles/:id')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.ROLE_MANAGE)
   deleteRole(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Param('id', ParseIntPipe) id: number,
@@ -95,7 +96,7 @@ export class RolesController {
   // --- Role Assignment to Staff ---
 
   @Patch('staff/:memberId/assign-role')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.ROLE_MANAGE)
   assignRoleToMember(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Param('memberId', ParseIntPipe) memberId: number,
@@ -111,7 +112,7 @@ export class RolesController {
   }
 
   @Delete('staff/:memberId/assign-role')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.ROLE_MANAGE)
   removeRoleFromMember(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Param('memberId', ParseIntPipe) memberId: number,

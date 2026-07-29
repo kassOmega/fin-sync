@@ -9,18 +9,15 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { SystemRole } from '@prisma/client';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CreateSavingDto } from './dto/create-saving.dto';
 import { UpdateSavingDto } from './dto/update-saving.dto';
 import { SavingsService } from './savings.service';
 
 @Controller('savings')
-@UseGuards(RolesGuard)
-@Roles(SystemRole.Owner)
+@UseGuards(JwtAuthGuard)
 export class SavingsController {
   constructor(private readonly service: SavingsService) {}
 

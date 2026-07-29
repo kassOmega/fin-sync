@@ -8,11 +8,12 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { SystemRole } from '@prisma/client';
+import { PermissionCode } from '../common/constants/permission-codes';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { RequirePermissions } from '../common/decorators/permission.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { StoreWorkflowService } from './store-workflow.service';
 
 /**
@@ -20,13 +21,13 @@ import { StoreWorkflowService } from './store-workflow.service';
  * Used by the /dashboard/requisitions page for cross-company request management.
  */
 @Controller('store-requests')
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class StoreRequestsController {
   constructor(private readonly workflowService: StoreWorkflowService) {}
 
   // Owner: get ALL requests across all companies
   @Get('all')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.STORE_REQUEST_APPROVE)
   getAllRequests() {
     return this.workflowService.getAllRequests();
   }
@@ -39,15 +40,7 @@ export class StoreRequestsController {
 
   // Staff: create a new request (needs companyId in body)
   @Post()
-  @Roles(
-    SystemRole.Owner,
-    SystemRole.Cashier,
-    SystemRole.Sales,
-    SystemRole.Storekeeper,
-    SystemRole.OperatorDriver,
-    SystemRole.ProjectManager,
-    SystemRole.Foreman,
-  )
+  @RequirePermissions(PermissionCode.STORE_REQUEST_CREATE)
   createRequest(
     @CurrentUser() user: any,
     @Body() body: { companyId: number; itemId: number; quantity: number },
@@ -62,7 +55,7 @@ export class StoreRequestsController {
 
   // Owner: approve a request
   @Patch(':id/approve')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.STORE_REQUEST_APPROVE)
   approveRequest(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: any,
@@ -72,7 +65,7 @@ export class StoreRequestsController {
 
   // Owner: reject a request
   @Patch(':id/reject')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.STORE_REQUEST_APPROVE)
   rejectRequest(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: any,
@@ -82,7 +75,7 @@ export class StoreRequestsController {
 
   // Storekeeper/Owner: issue an approved request
   @Patch(':id/issue')
-  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
+  @RequirePermissions(PermissionCode.STORE_REQUEST_ISSUE)
   issueItem(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
     return this.workflowService.issueItem(id, user);
   }

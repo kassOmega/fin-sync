@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { AutomationModule } from './automation/automation.module';
 import { BudgetsModule } from './budgets/budgets.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { PermissionsGuard } from './common/guards/permissions.guard';
 import { CompaniesModule } from './companies/companies.module';
 import { CompanyExpensesModule } from './company-expenses/company-expenses.module';
 import { CompanyIncomesModule } from './company-incomes/company-incomes.module';
@@ -62,6 +63,10 @@ import { UsersModule } from './users/users.module';
     {
       provide: 'APP_GUARD',
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: 'APP_GUARD',
+      useClass: PermissionsGuard,
     },
   ],
 })

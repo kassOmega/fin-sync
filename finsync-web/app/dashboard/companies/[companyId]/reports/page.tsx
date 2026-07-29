@@ -54,7 +54,7 @@ export default function CompanyReportsPage() {
   const companyId = params.companyId as string;
   const [report, setReport] = useState<CompanyReport | null>(null);
   const [forecast, setForecast] = useState<CompanyForecast | null>(null);
-
+  console.log("forecast=====>", forecast);
   useEffect(() => {
     const fetchData = async () => {
       try {

@@ -9,21 +9,22 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { SystemRole } from '@prisma/client';
 
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { PermissionCode } from '../common/constants/permission-codes';
+import { RequirePermissions } from '../common/decorators/permission.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectsService } from './projects.service';
 
 @Controller('companies/:companyId/projects')
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ProjectsController {
   constructor(private readonly service: ProjectsService) {}
 
   @Post()
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.PROJECTS_WRITE)
   create(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Body() dto: CreateProjectDto,
@@ -32,19 +33,19 @@ export class ProjectsController {
   }
 
   @Get()
-  @Roles(SystemRole.Owner, SystemRole.ProjectManager, SystemRole.Foreman)
+  @RequirePermissions(PermissionCode.PROJECTS_READ)
   findAll(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.service.findAll(companyId);
   }
 
   @Patch(':id')
-  @Roles(SystemRole.Owner, SystemRole.ProjectManager)
+  @RequirePermissions(PermissionCode.PROJECTS_WRITE)
   update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateProjectDto) {
     return this.service.update(id, dto);
   }
 
   @Delete(':id')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.PROJECTS_DELETE)
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);
   }

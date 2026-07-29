@@ -10,11 +10,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { SystemRole } from '@prisma/client';
+import { PermissionCode } from '../common/constants/permission-codes';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { RequirePermissions } from '../common/decorators/permission.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { CreateStoreItemDto } from './dto/create-store-item.dto';
 import { StoreTransactionDto } from './dto/store-transaction.dto';
 import { UpdateStoreItemDto } from './dto/update-store-item.dto';
@@ -22,7 +23,7 @@ import { StoreItemsService } from './store-items.service';
 import { StoreWorkflowService } from './store-workflow.service';
 
 @Controller('companies/:companyId/store-items')
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class StoreItemsController {
   constructor(
     private readonly service: StoreItemsService,
@@ -32,7 +33,7 @@ export class StoreItemsController {
   // --- Literal path routes must come BEFORE parameterized :id routes ---
 
   @Post()
-  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
+  @RequirePermissions(PermissionCode.STORE_WRITE)
   create(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Body() dto: CreateStoreItemDto,
@@ -47,7 +48,7 @@ export class StoreItemsController {
   }
 
   @Post('categories')
-  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
+  @RequirePermissions(PermissionCode.STORE_WRITE)
   createCategory(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Body() dto: { name: string },
@@ -57,29 +58,12 @@ export class StoreItemsController {
 
   // --- Request Management ---
   @Get('requests')
-  @Roles(
-    SystemRole.Owner,
-    SystemRole.Storekeeper,
-    SystemRole.Cashier,
-    SystemRole.Sales,
-    SystemRole.OperatorDriver,
-    SystemRole.ProjectManager,
-    SystemRole.Foreman,
-  )
   getRequests(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.workflowService.getRequests(companyId);
   }
 
   @Post('requests')
-  @Roles(
-    SystemRole.Owner,
-    SystemRole.Cashier,
-    SystemRole.Sales,
-    SystemRole.Storekeeper,
-    SystemRole.OperatorDriver,
-    SystemRole.ProjectManager,
-    SystemRole.Foreman,
-  )
+  @RequirePermissions(PermissionCode.STORE_REQUEST_CREATE)
   createRequest(
     @Param('companyId', ParseIntPipe) companyId: number,
     @CurrentUser() user: any,
@@ -94,7 +78,7 @@ export class StoreItemsController {
   }
 
   @Patch('requests/:id/approve')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.STORE_REQUEST_APPROVE)
   approveRequest(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: any,
@@ -103,7 +87,7 @@ export class StoreItemsController {
   }
 
   @Patch('requests/:id/reject')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.STORE_REQUEST_APPROVE)
   rejectRequest(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: any,
@@ -112,13 +96,13 @@ export class StoreItemsController {
   }
 
   @Patch('requests/:id/issue')
-  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
+  @RequirePermissions(PermissionCode.STORE_REQUEST_ISSUE)
   issueItem(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
     return this.workflowService.issueItem(id, user);
   }
 
   @Patch('requests/:id/return')
-  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
+  @RequirePermissions(PermissionCode.STORE_WRITE)
   returnItem(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: any,
@@ -130,15 +114,7 @@ export class StoreItemsController {
   // --- Parameterized :id routes come AFTER all literal paths ---
 
   @Get()
-  @Roles(
-    SystemRole.Owner,
-    SystemRole.Storekeeper,
-    SystemRole.Cashier,
-    SystemRole.Sales,
-    SystemRole.OperatorDriver,
-    SystemRole.ProjectManager,
-    SystemRole.Foreman,
-  )
+  @RequirePermissions(PermissionCode.STORE_READ)
   findAll(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Query('categoryId') categoryId?: string,
@@ -150,7 +126,7 @@ export class StoreItemsController {
   }
 
   @Patch(':id')
-  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
+  @RequirePermissions(PermissionCode.STORE_WRITE)
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateStoreItemDto,
@@ -159,13 +135,13 @@ export class StoreItemsController {
   }
 
   @Delete(':id')
-  @Roles(SystemRole.Owner)
+  @RequirePermissions(PermissionCode.STORE_DELETE)
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);
   }
 
   @Post(':id/transaction')
-  @Roles(SystemRole.Owner, SystemRole.Storekeeper)
+  @RequirePermissions(PermissionCode.STORE_TRANSACTION)
   handleTransaction(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Param('id', ParseIntPipe) id: number,

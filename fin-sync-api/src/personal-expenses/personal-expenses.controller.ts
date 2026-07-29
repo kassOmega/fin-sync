@@ -10,18 +10,15 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { SystemRole } from '@prisma/client';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CreatePersonalExpenseDto } from './dto/create-personal-expense.dto';
 import { UpdatePersonalExpenseDto } from './dto/update-personal-expense.dto';
 import { PersonalExpensesService } from './personal-expenses.service';
 
 @Controller('personal-expenses')
-@UseGuards(RolesGuard)
-@Roles(SystemRole.Owner) // Strictly Owner only for personal finances
+@UseGuards(JwtAuthGuard)
 export class PersonalExpensesController {
   constructor(private readonly service: PersonalExpensesService) {}
 
