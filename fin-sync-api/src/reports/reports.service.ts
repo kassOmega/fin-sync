@@ -47,14 +47,12 @@ export class ReportsService {
       0,
     );
 
-    // Sales are income, purchases are expenses
     const totalIncome =
       incomes.reduce((sum, inc) => sum + inc.amount, 0) + totalSalesRevenue;
     const totalExpense =
       expenses.reduce((sum, exp) => sum + exp.amount, 0) + totalPurchasesCost;
     const profit = totalIncome - totalExpense;
 
-    // Merge expense categories
     const expensesByCategory = expenses.reduce(
       (acc, exp) => {
         acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
@@ -63,7 +61,6 @@ export class ReportsService {
       {} as Record<string, number>,
     );
 
-    // Merge purchase amounts into expenses by category
     purchases.forEach((p) => {
       p.items.forEach((pi) => {
         const cat = pi.storeItem?.category?.name || 'Uncategorized Purchases';
@@ -71,7 +68,6 @@ export class ReportsService {
       });
     });
 
-    // Merge income categories
     const incomesByCategory = incomes.reduce(
       (acc, inc) => {
         acc[inc.category] = (acc[inc.category] || 0) + inc.amount;
@@ -80,7 +76,6 @@ export class ReportsService {
       {} as Record<string, number>,
     );
 
-    // Merge sale amounts into incomes by category
     sales.forEach((s) => {
       s.items.forEach((si) => {
         const cat = si.storeItem?.category?.name || 'Uncategorized Sales';
@@ -146,7 +141,6 @@ export class ReportsService {
       return acc;
     }, {});
 
-    // Budget by category with spent
     const budgetDetails = budgets.map((b) => {
       const spent = expenses
         .filter((e) => e.category === b.category)
@@ -161,7 +155,6 @@ export class ReportsService {
       };
     });
 
-    // Monthly breakdown (last 6 months)
     const monthlyData: Record<string, { income: number; expense: number }> = {};
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -195,7 +188,6 @@ export class ReportsService {
       expense: Math.round(data.expense * 100) / 100,
     }));
 
-    // Forecast (30-day projection based on averages)
     const dailyAvgIncome =
       monthlyChart.length > 0
         ? monthlyChart.reduce((s, m) => s + m.income, 0) /
@@ -259,7 +251,7 @@ export class ReportsService {
       },
     };
   }
-  // Add these methods to the class
+
   async getMachineryReport(machineryId: number) {
     const expenses = await this.prisma.companyExpense.findMany({
       where: { machineryId },
@@ -296,26 +288,36 @@ export class ReportsService {
     };
   }
 
-  // Cumulative Report for ALL Projects in a Company
   async getAllProjectsReport(companyId: number) {
-    const projects = await this.prisma.project.findMany({
-      where: { companyId },
-      include: { expenses: true, incomes: true },
-    });
+    const projects: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT p.* FROM finsync.projects p WHERE p.company_id = ${companyId}`,
+    );
 
-    const chartData = projects.map((p) => {
-      const totalIncome = p.incomes.reduce((s, i) => s + i.amount, 0);
-      const totalExpense = p.expenses.reduce((s, e) => s + e.amount, 0);
-      return {
+    const chartData: {
+      name: any;
+      Income: number;
+      Expenses: number;
+      Profit: number;
+    }[] = [];
+    for (const p of projects) {
+      const incRows: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT COALESCE(SUM(amount), 0) as total FROM finsync."CompanyIncome" WHERE project_id = ${p.id}`,
+      );
+      const expRows: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT COALESCE(SUM(amount), 0) as total FROM finsync."CompanyExpense" WHERE project_id = ${p.id}`,
+      );
+      const totalIncome = parseFloat(incRows[0]?.total || 0);
+      const totalExpense = parseFloat(expRows[0]?.total || 0);
+      chartData.push({
         name: p.name,
         Income: totalIncome,
         Expenses: totalExpense,
         Profit: totalIncome - totalExpense,
-      };
-    });
+      });
+    }
 
-    const totalIncomeAll = chartData.reduce((s, p) => s + p.Income, 0);
-    const totalExpenseAll = chartData.reduce((s, p) => s + p.Expenses, 0);
+    const totalIncomeAll = chartData.reduce((s, d) => s + d.Income, 0);
+    const totalExpenseAll = chartData.reduce((s, d) => s + d.Expenses, 0);
 
     return {
       summary: {
@@ -327,27 +329,38 @@ export class ReportsService {
     };
   }
 
-  // Cumulative Report for ALL Machineries in a Company
   async getAllMachineriesReport(companyId: number) {
-    const machineries = await this.prisma.machinery.findMany({
-      where: { companyId },
-      include: { expenses: true, incomes: true },
-    });
+    const machineries: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT m.* FROM finsync.machineries m WHERE m."companyId" = ${companyId}`,
+    );
 
-    const chartData = machineries.map((m) => {
-      const totalIncome = m.incomes.reduce((s, i) => s + i.amount, 0);
-      const totalExpense = m.expenses.reduce((s, e) => s + e.amount, 0);
-      return {
+    const chartData: {
+      name: any;
+      Income: number;
+      Expenses: number;
+      Profit: number;
+      Hours: number;
+    }[] = [];
+    for (const m of machineries) {
+      const incRows: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT COALESCE(SUM(amount), 0) as total FROM finsync."CompanyIncome" WHERE machinery_id = ${m.id}`,
+      );
+      const expRows: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT COALESCE(SUM(amount), 0) as total FROM finsync."CompanyExpense" WHERE machinery_id = ${m.id}`,
+      );
+      const totalIncome = parseFloat(incRows[0]?.total || 0);
+      const totalExpense = parseFloat(expRows[0]?.total || 0);
+      chartData.push({
         name: m.name,
         Income: totalIncome,
         Expenses: totalExpense,
         Profit: totalIncome - totalExpense,
-        Hours: m.runningHours,
-      };
-    });
+        Hours: parseFloat(m.totalHoursRun || 0),
+      });
+    }
 
-    const totalIncomeAll = chartData.reduce((s, m) => s + m.Income, 0);
-    const totalExpenseAll = chartData.reduce((s, m) => s + m.Expenses, 0);
+    const totalIncomeAll = chartData.reduce((s, d) => s + d.Income, 0);
+    const totalExpenseAll = chartData.reduce((s, d) => s + d.Expenses, 0);
 
     return {
       summary: {
@@ -359,7 +372,6 @@ export class ReportsService {
     };
   }
 
-  // Predict future cash flow based on 3-month average
   async getCompanyForecast(companyId: number) {
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
@@ -374,14 +386,12 @@ export class ReportsService {
     const totalIncome = incomes.reduce((sum, inc) => sum + inc.amount, 0);
     const totalExpense = expenses.reduce((sum, exp) => sum + exp.amount, 0);
 
-    // Calculate daily averages over ~90 days
     const dailyIncomeRate = totalIncome / 90;
     const dailyExpenseRate = totalExpense / 90;
     const dailyNetRate = dailyIncomeRate - dailyExpenseRate;
 
-    // Project for next 30 days
     const forecastData: { day: string; projectedBalance: number }[] = [];
-    let projectedBalance = 0; // Assuming starting from 0, or you could fetch current balance
+    let projectedBalance = 0;
 
     for (let i = 1; i <= 30; i++) {
       projectedBalance += dailyNetRate;
@@ -484,7 +494,6 @@ export class ReportsService {
     const totalDiscount = sales.reduce((s, sale) => s + sale.discount, 0);
     const totalItems = sales.reduce((s, sale) => s + sale.items.length, 0);
 
-    // Sales by category
     const salesByCategory: Record<string, number> = {};
     sales.forEach((sale) => {
       sale.items.forEach((si) => {
@@ -493,7 +502,6 @@ export class ReportsService {
       });
     });
 
-    // Sales by customer
     const salesByCustomer: Record<string, { count: number; total: number }> =
       {};
     sales.forEach((sale) => {
@@ -573,7 +581,6 @@ export class ReportsService {
     const totalSpent = purchases.reduce((s, p) => s + p.totalAmount, 0);
     const totalItems = purchases.reduce((s, p) => s + p.items.length, 0);
 
-    // Purchases by category
     const purchasesByCategory: Record<string, number> = {};
     purchases.forEach((p) => {
       p.items.forEach((pi) => {
@@ -582,7 +589,6 @@ export class ReportsService {
       });
     });
 
-    // Purchases by supplier
     const purchasesBySupplier: Record<
       string,
       { count: number; total: number }

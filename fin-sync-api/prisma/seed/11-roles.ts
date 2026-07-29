@@ -83,92 +83,67 @@ export async function seedRoles(
   prisma: PrismaClient,
   ctx: SeedContext,
 ): Promise<void> {
-  console.log('🎭 Seeding Roles & Permissions...');
+  console.log('🛡️ Seeding Roles & Permissions...');
 
-  // Get all permissions from DB
-  const permRows: { id: number; code: string }[] = await prisma.$queryRawUnsafe(
-    `SELECT id, code FROM finsync."Permission"`,
-  );
-  const permByCode: Record<string, number> = {};
-  for (const row of permRows) {
-    permByCode[row.code] = row.id;
-  }
+  const companyKeys = Object.keys(ctx.companies);
 
-  for (const [companyKey, companyId] of Object.entries(ctx.companies)) {
-    for (const roleDef of BUILTIN_ROLES) {
-      const matchingPermIds = roleDef.permissions
-        .filter((code) => permByCode[code])
-        .map((code) => permByCode[code]);
+  for (const companyKey of companyKeys) {
+    const companyId = Number(ctx.companies[companyKey]);
 
-      const escapedName = roleDef.name.replace(/'/g, "''");
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO finsync."CompanyRole" (company_id, name) VALUES (${companyId}, '${escapedName}')`,
-      );
+    for (const role of BUILTIN_ROLES) {
+      // Upsert CompanyRole
+      const companyRole = await (prisma as any).companyRole.upsert({
+        where: {
+          name_companyId: {
+            name: role.name,
+            companyId,
+          },
+        },
+        update: {},
+        create: {
+          name: role.name,
+          companyId,
+        },
+      });
 
-      const roleRows: { id: number }[] = await prisma.$queryRawUnsafe(
-        `SELECT id FROM finsync."CompanyRole" WHERE company_id = ${companyId} AND name = '${escapedName}'`,
-      );
-      const roleId = roleRows[0]?.id;
-      if (!roleId) continue;
+      for (const permissionKey of role.permissions) {
+        // 1. Look up the Permission ID strictly using code
+        const permRecord = await (prisma as any).permission.findFirst({
+          where: {
+            code: permissionKey,
+          },
+        });
 
-      ctx.companyRoles[`${companyKey}_${roleDef.name}`] = roleId;
+        if (!permRecord) {
+          console.warn(
+            `⚠️ Permission '${permissionKey}' not found in database.`,
+          );
+          continue;
+        }
 
-      for (const permId of matchingPermIds) {
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO finsync."CompanyRolePermission" (role_id, permission_id) VALUES (${roleId}, ${permId}) ON CONFLICT DO NOTHING`,
-        );
-      }
-    }
+        // 2. Attach permission using permissionId
+        const existingPermission = await (
+          prisma as any
+        ).companyRolePermission.findFirst({
+          where: {
+            roleId: companyRole.id,
+            permissionId: permRecord.id,
+          },
+        });
 
-    // Create an "Owner" role with ALL permissions for company owners
-    const ownerRoleName = 'Owner';
-    const allPermIds = Object.values(permByCode);
-    const escapedOwnerName = ownerRoleName.replace(/'/g, "''");
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO finsync."CompanyRole" (company_id, name) VALUES (${companyId}, '${escapedOwnerName}')`,
-    );
-    const ownerRoleRows: { id: number }[] = await prisma.$queryRawUnsafe(
-      `SELECT id FROM finsync."CompanyRole" WHERE company_id = ${companyId} AND name = '${escapedOwnerName}'`,
-    );
-    const ownerRoleId = ownerRoleRows[0]?.id;
-    if (ownerRoleId) {
-      ctx.companyRoles[`${companyKey}_Owner`] = ownerRoleId;
-      for (const permId of allPermIds) {
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO finsync."CompanyRolePermission" (role_id, permission_id) VALUES (${ownerRoleId}, ${permId}) ON CONFLICT DO NOTHING`,
-        );
-      }
-    }
-
-    const members: { id: number; role: string; user_id: number }[] =
-      await prisma.$queryRawUnsafe(
-        `SELECT id, role, user_id FROM finsync."CompanyMember" WHERE company_id = ${companyId}`,
-      );
-
-    for (const member of members) {
-      // Owner members get the Owner role with all permissions
-      if (member.role === 'Owner' && ownerRoleId) {
-        await prisma.$executeRawUnsafe(
-          `UPDATE finsync."CompanyMember" SET company_role_id = ${ownerRoleId} WHERE id = ${member.id}`,
-        );
-      } else {
-        const matchingRole = BUILTIN_ROLES.find(
-          (r) => r.name.toLowerCase() === member.role.toLowerCase(),
-        );
-        if (matchingRole) {
-          const roleId = ctx.companyRoles[`${companyKey}_${matchingRole.name}`];
-          if (roleId) {
-            await prisma.$executeRawUnsafe(
-              `UPDATE finsync."CompanyMember" SET company_role_id = ${roleId} WHERE id = ${member.id}`,
-            );
-          }
+        if (!existingPermission) {
+          await (prisma as any).companyRolePermission.create({
+            data: {
+              roleId: companyRole.id,
+              permissionId: permRecord.id,
+            },
+          });
         }
       }
     }
   }
 
   console.log(
-    `   ✅ Created ${BUILTIN_ROLES.length} role templates across ${Object.keys(ctx.companies).length} companies`,
+    `   ✅ Seeded ${BUILTIN_ROLES.length} built-in roles across ${companyKeys.length} companies`,
   );
-  console.log(`   ✅ Assigned roles to matching staff members`);
 }

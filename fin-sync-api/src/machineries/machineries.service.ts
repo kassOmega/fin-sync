@@ -8,52 +8,71 @@ export class MachineriesService {
   constructor(private prisma: PrismaService) {}
 
   async create(companyId: number, dto: CreateMachineryDto) {
-    return this.prisma.machinery.create({
-      data: { ...dto, companyId, status: dto.status || 'IDLE' },
-    });
+    await this.prisma.$executeRawUnsafe(
+      `INSERT INTO finsync.machineries ("companyId", name, code, type, status, "projectId", "created_at", "updated_at")
+       VALUES (${companyId}, '${dto.name}', ${dto.code ? `'${dto.code}'` : 'NULL'}, '${dto.type || 'OTHER'}', '${dto.status || 'AVAILABLE'}', ${dto.projectId ?? 'NULL'}, NOW(), NOW())`,
+    );
+    const rows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT * FROM finsync.machineries ORDER BY id DESC LIMIT 1`,
+    );
+    return rows[0];
   }
 
   async findAll(companyId: number) {
-    return this.prisma.machinery.findMany({
-      where: { companyId },
-      include: {
-        operators: { include: { user: { select: { id: true, name: true } } } },
-      },
-    });
+    return this.prisma.$queryRawUnsafe(
+      `SELECT m.* FROM finsync.machineries m WHERE m."companyId" = ${companyId} ORDER BY m.name`,
+    );
   }
 
-  // Operator/Driver sees only machines assigned to them
   async findMyMachines(companyId: number, userId: number) {
-    return this.prisma.machinery.findMany({
-      where: {
-        companyId,
-        operators: { some: { userId } },
-      },
-      include: {
-        operators: { include: { user: { select: { id: true, name: true } } } },
-      },
-    });
+    return this.prisma.$queryRawUnsafe(
+      `SELECT m.* FROM finsync.machineries m
+       WHERE m."companyId" = ${companyId} AND m."operatorId" IN (
+         SELECT id FROM finsync.employees WHERE user_id = ${userId}
+       )
+       ORDER BY m.name`,
+    );
   }
 
   async update(id: number, dto: UpdateMachineryDto) {
-    const machine = await this.prisma.machinery.findUnique({ where: { id } });
-    if (!machine) throw new NotFoundException('Machinery not found');
-    return this.prisma.machinery.update({ where: { id }, data: dto });
+    const sets: string[] = ['"updated_at" = NOW()'];
+    if (dto.name) sets.push(`name = '${dto.name}'`);
+    if (dto.category) sets.push(`category = '${dto.category}'`);
+    if (dto.status) sets.push(`status = '${dto.status}'`);
+    if (dto.type) sets.push(`type = '${dto.type}'`);
+    if (dto.code !== undefined)
+      sets.push(`code = ${dto.code ? `'${dto.code}'` : 'NULL'}`);
+    if (dto.projectId !== undefined)
+      sets.push(`"projectId" = ${dto.projectId ?? 'NULL'}`);
+    if (dto.ownershipType)
+      sets.push(`"ownershipType" = '${dto.ownershipType}'`);
+
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE finsync.machineries SET ${sets.join(', ')} WHERE id = ${id}`,
+    );
+    const rows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT * FROM finsync.machineries WHERE id = ${id}`,
+    );
+    if (!rows.length) throw new NotFoundException('Machinery not found');
+    return rows[0];
   }
 
   async remove(id: number) {
-    const machine = await this.prisma.machinery.findUnique({ where: { id } });
-    if (!machine) throw new NotFoundException('Machinery not found');
-    return this.prisma.machinery.delete({ where: { id } });
+    await this.prisma.$executeRawUnsafe(
+      `DELETE FROM finsync.machineries WHERE id = ${id}`,
+    );
+    return { id, deleted: true };
   }
 
-  async assignOperator(
-    machineryId: number,
-    userId: number,
-    isHelper: boolean = false,
-  ) {
-    return this.prisma.machineryOperator.create({
-      data: { machineryId, userId, isHelper },
-    });
+  async assignOperator(machineryId: number, userId: number) {
+    const empRows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT id FROM finsync.employees WHERE user_id = ${userId} LIMIT 1`,
+    );
+    if (!empRows.length)
+      throw new NotFoundException('Employee record not found for this user');
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE finsync.machineries SET "operatorId" = ${empRows[0].id} WHERE id = ${machineryId}`,
+    );
+    return { machineryId, operatorId: empRows[0].id };
   }
 }

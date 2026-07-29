@@ -17,7 +17,6 @@ import { createContext, disconnect, getPrisma } from './utils';
 async function clearDatabase(prisma: PrismaClient): Promise<void> {
   console.log('🧹 Clearing existing database records...');
 
-  // Use pg Pool directly for raw SQL (Prisma adapter can't handle DELETE with quoted identifiers)
   const { Pool } = require('pg');
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -40,10 +39,18 @@ async function clearDatabase(prisma: PrismaClient): Promise<void> {
       '"Purchase"',
       '"Supplier"',
       '"Notification"',
-      '"MachineryOperator"',
+      '"MachineryLog"',
+      '"MachineryMaintenance"',
       '"Machinery"',
       '"ProjectUpdate"',
+      '"ProjectAssignment"',
+      '"ProjectTask"',
+      '"ProjectMember"',
       '"Project"',
+      '"PayrollItem"',
+      '"Payroll"',
+      '"Timesheet"',
+      '"Attendance"',
       '"Employee"',
       '"CompanyExpense"',
       '"CompanyIncome"',

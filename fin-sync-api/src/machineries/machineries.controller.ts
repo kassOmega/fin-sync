@@ -79,7 +79,7 @@ export class MachineriesController {
     @Param('id', ParseIntPipe) id: number,
     @Body() body: { userId: number; isHelper?: boolean },
   ) {
-    return this.service.assignOperator(id, body.userId, body.isHelper || false);
+    return this.service.assignOperator(id, body.userId);
   }
 
   // --- Log hours: allowed for assigned operators + Owner ---

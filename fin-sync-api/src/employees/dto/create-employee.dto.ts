@@ -1,5 +1,5 @@
-import { EmploymentType } from '@prisma/client';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsNumber,
@@ -7,18 +7,59 @@ import {
   IsString,
 } from 'class-validator';
 
+export enum EmploymentTypeEnum {
+  FULL_TIME = 'FULL_TIME',
+  PART_TIME = 'PART_TIME',
+  CONTRACT = 'CONTRACT',
+  DAILY_LABORER = 'DAILY_LABORER',
+}
+
 export class CreateEmployeeDto {
   @IsString()
-  name: string;
+  employeeCode: string;
 
-  @IsEnum(EmploymentType)
-  employmentType: EmploymentType;
+  @IsString()
+  firstName: string;
+
+  @IsString()
+  lastName: string;
+
+  @IsString()
+  @IsOptional()
+  email?: string;
+
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @IsString()
+  designation: string;
+
+  @IsEnum(EmploymentTypeEnum)
+  @IsOptional()
+  employmentType?: EmploymentTypeEnum;
 
   @IsNumber()
   @IsOptional()
-  wage?: number;
+  baseSalary?: number;
+
+  @IsNumber()
+  @IsOptional()
+  hourlyRate?: number;
+
+  @IsNumber()
+  @IsOptional()
+  dailyRate?: number;
+
+  @IsOptional()
+  @IsNumber()
+  userId?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 
   @IsDateString()
   @IsOptional()
-  nextPayDate?: string;
+  joinedDate?: string;
 }

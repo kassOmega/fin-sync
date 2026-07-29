@@ -5,7 +5,12 @@ interface ProjectData {
   key: string;
   companyKey: string;
   name: string;
+  code?: string;
+  status?: string;
   progress: number;
+  budget?: number;
+  startDaysAgo?: number;
+  endDaysFromNow?: number;
 }
 
 interface ProjectUpdateData {
@@ -21,79 +26,141 @@ const PROJECTS: ProjectData[] = [
     key: 'buildco_skyscraper',
     companyKey: 'buildco',
     name: 'Downtown Commercial Skyscraper',
-    progress: 35.0,
+    code: 'BLD-001',
+    status: 'IN_PROGRESS',
+    progress: 35,
+    budget: 8500000,
+    startDaysAgo: 200,
+    endDaysFromNow: 400,
   },
   {
     key: 'buildco_residential',
     companyKey: 'buildco',
     name: 'Westside Residential Complex',
-    progress: 78.5,
+    code: 'BLD-002',
+    status: 'IN_PROGRESS',
+    progress: 78,
+    budget: 4500000,
+    startDaysAgo: 300,
+    endDaysFromNow: 60,
   },
   {
     key: 'buildco_bridge',
     companyKey: 'buildco',
     name: 'Highway 101 Bridge Replacement',
-    progress: 52.0,
+    code: 'BLD-003',
+    status: 'IN_PROGRESS',
+    progress: 52,
+    budget: 12000000,
+    startDaysAgo: 180,
+    endDaysFromNow: 300,
   },
   {
     key: 'buildco_mall',
     companyKey: 'buildco',
     name: 'Riverside Shopping Mall Extension',
-    progress: 15.0,
+    code: 'BLD-004',
+    status: 'PLANNED',
+    progress: 15,
+    budget: 3200000,
+    startDaysAgo: 90,
+    endDaysFromNow: 500,
   },
   {
     key: 'horizon_warehouse',
     companyKey: 'horizon',
     name: 'Central Distribution Hub Build-out',
-    progress: 65.0,
+    code: 'HZN-001',
+    status: 'IN_PROGRESS',
+    progress: 65,
+    budget: 1800000,
+    startDaysAgo: 150,
+    endDaysFromNow: 90,
   },
   {
     key: 'horizon_coldchain',
     companyKey: 'horizon',
     name: 'Cold Chain Infrastructure Upgrade',
-    progress: 40.0,
+    code: 'HZN-002',
+    status: 'IN_PROGRESS',
+    progress: 40,
+    budget: 2500000,
+    startDaysAgo: 120,
+    endDaysFromNow: 180,
   },
   {
     key: 'horizon_fleet',
     companyKey: 'horizon',
     name: 'Electric Fleet Transition',
-    progress: 25.0,
+    code: 'HZN-003',
+    status: 'PLANNED',
+    progress: 25,
+    budget: 5000000,
+    startDaysAgo: 60,
+    endDaysFromNow: 400,
   },
   {
     key: 'green_irrigation',
     companyKey: 'greenvalley',
     name: 'Smart Irrigation System Installation',
-    progress: 80.0,
+    code: 'GRN-001',
+    status: 'IN_PROGRESS',
+    progress: 80,
+    budget: 750000,
+    startDaysAgo: 200,
+    endDaysFromNow: 30,
   },
   {
     key: 'green_greenhouse',
     companyKey: 'greenvalley',
     name: 'Year-Round Greenhouse Complex',
-    progress: 45.0,
+    code: 'GRN-002',
+    status: 'IN_PROGRESS',
+    progress: 45,
+    budget: 1200000,
+    startDaysAgo: 150,
+    endDaysFromNow: 200,
   },
   {
     key: 'urban_winter',
     companyKey: 'urban_threads',
     name: 'Winter Collection Launch',
-    progress: 90.0,
+    status: 'COMPLETED',
+    progress: 100,
+    startDaysAgo: 120,
+    endDaysFromNow: -10,
   },
   {
     key: 'urban_ecommerce',
     companyKey: 'urban_threads',
     name: 'E-Commerce Platform Setup',
-    progress: 60.0,
+    status: 'IN_PROGRESS',
+    progress: 60,
+    budget: 350000,
+    startDaysAgo: 100,
+    endDaysFromNow: 90,
   },
   {
     key: 'techmfg_pcb',
     companyKey: 'tech_mfg',
     name: 'PCB Assembly Line Expansion',
-    progress: 70.0,
+    code: 'TEC-001',
+    status: 'IN_PROGRESS',
+    progress: 70,
+    budget: 3200000,
+    startDaysAgo: 180,
+    endDaysFromNow: 90,
   },
   {
     key: 'techmfg_iso',
     companyKey: 'tech_mfg',
     name: 'ISO 9001 Certification',
-    progress: 35.0,
+    code: 'TEC-002',
+    status: 'ON_HOLD',
+    progress: 35,
+    budget: 1800000,
+    startDaysAgo: 160,
+    endDaysFromNow: 120,
   },
 ];
 
@@ -102,163 +169,178 @@ const PROJECT_UPDATES: ProjectUpdateData[] = [
     projectKey: 'buildco_skyscraper',
     userKey: 'pm_alex',
     note: 'Site clearing and foundation excavation completed.',
-    newProgress: 5.0,
+    newProgress: 5,
     daysAgoDate: 180,
   },
   {
     projectKey: 'buildco_skyscraper',
     userKey: 'pm_alex',
-    note: 'Piling work completed - 48 piles driven to bedrock.',
-    newProgress: 12.0,
+    note: 'Piling work completed - 48 piles driven.',
+    newProgress: 12,
     daysAgoDate: 150,
   },
   {
     projectKey: 'buildco_skyscraper',
     userKey: 'foreman_marcus',
-    note: 'Foundation pouring completed across all 4 sections.',
-    newProgress: 20.0,
+    note: 'Foundation pouring completed.',
+    newProgress: 20,
     daysAgoDate: 120,
   },
   {
     projectKey: 'buildco_skyscraper',
     userKey: 'foreman_marcus',
     note: 'Basement levels B1-B2 concrete work finished.',
-    newProgress: 25.0,
+    newProgress: 28,
     daysAgoDate: 90,
   },
   {
     projectKey: 'buildco_skyscraper',
     userKey: 'pm_alex',
     note: 'Ground floor slab poured and cured.',
-    newProgress: 30.0,
+    newProgress: 32,
     daysAgoDate: 50,
   },
   {
     projectKey: 'buildco_skyscraper',
     userKey: 'foreman_omar',
-    note: 'Steel framing levels 1-3 erected. Crane repositioned.',
-    newProgress: 35.0,
+    note: 'Steel framing levels 1-3 erected.',
+    newProgress: 35,
     daysAgoDate: 7,
   },
   {
     projectKey: 'buildco_residential',
     userKey: 'pm_rachel',
     note: 'All structural work completed up to floor 8.',
-    newProgress: 60.0,
+    newProgress: 60,
     daysAgoDate: 90,
   },
   {
     projectKey: 'buildco_residential',
     userKey: 'foreman_derek',
-    note: 'MEP rough-in progressing on floors 1-5.',
-    newProgress: 68.0,
+    note: 'MEP rough-in on floors 1-5.',
+    newProgress: 68,
     daysAgoDate: 60,
   },
   {
     projectKey: 'buildco_residential',
     userKey: 'foreman_derek',
-    note: 'Exterior facade installation 70% complete.',
-    newProgress: 75.0,
+    note: 'Exterior facade 70% complete.',
+    newProgress: 75,
     daysAgoDate: 30,
   },
   {
     projectKey: 'buildco_residential',
     userKey: 'pm_rachel',
-    note: 'Interior finishing started on lower floors. Show units ready.',
-    newProgress: 78.5,
+    note: 'Interior finishing started.',
+    newProgress: 78,
     daysAgoDate: 5,
   },
   {
     projectKey: 'buildco_bridge',
     userKey: 'pm_alex',
-    note: 'Abutment construction completed on both sides.',
-    newProgress: 25.0,
+    note: 'Abutment construction completed.',
+    newProgress: 25,
     daysAgoDate: 120,
   },
   {
     projectKey: 'buildco_bridge',
     userKey: 'foreman_omar',
-    note: 'Steel girder erection started from north side.',
-    newProgress: 40.0,
+    note: 'Steel girder erection started.',
+    newProgress: 40,
     daysAgoDate: 60,
   },
   {
     projectKey: 'buildco_bridge',
     userKey: 'foreman_omar',
-    note: 'Central span girders connected. Deck forming in progress.',
-    newProgress: 52.0,
+    note: 'Central span girders connected.',
+    newProgress: 52,
     daysAgoDate: 10,
   },
   {
     projectKey: 'horizon_warehouse',
     userKey: 'pm_james',
-    note: 'Racking system installation 50% complete.',
-    newProgress: 40.0,
+    note: 'Racking system 50% complete.',
+    newProgress: 40,
     daysAgoDate: 60,
   },
   {
     projectKey: 'horizon_warehouse',
     userKey: 'pm_james',
-    note: 'Conveyor system operational in Zone A.',
-    newProgress: 55.0,
+    note: 'Conveyor system operational.',
+    newProgress: 55,
     daysAgoDate: 30,
   },
   {
     projectKey: 'horizon_warehouse',
     userKey: 'pm_james',
-    note: 'Automated sorting system installed in Zones A-B.',
-    newProgress: 65.0,
+    note: 'Automated sorting installed.',
+    newProgress: 65,
     daysAgoDate: 5,
   },
   {
     projectKey: 'urban_winter',
     userKey: 'sales_emma',
-    note: 'Supplier orders placed for all SKUs.',
-    newProgress: 30.0,
+    note: 'Supplier orders placed.',
+    newProgress: 30,
     daysAgoDate: 60,
   },
   {
     projectKey: 'urban_winter',
     userKey: 'sales_nina',
-    note: 'Inventory received and quality checked.',
-    newProgress: 60.0,
+    note: 'Inventory received and QC done.',
+    newProgress: 60,
     daysAgoDate: 30,
   },
   {
     projectKey: 'urban_winter',
     userKey: 'sales_nina',
-    note: 'Store displays set up. Marketing campaign launched.',
-    newProgress: 90.0,
+    note: 'Store displays set up. Marketing launched.',
+    newProgress: 90,
     daysAgoDate: 3,
   },
 ];
-
 export async function seedProjects(
   prisma: PrismaClient,
   ctx: SeedContext,
 ): Promise<void> {
   console.log('🏗️ Seeding Projects & Updates...');
 
-  for (const project of PROJECTS) {
-    const created = await prisma.project.create({
+  for (const p of PROJECTS) {
+    const status = p.status || 'IN_PROGRESS';
+    const startDate = p.startDaysAgo ? daysAgo(p.startDaysAgo) : null;
+    const endDate =
+      p.endDaysFromNow !== undefined && p.endDaysFromNow > 0
+        ? daysAgo(-p.endDaysFromNow)
+        : null;
+
+    const project = await prisma.project.create({
       data: {
-        companyId: ctx.companies[project.companyKey],
-        name: project.name,
-        progress: project.progress,
+        companyId: ctx.companies[p.companyKey],
+        name: p.name,
+        code: p.code ?? null,
+        description: `Seed project: ${p.name}`,
+        status: status,
+        progress: p.progress,
+        budget: p.budget ?? null,
+        startDate: startDate,
+        endDate: endDate,
       },
     });
-    ctx.projects[project.key] = created.id;
+
+    ctx.projects[p.key] = project.id;
   }
 
-  await prisma.projectUpdate.createMany({
-    data: PROJECT_UPDATES.map((u) => ({
-      projectId: ctx.projects[u.projectKey],
-      userId: ctx.users[u.userKey],
-      note: u.note,
-      newProgress: u.newProgress,
-      date: daysAgo(u.daysAgoDate),
-    })),
-  });
+  for (const u of PROJECT_UPDATES) {
+    await prisma.projectUpdate.create({
+      data: {
+        projectId: ctx.projects[u.projectKey],
+        userId: ctx.users[u.userKey],
+        note: u.note,
+        newProgress: u.newProgress,
+        date: daysAgo(u.daysAgoDate),
+      },
+    });
+  }
 
   console.log(
     `   ✅ Created ${PROJECTS.length} projects and ${PROJECT_UPDATES.length} updates`,

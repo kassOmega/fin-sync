@@ -34,45 +34,10 @@ enum BudgetType {
   @@schema("finsync")
 }
 
-model StoreCategory {
-  id        Int      @id @default(autoincrement())
-  name      String
-  companyId Int      @map("company_id")
-  createdAt DateTime @default(now())
-
-  company Company     @relation(fields: [companyId], references: [id])
-  items   StoreItem[]
-
-  @@unique([name, companyId])
-  @@schema("finsync")
-}
-
 enum StoreTxType {
   ISSUE
   RESTOCK
   RETURN
-
-  @@schema("finsync")
-}
-
-enum MachineryStatus {
-  IDLE
-  WORKING
-  MAINTENANCE
-
-  @@schema("finsync")
-}
-
-enum EmploymentType {
-  PERMANENT
-  DAILY_LABORER
-
-  @@schema("finsync")
-}
-
-enum MachineryOwnership {
-  OWNED
-  RENTED
 
   @@schema("finsync")
 }
@@ -103,7 +68,7 @@ model User {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
-  ownedCompanies      Company[]           @relation("CompanyOwner")
+  ownedCompanies      Company[]          @relation("CompanyOwner")
   companyMemberships  CompanyMember[]
   personalExpenses    PersonalExpense[]
   personalBudgets     PersonalBudget[]
@@ -111,7 +76,6 @@ model User {
   registeredIncomes   CompanyIncome[]
   registeredExpenses  CompanyExpense[]
   storeTransactions   StoreTransaction[]
-  machineryOps        MachineryOperator[]
   projectUpdates      ProjectUpdate[]
   notifications       Notification[]
   storeRequests       StoreRequest[]
@@ -120,7 +84,8 @@ model User {
   personalIncomes     PersonalIncome[]
   registeredSales     Sale[]
   registeredPurchases Purchase[]
-  projectAssignments  ProjectAssignment[]
+
+  employee Employee?
 
   @@schema("finsync")
 }
@@ -167,6 +132,9 @@ model Company {
   suppliers         Supplier[]
   storeCategories   StoreCategory[]
   companyRoles      CompanyRole[]
+  attendances       Attendance[]
+  timesheets        Timesheet[]
+  payrolls          Payroll[]
 
   @@schema("finsync")
 }
@@ -308,7 +276,7 @@ model AccountTransfer {
 }
 
 // ==========================================
-// 4. COMPANY FINANCE & STAFF
+// 4. COMPANY FINANCE
 // ==========================================
 
 model CompanyIncome {
@@ -353,63 +321,373 @@ model CompanyExpense {
   measuringUnit   MeasuringUnit? @relation(fields: [measuringUnitId], references: [id])
   measuringUnitId Int?
 
+  payroll Payroll?
+  log     MachineryLog?
+  maint   MachineryMaintenance?
+
   @@schema("finsync")
 }
 
-model Employee {
-  id             Int            @id @default(autoincrement())
-  companyId      Int            @map("company_id")
-  name           String
-  employmentType EmploymentType @map("employment_type")
-  wage           Float?
-  nextPayDate    DateTime?      @map("next_pay_date")
-  createdAt      DateTime       @default(now())
+model MeasuringUnit {
+  id   Int    @id @default(autoincrement())
+  name String
 
-  company Company @relation(fields: [companyId], references: [id])
+  storeItems      StoreItem[]
+  companyExpenses CompanyExpense[]
 
   @@schema("finsync")
 }
 
 // ==========================================
-// 5. MACHINERY & VEHICLES
+// 5. EMPLOYEES (HR)
+// ==========================================
+
+model Employee {
+  id        Int     @id @default(autoincrement())
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  userId Int?  @unique
+  user   User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  employeeCode   String
+  firstName      String
+  lastName       String
+  email          String?
+  phone          String?
+  designation    String
+  employmentType String  @default("FULL_TIME")
+
+  baseSalary Decimal? @db.Decimal(12, 2)
+  hourlyRate Decimal? @db.Decimal(10, 2)
+  dailyRate  Decimal? @db.Decimal(10, 2)
+
+  isActive   Boolean  @default(true)
+  joinedDate DateTime @default(now())
+
+  projectAssignments  ProjectMember[]
+  attendanceLogs      Attendance[]
+  timesheets          Timesheet[]
+  payrollItems        PayrollItem[]
+  operatedMachineries Machinery[]            @relation("MachineOperator")
+  machineryLogs       MachineryLog[]
+  maintenancesDone    MachineryMaintenance[]
+  managedProjects     Project[]              @relation("ProjectManager")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([companyId, employeeCode])
+  @@index([companyId])
+  @@map("employees")
+  @@schema("finsync")
+}
+
+// ==========================================
+// 6. PROJECTS
+// ==========================================
+
+model Project {
+  id        Int     @id @default(autoincrement())
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name        String
+  code        String?
+  description String?  @db.Text
+  status      String   @default("IN_PROGRESS")
+  progress    Int      @default(0)
+  budget      Decimal? @db.Decimal(12, 2)
+
+  startDate   DateTime?
+  endDate     DateTime?
+  completedAt DateTime?
+
+  managerId Int?
+  manager   Employee? @relation("ProjectManager", fields: [managerId], references: [id], onDelete: SetNull)
+
+  members         ProjectMember[]
+  tasks           ProjectTask[]
+  attendanceLogs  Attendance[]
+  timesheets      Timesheet[]
+  machineries     Machinery[]
+  machineryLogs   MachineryLog[]
+  companyIncomes  CompanyIncome[]
+  companyExpenses CompanyExpense[]
+  storeRequests   StoreRequest[]
+
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  projectUpdates ProjectUpdate[]
+  payrolls       Payroll[]
+
+  @@index([companyId])
+  @@map("projects")
+  @@schema("finsync")
+}
+
+model ProjectMember {
+  id        Int     @id @default(autoincrement())
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  roleOnSite String?
+  customRate Decimal? @db.Decimal(10, 2)
+  assignedAt DateTime @default(now())
+
+  @@unique([projectId, employeeId])
+  @@map("project_members")
+  @@schema("finsync")
+}
+
+model ProjectTask {
+  id        Int     @id @default(autoincrement())
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?   @db.Text
+  status      String    @default("TODO")
+  dueDate     DateTime?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("project_tasks")
+  @@schema("finsync")
+}
+
+model ProjectUpdate {
+  id          Int      @id @default(autoincrement())
+  projectId   Int      @map("project_id")
+  userId      Int      @map("user_id")
+  note        String
+  newProgress Float    @map("new_progress")
+  date        DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@schema("finsync")
+}
+
+// ==========================================
+// 7. ATTENDANCE & TIMESHEETS
+// ==========================================
+
+model Attendance {
+  id        Int     @id @default(autoincrement())
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  date     DateTime  @db.Date
+  checkIn  DateTime?
+  checkOut DateTime?
+  status   String    @default("PRESENT")
+  remarks  String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([employeeId, date])
+  @@index([companyId, date])
+  @@map("attendances")
+  @@schema("finsync")
+}
+
+model Timesheet {
+  id        Int     @id @default(autoincrement())
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  machineryId Int?
+  machinery   Machinery? @relation(fields: [machineryId], references: [id], onDelete: SetNull)
+
+  date          DateTime @db.Date
+  regularHours  Decimal  @default(8.0) @db.Decimal(4, 2)
+  overtimeHours Decimal  @default(0.0) @db.Decimal(4, 2)
+  description   String?  @db.Text
+  status        String   @default("DRAFT")
+
+  approvedById Int?
+  approvedAt   DateTime?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([companyId, employeeId, date])
+  @@map("timesheets")
+  @@schema("finsync")
+}
+
+// ==========================================
+// 8. PAYROLL
+// ==========================================
+
+model Payroll {
+  id        Int     @id @default(autoincrement())
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  title       String
+  startDate   DateTime @db.Date
+  endDate     DateTime @db.Date
+  totalAmount Decimal  @default(0) @db.Decimal(12, 2)
+  status      String   @default("DRAFT")
+
+  items PayrollItem[]
+
+  expenseId Int?            @unique
+  expense   CompanyExpense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("payrolls")
+  @@schema("finsync")
+}
+
+model PayrollItem {
+  id        Int     @id @default(autoincrement())
+  payrollId Int
+  payroll   Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  basePay     Decimal @db.Decimal(10, 2)
+  overtimePay Decimal @default(0) @db.Decimal(10, 2)
+  deductions  Decimal @default(0) @db.Decimal(10, 2)
+  netPay      Decimal @db.Decimal(10, 2)
+
+  @@map("payroll_items")
+  @@schema("finsync")
+}
+
+// ==========================================
+// 9. MACHINERY & FLEET
 // ==========================================
 
 model Machinery {
-  id                   Int                 @id @default(autoincrement())
-  companyId            Int                 @map("company_id")
-  name                 String
-  category             String
-  status               MachineryStatus     @default(IDLE)
-  createdAt            DateTime            @default(now())
-  company              Company             @relation(fields: [companyId], references: [id])
-  operators            MachineryOperator[]
-  expenses             CompanyExpense[]
-  incomes              CompanyIncome[]
-  ownershipType        MachineryOwnership  @default(OWNED)
-  runningHours         Float               @default(0)
-  lastMaintenanceHours Float               @default(0)
-  projectId            Int?                @map("project_id")
+  id        Int     @id @default(autoincrement())
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  project Project? @relation(fields: [projectId], references: [id])
+  name   String
+  code   String?
+  type   String  @default("OTHER")
+  status String  @default("AVAILABLE")
 
+  make         String?
+  model        String?
+  plateNumber  String?
+  serialNumber String?
+
+  totalHoursRun  Decimal @default(0) @db.Decimal(10, 2)
+  currentMileage Decimal @default(0) @db.Decimal(10, 2)
+
+  hourlyRate Decimal? @db.Decimal(10, 2)
+  dailyRate  Decimal? @db.Decimal(10, 2)
+
+  operatorId Int?
+  operator   Employee? @relation("MachineOperator", fields: [operatorId], references: [id], onDelete: SetNull)
+
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  incomes      CompanyIncome[]
+  expenses     CompanyExpense[]
+  timesheets   Timesheet[]
+  logs         MachineryLog[]
+  maintenances MachineryMaintenance[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@map("machineries")
   @@schema("finsync")
 }
 
-model MachineryOperator {
-  id          Int     @id @default(autoincrement())
-  machineryId Int     @map("machinery_id")
-  userId      Int     @map("user_id")
-  isHelper    Boolean @default(false)
+model MachineryLog {
+  id          Int       @id @default(autoincrement())
+  machineryId Int
+  machinery   Machinery @relation(fields: [machineryId], references: [id], onDelete: Cascade)
 
-  machinery Machinery @relation(fields: [machineryId], references: [id])
-  user      User      @relation(fields: [userId], references: [id])
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
+  operatorId Int?
+  operator   Employee? @relation(fields: [operatorId], references: [id], onDelete: SetNull)
+
+  startMeter  Decimal? @db.Decimal(10, 2)
+  endMeter    Decimal? @db.Decimal(10, 2)
+  hoursLogged Decimal  @default(0) @db.Decimal(8, 2)
+
+  fuelLiters Decimal? @db.Decimal(8, 2)
+  fuelCost   Decimal? @db.Decimal(10, 2)
+
+  expenseId Int?            @unique
+  expense   CompanyExpense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
+  date      DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("machinery_logs")
+  @@schema("finsync")
+}
+
+model MachineryMaintenance {
+  id          Int       @id @default(autoincrement())
+  machineryId Int
+  machinery   Machinery @relation(fields: [machineryId], references: [id], onDelete: Cascade)
+
+  description String  @db.Text
+  totalCost   Decimal @db.Decimal(10, 2)
+
+  performedById Int?
+  performedBy   Employee? @relation(fields: [performedById], references: [id], onDelete: SetNull)
+
+  expenseId Int?            @unique
+  expense   CompanyExpense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("machinery_maintenances")
   @@schema("finsync")
 }
 
 // ==========================================
-// 6. STORE & INVENTORY
+// 10. STORE & INVENTORY
 // ==========================================
+
+model StoreCategory {
+  id        Int      @id @default(autoincrement())
+  name      String
+  companyId Int      @map("company_id")
+  createdAt DateTime @default(now())
+
+  company Company     @relation(fields: [companyId], references: [id])
+  items   StoreItem[]
+
+  @@unique([name, companyId])
+  @@schema("finsync")
+}
 
 model StoreItem {
   id                Int      @id @default(autoincrement())
@@ -465,6 +743,9 @@ model StoreRequest {
   note      String?
   createdAt DateTime @default(now())
 
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
   item    StoreItem @relation(fields: [itemId], references: [id])
   company Company   @relation(fields: [companyId], references: [id])
   user    User      @relation(fields: [userId], references: [id])
@@ -473,78 +754,7 @@ model StoreRequest {
 }
 
 // ==========================================
-// 7. PROJECTS & NOTIFICATIONS
-// ==========================================
-
-model Project {
-  id        Int      @id @default(autoincrement())
-  companyId Int      @map("company_id")
-  name      String
-  progress  Float    @default(0)
-  createdAt DateTime @default(now())
-
-  company     Company             @relation(fields: [companyId], references: [id])
-  updates     ProjectUpdate[]
-  expenses    CompanyExpense[]
-  incomes     CompanyIncome[]
-  machinery   Machinery[]
-  assignments ProjectAssignment[]
-
-  @@schema("finsync")
-}
-
-model ProjectAssignment {
-  id        Int      @id @default(autoincrement())
-  projectId Int      @map("project_id")
-  userId    Int      @map("user_id")
-  createdAt DateTime @default(now())
-
-  project Project @relation(fields: [projectId], references: [id])
-  user    User    @relation(fields: [userId], references: [id])
-
-  @@unique([projectId, userId])
-  @@schema("finsync")
-}
-
-model ProjectUpdate {
-  id          Int      @id @default(autoincrement())
-  projectId   Int      @map("project_id")
-  userId      Int      @map("user_id")
-  note        String
-  newProgress Float    @map("new_progress")
-  date        DateTime @default(now())
-
-  project Project @relation(fields: [projectId], references: [id])
-  user    User    @relation(fields: [userId], references: [id])
-
-  @@schema("finsync")
-}
-
-model Notification {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
-  title     String
-  message   String
-  isRead    Boolean  @default(false) @map("is_read")
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@schema("finsync")
-}
-
-model MeasuringUnit {
-  id   Int    @id @default(autoincrement())
-  name String
-
-  storeItems      StoreItem[]
-  companyExpenses CompanyExpense[]
-
-  @@schema("finsync")
-}
-
-// ==========================================
-// 8. RETAIL / SHOP MODELS
+// 11. RETAIL / SHOP MODELS
 // ==========================================
 
 model Customer {
@@ -638,6 +848,23 @@ model PurchaseItem {
 
   purchase  Purchase  @relation(fields: [purchaseId], references: [id])
   storeItem StoreItem @relation(fields: [itemId], references: [id])
+
+  @@schema("finsync")
+}
+
+// ==========================================
+// 12. NOTIFICATIONS
+// ==========================================
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  title     String
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 
   @@schema("finsync")
 }

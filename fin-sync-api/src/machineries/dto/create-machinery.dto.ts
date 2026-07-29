@@ -1,5 +1,4 @@
-import { MachineryOwnership, MachineryStatus } from '@prisma/client';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateMachineryDto {
   @IsString()
@@ -8,11 +7,23 @@ export class CreateMachineryDto {
   @IsString()
   category: string;
 
-  @IsEnum(MachineryStatus)
+  @IsString()
   @IsOptional()
-  status?: MachineryStatus;
+  status?: string;
 
-  @IsEnum(MachineryOwnership)
+  @IsString()
   @IsOptional()
-  ownershipType?: MachineryOwnership; // <-- ADD THIS
+  type?: string;
+
+  @IsString()
+  @IsOptional()
+  code?: string;
+
+  @IsNumber()
+  @IsOptional()
+  projectId?: number;
+
+  @IsString()
+  @IsOptional()
+  ownershipType?: string;
 }

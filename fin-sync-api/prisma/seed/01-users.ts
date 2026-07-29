@@ -213,7 +213,6 @@ const USERS: UserData[] = [
     phone: '+1-555-0703',
   },
 ];
-
 export async function seedUsers(
   prisma: PrismaClient,
   ctx: SeedContext,
@@ -223,8 +222,15 @@ export async function seedUsers(
   const hashedPassword = await hashPassword('password123');
 
   for (const user of USERS) {
-    const created = await prisma.user.create({
-      data: {
+    const created = await prisma.user.upsert({
+      where: { email: user.email },
+      update: {
+        name: user.name,
+        password: hashedPassword,
+        role: user.role,
+        phone: user.phone,
+      },
+      create: {
         name: user.name,
         email: user.email,
         password: hashedPassword,
@@ -232,8 +238,9 @@ export async function seedUsers(
         phone: user.phone,
       },
     });
+
     ctx.users[user.key] = created.id;
   }
 
-  console.log(`   ✅ Created ${USERS.length} users`);
+  console.log(`   ✅ Seeded ${USERS.length} users`);
 }

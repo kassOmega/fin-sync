@@ -114,6 +114,17 @@ const SYSTEM_PERMISSIONS = [
   { code: 'PROJECTS_DELETE', name: 'Delete Projects', module: 'Projects' },
   { code: 'EMPLOYEES_MANAGE', name: 'Manage Company Employees', module: 'HR' },
 
+  // Attendance
+  { code: 'ATTENDANCE_READ', name: 'View Attendance Records', module: 'HR' },
+  { code: 'ATTENDANCE_WRITE', name: 'Mark & Edit Attendance', module: 'HR' },
+
+  // Timesheets
+  { code: 'TIMESHEET_SUBMIT', name: 'Submit Timesheets', module: 'HR' },
+  { code: 'TIMESHEET_APPROVE', name: 'Approve Timesheets', module: 'HR' },
+
+  // Payroll
+  { code: 'PAYROLL_MANAGE', name: 'Manage Payroll', module: 'HR' },
+
   // Reports
   {
     code: 'REPORTS_VIEW',

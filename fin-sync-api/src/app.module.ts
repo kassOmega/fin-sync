@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AttendanceModule } from './attendance/attendance.module';
 import { AuthModule } from './auth/auth.module';
 import { AutomationModule } from './automation/automation.module';
 import { BudgetsModule } from './budgets/budgets.module';
@@ -15,6 +16,7 @@ import { EmployeesModule } from './employees/employees.module';
 import { MachineriesModule } from './machineries/machineries.module';
 import { MeasuringUnitsModule } from './measuring-units/measuring-unts.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { PayrollModule } from './payroll/payroll.module';
 import { PersonalAccountsModule } from './personal-accounts/personal-accounts.module';
 import { PersonalExpensesModule } from './personal-expenses/personal-expenses.module';
 import { PersonalFinanceModule } from './personal-finance/personal-finance.module';
@@ -27,12 +29,14 @@ import { RolesModule } from './roles/roles.module';
 import { SalesModule } from './sales/sales.module';
 import { SavingsModule } from './savings/savings.module';
 import { StoreItemsModule } from './store-items/store-items.module';
+import { TimesheetsModule } from './timesheets/timesheets.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    AttendanceModule,
     AuthModule,
     UsersModule,
     CompaniesModule,
@@ -44,8 +48,10 @@ import { UsersModule } from './users/users.module';
     EmployeesModule,
     MachineriesModule,
     StoreItemsModule,
+    TimesheetsModule,
     ProjectsModule,
     NotificationsModule,
+    PayrollModule,
     ReportsModule,
     RolesModule,
     MeasuringUnitsModule,

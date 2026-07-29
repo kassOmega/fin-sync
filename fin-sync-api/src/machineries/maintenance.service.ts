@@ -9,81 +9,72 @@ import { PrismaService } from '../prisma/prisma.service';
 export class MaintenanceService {
   constructor(private prisma: PrismaService) {}
 
-  // Operator logs hours worked — scoped to assigned operators only
   async logHours(machineryId: number, hours: number, userId: number) {
-    const machine = await this.prisma.machinery.findUnique({
-      where: { id: machineryId },
-      include: {
-        operators: { select: { userId: true, isHelper: true } },
-      },
-    });
-    if (!machine) throw new NotFoundException('Machinery not found');
+    const rows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT * FROM finsync.machineries WHERE id = ${machineryId}`,
+    );
+    if (!rows.length) throw new NotFoundException('Machinery not found');
+    const machine = rows[0];
 
-    // Verify: only assigned operators (or owner) can log hours
-    const isAssigned = machine.operators.some((op) => op.userId === userId);
-    if (!isAssigned) {
-      // Allow owners through — they manage everything
-      const company = await this.prisma.company.findUnique({
-        where: { id: machine.companyId },
-        select: { ownerId: true },
-      });
-      if (company?.ownerId !== userId) {
-        throw new ForbiddenException('You are not assigned to this machine');
+    // Verify operator assignment
+    if (machine.operatorId) {
+      const empRows: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT user_id FROM finsync.employees WHERE id = ${machine.operatorId}`,
+      );
+      if (!empRows.length || empRows[0].user_id !== userId) {
+        const companyRows: any[] = await this.prisma.$queryRawUnsafe(
+          `SELECT owner_id FROM finsync."Company" WHERE id = ${machine.companyId}`,
+        );
+        if (!companyRows.length || companyRows[0].owner_id !== userId) {
+          throw new ForbiddenException('You are not assigned to this machine');
+        }
       }
     }
 
-    const newRunningHours = machine.runningHours + hours;
+    const currentHours = parseFloat(machine.totalHoursRun || 0);
+    const newHours = currentHours + hours;
 
-    // Check if maintenance is due (every 250 hours)
+    // Maintenance check at 250 hours
     let maintenanceDue = false;
-    if (newRunningHours - machine.lastMaintenanceHours >= 250) {
+    if (
+      newHours >= 250 &&
+      Math.floor(currentHours / 250) < Math.floor(newHours / 250)
+    ) {
       maintenanceDue = true;
-
-      // Create a notification for the owner
-      const owner = await this.prisma.company.findUnique({
-        where: { id: machine.companyId },
-        select: { ownerId: true },
-      });
-
-      if (owner) {
-        await this.prisma.notification.create({
-          data: {
-            userId: owner.ownerId,
-            title: '🔧 Maintenance Due',
-            message: `${machine.name} has reached ${newRunningHours} hours and requires maintenance.`,
-            isRead: false,
-          },
-        });
-      }
-
-      // Auto-set status to MAINTENANCE
-      await this.prisma.machinery.update({
-        where: { id: machineryId },
-        data: { status: 'MAINTENANCE' },
-      });
+      await this.prisma.$executeRawUnsafe(
+        `UPDATE finsync.machineries SET status = 'UNDER_MAINTENANCE' WHERE id = ${machineryId}`,
+      );
     }
 
-    const updatedMachine = await this.prisma.machinery.update({
-      where: { id: machineryId },
-      data: { runningHours: newRunningHours },
-    });
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE finsync.machineries SET "totalHoursRun" = ${newHours}, "updated_at" = NOW() WHERE id = ${machineryId}`,
+    );
 
-    return { machine: updatedMachine, maintenanceDue };
+    // Create machinery log
+    await this.prisma.$executeRawUnsafe(
+      `INSERT INTO finsync.machinery_logs (machinery_id, hours_logged, operator_id, date, "createdAt")
+       VALUES (${machineryId}, ${hours}, ${machine.operatorId ?? 'NULL'}, NOW(), NOW())`,
+    );
+
+    return { machineId: machineryId, hours, maintenanceDue };
   }
 
-  // Owner/Storekeeper completes maintenance
   async completeMaintenance(machineryId: number) {
-    const machine = await this.prisma.machinery.findUnique({
-      where: { id: machineryId },
-    });
-    if (!machine) throw new NotFoundException('Machinery not found');
+    const rows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT * FROM finsync.machineries WHERE id = ${machineryId}`,
+    );
+    if (!rows.length) throw new NotFoundException('Machinery not found');
 
-    return this.prisma.machinery.update({
-      where: { id: machineryId },
-      data: {
-        lastMaintenanceHours: machine.runningHours,
-        status: 'IDLE',
-      },
-    });
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE finsync.machineries SET status = 'AVAILABLE', "updated_at" = NOW() WHERE id = ${machineryId}`,
+    );
+
+    // Create maintenance record
+    await this.prisma.$executeRawUnsafe(
+      `INSERT INTO finsync.machinery_maintenances (machinery_id, description, total_cost, "createdAt")
+       VALUES (${machineryId}, 'Maintenance completed', 0, NOW())`,
+    );
+
+    return { machineryId, status: 'AVAILABLE' };
   }
 }

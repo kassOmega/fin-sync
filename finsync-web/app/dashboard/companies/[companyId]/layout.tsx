@@ -73,6 +73,26 @@ export default function CompanyLayout({
       href: `/store`,
       roles: [SystemRole.Owner, SystemRole.Storekeeper],
     },
+    {
+      name: "Attendance",
+      href: `/attendance`,
+      roles: [SystemRole.Owner, SystemRole.ProjectManager],
+    },
+    {
+      name: "Timesheets",
+      href: `/timesheets`,
+      roles: [
+        SystemRole.Owner,
+        SystemRole.ProjectManager,
+        SystemRole.Foreman,
+        SystemRole.OperatorDriver,
+      ],
+    },
+    {
+      name: "Payroll",
+      href: `/payroll`,
+      roles: [SystemRole.Owner],
+    },
     { name: "Roles", href: `/roles`, roles: [SystemRole.Owner] },
     { name: "Reports", href: `/reports`, roles: [SystemRole.Owner] },
   ];
