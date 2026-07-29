@@ -1,6 +1,14 @@
 "use client";
 
-import { ArrowLeft, Clock, DollarSign, Users, Wrench } from "lucide-react";
+import {
+  ArrowLeft,
+  Briefcase,
+  Clock,
+  DollarSign,
+  TrendingUp,
+  Users,
+  Wrench,
+} from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 
@@ -22,7 +30,8 @@ export default function ProjectLayout({
 
   const base = `/dashboard/companies/${companyId}/projects/${projectId}`;
   const tabs = [
-    { name: "Overview", href: "", icon: Clock },
+    { name: "Overview", href: "", icon: Briefcase },
+    { name: "Finance", href: "/finance/incomes", icon: TrendingUp },
     { name: "Personnel", href: "/personnel", icon: Users },
     { name: "Timesheets", href: "/timesheets", icon: Clock },
     { name: "Machinery", href: "/machinery", icon: Wrench },
