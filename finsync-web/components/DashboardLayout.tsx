@@ -28,7 +28,7 @@ export default function DashboardLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const { user, logout, hasRole } = useAuthStore();
+  const { user, logout, hasRole, activeCompanyId } = useAuthStore();
   const { lang, setLang, t } = useLangStore();
   const pathname = usePathname();
 
@@ -91,13 +91,17 @@ export default function DashboardLayout({
     },
     {
       name: t("nav.projects"),
-      href: "/dashboard/projects",
+      href: activeCompanyId
+        ? `/dashboard/companies/${activeCompanyId}/projects`
+        : "/dashboard",
       icon: Package,
       roles: [SystemRole.ProjectManager, SystemRole.Foreman],
     },
     {
       name: t("nav.machinery"),
-      href: "/dashboard/machinery",
+      href: activeCompanyId
+        ? `/dashboard/companies/${activeCompanyId}/machineries`
+        : "/dashboard",
       icon: Wrench,
       roles: [SystemRole.OperatorDriver],
     },

@@ -9,7 +9,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 interface InventoryItem {
@@ -30,6 +30,7 @@ interface InventoryItem {
 export default function InventoryReportPage() {
   const params = useParams();
   const companyId = params.companyId as string;
+  const router = useRouter();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -37,6 +38,10 @@ export default function InventoryReportPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   useEffect(() => {
+    if (!companyId) {
+      router.push("/dashboard/companies");
+      return;
+    }
     const fetchData = async () => {
       try {
         const res = await api.get(`/companies/${companyId}/reports/inventory`);
@@ -48,7 +53,11 @@ export default function InventoryReportPage() {
       }
     };
     fetchData();
-  }, [companyId]);
+  }, [companyId, router]);
+
+  if (!companyId) {
+    return null;
+  }
 
   const categories = [...new Set(items.map((i) => i.category)).values()].sort();
   const totalValue = items.reduce((s, i) => s + i.quantity * i.sellingPrice, 0);

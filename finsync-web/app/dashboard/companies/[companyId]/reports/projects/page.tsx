@@ -3,7 +3,7 @@
 import api from "@/lib/api";
 import { ArrowLeft, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Bar,
@@ -33,6 +33,7 @@ interface ProjectReportsData {
 export default function ProjectsReportPage() {
   const params = useParams();
   const companyId = params.companyId as string;
+  const router = useRouter();
   const [report, setReport] = useState<ProjectReportsData | null>(null);
 
   useEffect(() => {
@@ -40,8 +41,14 @@ export default function ProjectsReportPage() {
       api
         .get(`/companies/${companyId}/reports/projects`)
         .then((res) => setReport(res.data));
+    } else {
+      router.push("/dashboard/companies");
     }
-  }, [companyId]);
+  }, [companyId, router]);
+
+  if (!companyId) {
+    return null;
+  }
 
   if (!report)
     return (

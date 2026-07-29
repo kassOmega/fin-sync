@@ -3,7 +3,7 @@
 import api from "@/lib/api";
 import { SystemRole } from "@/lib/types";
 import { Pencil, Shield, Trash2, UserPlus, X } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -25,6 +25,7 @@ interface CompanyRole {
 export default function StaffPage() {
   const params = useParams();
   const companyId = params.companyId as string;
+  const router = useRouter();
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [roles, setRoles] = useState<CompanyRole[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
@@ -55,13 +56,21 @@ export default function StaffPage() {
   };
 
   useEffect(() => {
+    if (!companyId) {
+      router.push("/dashboard/companies");
+      return;
+    }
     const load = async () => {
       setPageLoading(true);
-      await fetchStaff();
+      await Promise.all([fetchStaff()]);
       setPageLoading(false);
     };
     load();
-  }, [companyId]);
+  }, [companyId, router]);
+
+  if (!companyId) {
+    return null;
+  }
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

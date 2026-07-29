@@ -11,7 +11,7 @@ import {
   Wrench,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -33,6 +33,7 @@ interface Unit {
 export default function StorePage() {
   const params = useParams();
   const companyId = params.companyId as string;
+  const router = useRouter();
   const { hasRole } = useAuthStore();
   const [items, setItems] = useState<StoreItem[]>([]);
   const [categories, setCategories] = useState<{ id: number; name: string }[]>(
@@ -88,16 +89,27 @@ export default function StorePage() {
   };
 
   useEffect(() => {
+    if (!companyId) {
+      router.push("/dashboard/companies");
+      return;
+    }
     const load = async () => {
       setPageLoading(true);
       await Promise.all([fetchCategories(), fetchItems(), fetchUnits()]);
       setPageLoading(false);
     };
     load();
-  }, [companyId]);
+  }, [companyId, router]);
+
   useEffect(() => {
-    fetchItems();
+    if (companyId) {
+      fetchItems();
+    }
   }, [categoryFilter]);
+
+  if (!companyId) {
+    return null;
+  }
 
   const handleCreateItem = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

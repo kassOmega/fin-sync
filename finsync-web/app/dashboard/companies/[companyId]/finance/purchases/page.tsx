@@ -4,7 +4,7 @@ import api from "@/lib/api";
 import { SystemRole } from "@/lib/types";
 import { useAuthStore } from "@/store/authStore";
 import { Loader2, Truck } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -51,6 +51,7 @@ interface Purchase {
 export default function PurchasesPage() {
   const params = useParams();
   const companyId = params.companyId as string;
+  const router = useRouter();
   const { hasRole } = useAuthStore();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -112,13 +113,21 @@ export default function PurchasesPage() {
   };
 
   useEffect(() => {
+    if (!companyId) {
+      router.push("/dashboard/companies");
+      return;
+    }
     const load = async () => {
       setPageLoading(true);
       await Promise.all([fetchData(), fetchStoreItems()]);
       setPageLoading(false);
     };
     load();
-  }, [companyId]);
+  }, [companyId, router]);
+
+  if (!companyId) {
+    return null;
+  }
 
   const addLine = () => {
     setPurchaseItems([

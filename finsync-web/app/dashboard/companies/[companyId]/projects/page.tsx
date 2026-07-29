@@ -2,7 +2,7 @@
 
 import api from "@/lib/api";
 import { Eye, Flag, Pencil, Plus, Trash2 } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -32,6 +32,7 @@ interface ProjectReport {
 export default function ProjectsPage() {
   const params = useParams();
   const companyId = params.companyId as string;
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -59,13 +60,21 @@ export default function ProjectsPage() {
   };
 
   useEffect(() => {
+    if (!companyId) {
+      router.push("/dashboard/companies");
+      return;
+    }
     const load = async () => {
       setPageLoading(true);
       await fetchProjects();
       setPageLoading(false);
     };
     load();
-  }, [companyId]);
+  }, [companyId, router]);
+
+  if (!companyId) {
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

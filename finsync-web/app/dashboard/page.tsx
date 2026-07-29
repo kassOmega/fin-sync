@@ -4,9 +4,10 @@ import { SystemRole } from "@/lib/types";
 import { useAuthStore } from "@/store/authStore";
 import { useLangStore } from "@/store/langStore";
 import { ClipboardList, Package, Store, Truck, Wrench } from "lucide-react";
+import Link from "next/link";
 
 export default function DashboardHome() {
-  const { user, hasRole } = useAuthStore();
+  const { user, hasRole, activeCompanyId } = useAuthStore();
   const { t } = useLangStore();
 
   return (
@@ -40,12 +41,12 @@ export default function DashboardHome() {
               <p className="mt-2 text-sm text-gray-500">
                 {t("overview.businessDesc")}
               </p>
-              <a
+              <Link
                 href="/dashboard/companies"
                 className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500"
               >
                 {t("overview.goCompanies")}
-              </a>
+              </Link>
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
@@ -81,7 +82,11 @@ export default function DashboardHome() {
               View and update progress on construction projects assigned to you.
             </p>
             <a
-              href="/dashboard/projects"
+              href={
+                activeCompanyId
+                  ? `/dashboard/companies/${activeCompanyId}/projects`
+                  : "/dashboard"
+              }
               className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500"
             >
               View Projects →
@@ -102,7 +107,11 @@ export default function DashboardHome() {
               maintenance status.
             </p>
             <a
-              href="/dashboard/machinery"
+              href={
+                activeCompanyId
+                  ? `/dashboard/companies/${activeCompanyId}/machineries`
+                  : "/dashboard"
+              }
               className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500"
             >
               View Machinery →
@@ -123,12 +132,12 @@ export default function DashboardHome() {
                 Manage stock levels, process restocks, and monitor low-stock
                 alerts.
               </p>
-              <a
+              <Link
                 href="/dashboard/companies"
                 className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500"
               >
                 Manage Inventory →
-              </a>
+              </Link>
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">

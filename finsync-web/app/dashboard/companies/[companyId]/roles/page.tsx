@@ -3,7 +3,7 @@
 import api from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { Plus, Save, Shield, Trash2, UserPlus, X } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -31,6 +31,7 @@ interface StaffMember {
 export default function RolesPage() {
   const params = useParams();
   const companyId = params.companyId as string;
+  const router = useRouter();
   const { user, hasRole } = useAuthStore();
 
   const [permissions, setPermissions] = useState<Permission[]>([]);
@@ -73,7 +74,12 @@ export default function RolesPage() {
 
   useEffect(() => {
     if (companyId) fetchData();
-  }, [companyId]);
+    else router.push("/dashboard/companies");
+  }, [companyId, router]);
+
+  if (!companyId) {
+    return null;
+  }
 
   const togglePerm = (
     code: string,

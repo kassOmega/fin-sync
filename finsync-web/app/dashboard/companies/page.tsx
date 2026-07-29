@@ -1,6 +1,7 @@
 "use client";
 
 import api from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
 import { useLangStore } from "@/store/langStore";
 import { ArrowRight, Building2, Plus } from "lucide-react";
 import Link from "next/link";
@@ -19,6 +20,7 @@ interface Company {
 
 export default function CompaniesPage() {
   const { t } = useLangStore();
+  const setActiveCompany = useAuthStore((s) => s.setActiveCompany);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState("");
@@ -85,6 +87,7 @@ export default function CompaniesPage() {
           <Link
             href={`/dashboard/companies/${company.id}`}
             key={company.id}
+            onClick={() => setActiveCompany(company.id)}
             className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:border-indigo-500 transition-all group"
           >
             <div className="flex items-center justify-between mb-4">

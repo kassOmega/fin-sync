@@ -25,6 +25,7 @@ export default function CompanyLayout({
   useEffect(() => {
     if (companyId) {
       api.get(`/companies/${companyId}`).then((res) => setCompany(res.data));
+      useAuthStore.getState().setActiveCompany(Number(companyId));
     }
   }, [companyId]);
 

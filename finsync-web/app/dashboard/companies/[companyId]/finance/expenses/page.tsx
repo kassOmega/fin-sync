@@ -2,7 +2,7 @@
 
 import api from "@/lib/api";
 import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -31,6 +31,7 @@ interface Unit {
 export default function CompanyExpensesPage() {
   const params = useParams();
   const companyId = params.companyId as string;
+  const router = useRouter();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -89,6 +90,10 @@ export default function CompanyExpensesPage() {
   };
 
   useEffect(() => {
+    if (!companyId) {
+      router.push("/dashboard/companies");
+      return;
+    }
     const load = async () => {
       setPageLoading(true);
       await Promise.all([
@@ -100,7 +105,11 @@ export default function CompanyExpensesPage() {
       setPageLoading(false);
     };
     load();
-  }, [companyId]);
+  }, [companyId, router]);
+
+  if (!companyId) {
+    return null;
+  }
 
   const handleAddCategory = () => {
     if (!newCatName.trim()) return;

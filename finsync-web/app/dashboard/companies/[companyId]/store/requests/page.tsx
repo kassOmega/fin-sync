@@ -13,7 +13,7 @@ import {
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -32,6 +32,7 @@ interface StoreRequest {
 export default function StoreRequestsPage() {
   const params = useParams();
   const companyId = params.companyId as string;
+  const router = useRouter();
   const { user, hasRole } = useAuthStore();
   const [requests, setRequests] = useState<StoreRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,8 +49,16 @@ export default function StoreRequestsPage() {
   };
 
   useEffect(() => {
+    if (!companyId) {
+      router.push("/dashboard/companies");
+      return;
+    }
     fetchRequests();
-  }, [companyId]);
+  }, [companyId, router]);
+
+  if (!companyId) {
+    return null;
+  }
 
   const handleApprove = async (requestId: number) => {
     try {

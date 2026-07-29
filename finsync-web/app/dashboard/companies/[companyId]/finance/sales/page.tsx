@@ -4,7 +4,7 @@ import api from "@/lib/api";
 import { SystemRole } from "@/lib/types";
 import { useAuthStore } from "@/store/authStore";
 import { Loader2, ShoppingCart, UserPlus, Users } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -53,6 +53,7 @@ interface Sale {
 export default function SalesPage() {
   const params = useParams();
   const companyId = params.companyId as string;
+  const router = useRouter();
   const { hasRole } = useAuthStore();
   const [sales, setSales] = useState<Sale[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -116,13 +117,21 @@ export default function SalesPage() {
   };
 
   useEffect(() => {
+    if (!companyId) {
+      router.push("/dashboard/companies");
+      return;
+    }
     const load = async () => {
       setPageLoading(true);
       await Promise.all([fetchData(), fetchStoreItems()]);
       setPageLoading(false);
     };
     load();
-  }, [companyId]);
+  }, [companyId, router]);
+
+  if (!companyId) {
+    return null;
+  }
 
   const addSaleLine = () => {
     setSaleItems([

@@ -3,7 +3,7 @@
 import api from "@/lib/api";
 import { ArrowLeft, DollarSign, ShoppingCart, Truck } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Bar,
@@ -61,6 +61,7 @@ interface PurchasesReport {
 export default function PurchasesReportPage() {
   const params = useParams();
   const companyId = params.companyId as string;
+  const router = useRouter();
   const [report, setReport] = useState<PurchasesReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedPurchase, setExpandedPurchase] = useState<number | null>(null);
@@ -76,8 +77,16 @@ export default function PurchasesReportPage() {
         setLoading(false);
       }
     };
+    if (!companyId) {
+      router.push("/dashboard/companies");
+      return;
+    }
     fetchData();
-  }, [companyId]);
+  }, [companyId, router]);
+
+  if (!companyId) {
+    return null;
+  }
 
   if (loading) {
     return (

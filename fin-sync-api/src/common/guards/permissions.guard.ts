@@ -27,14 +27,18 @@ export class PermissionsGuard implements CanActivate {
     // Owners bypass permission checks
     if (user.role === 'Owner') return true;
 
-    // Get companyId from params
+    // Get companyId from params (supports both :companyId and :id variants used
+    // by different controllers — e.g. the companies controller uses :id which
+    // maps to companyId)
     const companyId = request.params?.companyId
       ? parseInt(request.params.companyId)
-      : request.body?.companyId
-        ? parseInt(request.body.companyId)
-        : request.query?.companyId
-          ? parseInt(request.query.companyId)
-          : null;
+      : request.params?.id
+        ? parseInt(request.params.id)
+        : request.body?.companyId
+          ? parseInt(request.body.companyId)
+          : request.query?.companyId
+            ? parseInt(request.query.companyId)
+            : null;
 
     if (!companyId) return false;
 

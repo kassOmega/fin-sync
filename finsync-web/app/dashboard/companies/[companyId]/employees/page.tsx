@@ -2,7 +2,7 @@
 
 import api from "@/lib/api";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -17,6 +17,7 @@ interface Employee {
 export default function EmployeesPage() {
   const params = useParams();
   const companyId = params.companyId as string;
+  const router = useRouter();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -38,13 +39,21 @@ export default function EmployeesPage() {
   };
 
   useEffect(() => {
+    if (!companyId) {
+      router.push("/dashboard/companies");
+      return;
+    }
     const load = async () => {
       setPageLoading(true);
       await fetchEmployees();
       setPageLoading(false);
     };
     load();
-  }, [companyId]);
+  }, [companyId, router]);
+
+  if (!companyId) {
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

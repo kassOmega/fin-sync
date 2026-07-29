@@ -12,7 +12,7 @@ import {
   Trash2,
   Wrench,
 } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
@@ -42,6 +42,7 @@ interface MachineReport {
 export default function MachineriesPage() {
   const params = useParams();
   const companyId = params.companyId as string;
+  const router = useRouter();
 
   const { hasRole } = useAuthStore();
   const [machines, setMachines] = useState<Machine[]>([]);
@@ -81,13 +82,21 @@ export default function MachineriesPage() {
   };
 
   useEffect(() => {
+    if (!companyId) {
+      router.push("/dashboard/companies");
+      return;
+    }
     const load = async () => {
       setPageLoading(true);
       await Promise.all([fetchMachines(), fetchProjects()]);
       setPageLoading(false);
     };
     load();
-  }, [companyId]);
+  }, [companyId, router]);
+
+  if (!companyId) {
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
