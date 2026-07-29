@@ -4,6 +4,7 @@ import api from "@/lib/api";
 import { SystemRole } from "@/lib/types";
 import { useAuthStore } from "@/store/authStore";
 import { Eye, Flag, Pencil, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -145,9 +146,10 @@ export default function ProjectsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {projects.map((p) => (
-          <div
+          <Link
             key={p.id}
-            className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+            href={`/dashboard/companies/${companyId}/projects/${p.id}`}
+            className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:border-indigo-500 transition-all group block"
           >
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center space-x-3">
@@ -171,7 +173,9 @@ export default function ProjectsPage() {
             <div className="flex justify-between items-center">
               <div className="flex space-x-2">
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setViewingProj(p);
                     fetchProjectReport(p.id);
                   }}
@@ -180,7 +184,9 @@ export default function ProjectsPage() {
                   <Eye className="h-5 w-5" />
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setEditingProj(p);
                     setFormData({ name: p.name, progress: p.progress });
                     setIsModalOpen(true);
@@ -190,14 +196,18 @@ export default function ProjectsPage() {
                   <Pencil className="h-5 w-5" />
                 </button>
                 <button
-                  onClick={() => handleDelete(p.id)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleDelete(p.id);
+                  }}
                   className="text-red-500 hover:text-red-700"
                 >
                   <Trash2 className="h-5 w-5" />
                 </button>
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 

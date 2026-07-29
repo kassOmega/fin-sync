@@ -238,13 +238,15 @@ export default function TimesheetsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium">Date</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Date
+                </label>
                 <input
                   required
                   type="date"
                   value={form.date}
                   onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  className="mt-1 w-full border rounded p-2 text-sm"
+                  className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
