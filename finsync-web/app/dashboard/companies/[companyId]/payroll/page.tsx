@@ -256,7 +256,7 @@ export default function PayrollPage() {
                   required
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className="mt-1 w-full border rounded p-2 text-sm"
+                  className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -271,7 +271,7 @@ export default function PayrollPage() {
                     onChange={(e) =>
                       setForm({ ...form, startDate: e.target.value })
                     }
-                    className="mt-1 w-full border rounded p-2 text-sm"
+                    className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   />
                 </div>
                 <div>
@@ -283,7 +283,7 @@ export default function PayrollPage() {
                     onChange={(e) =>
                       setForm({ ...form, endDate: e.target.value })
                     }
-                    className="mt-1 w-full border rounded p-2 text-sm"
+                    className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   />
                 </div>
               </div>

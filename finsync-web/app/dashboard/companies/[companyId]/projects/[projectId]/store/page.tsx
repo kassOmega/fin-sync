@@ -119,7 +119,7 @@ export default function ProjectStorePage() {
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="border rounded p-2 text-sm bg-white"
+              className="border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
             >
               <option value="">All Categories</option>
               {categories.map((c) => (

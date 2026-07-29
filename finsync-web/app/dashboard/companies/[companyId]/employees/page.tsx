@@ -257,7 +257,7 @@ export default function EmployeesPage() {
                     onChange={(e) =>
                       setForm({ ...form, employeeCode: e.target.value })
                     }
-                    className="mt-1 w-full border rounded p-2 text-sm"
+                    className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   />
                 </div>
                 <div>
@@ -269,7 +269,7 @@ export default function EmployeesPage() {
                     onChange={(e) =>
                       setForm({ ...form, employmentType: e.target.value })
                     }
-                    className="mt-1 w-full border rounded p-2 text-sm"
+                    className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   >
                     <option value="FULL_TIME">Full-Time</option>
                     <option value="PART_TIME">Part-Time</option>
@@ -289,7 +289,7 @@ export default function EmployeesPage() {
                     onChange={(e) =>
                       setForm({ ...form, firstName: e.target.value })
                     }
-                    className="mt-1 w-full border rounded p-2 text-sm"
+                    className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   />
                 </div>
                 <div>
@@ -300,7 +300,7 @@ export default function EmployeesPage() {
                     onChange={(e) =>
                       setForm({ ...form, lastName: e.target.value })
                     }
-                    className="mt-1 w-full border rounded p-2 text-sm"
+                    className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   />
                 </div>
               </div>
@@ -313,7 +313,7 @@ export default function EmployeesPage() {
                     onChange={(e) =>
                       setForm({ ...form, email: e.target.value })
                     }
-                    className="mt-1 w-full border rounded p-2 text-sm"
+                    className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   />
                 </div>
                 <div>
@@ -323,7 +323,7 @@ export default function EmployeesPage() {
                     onChange={(e) =>
                       setForm({ ...form, phone: e.target.value })
                     }
-                    className="mt-1 w-full border rounded p-2 text-sm"
+                    className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   />
                 </div>
               </div>
@@ -335,7 +335,7 @@ export default function EmployeesPage() {
                   onChange={(e) =>
                     setForm({ ...form, designation: e.target.value })
                   }
-                  className="mt-1 w-full border rounded p-2 text-sm"
+                  className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                 />
               </div>
               <div className="grid grid-cols-3 gap-3">
@@ -350,7 +350,7 @@ export default function EmployeesPage() {
                     onChange={(e) =>
                       setForm({ ...form, hourlyRate: e.target.value })
                     }
-                    className="mt-1 w-full border rounded p-2 text-sm"
+                    className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   />
                 </div>
                 <div>
@@ -364,7 +364,7 @@ export default function EmployeesPage() {
                     onChange={(e) =>
                       setForm({ ...form, dailyRate: e.target.value })
                     }
-                    className="mt-1 w-full border rounded p-2 text-sm"
+                    className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   />
                 </div>
                 <div>
@@ -378,7 +378,7 @@ export default function EmployeesPage() {
                     onChange={(e) =>
                       setForm({ ...form, baseSalary: e.target.value })
                     }
-                    className="mt-1 w-full border rounded p-2 text-sm"
+                    className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   />
                 </div>
               </div>

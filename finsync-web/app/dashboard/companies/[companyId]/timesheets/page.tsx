@@ -227,7 +227,7 @@ export default function TimesheetsPage() {
                   onChange={(e) =>
                     setForm({ ...form, employeeId: e.target.value })
                   }
-                  className="mt-1 w-full border rounded p-2 text-sm"
+                  className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                 >
                   <option value="">Select</option>
                   {employees.map((e) => (
@@ -261,7 +261,7 @@ export default function TimesheetsPage() {
                     onChange={(e) =>
                       setForm({ ...form, regularHours: e.target.value })
                     }
-                    className="mt-1 w-full border rounded p-2 text-sm"
+                    className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   />
                 </div>
                 <div>
@@ -273,7 +273,7 @@ export default function TimesheetsPage() {
                     onChange={(e) =>
                       setForm({ ...form, overtimeHours: e.target.value })
                     }
-                    className="mt-1 w-full border rounded p-2 text-sm"
+                    className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   />
                 </div>
               </div>
@@ -284,7 +284,7 @@ export default function TimesheetsPage() {
                   onChange={(e) =>
                     setForm({ ...form, description: e.target.value })
                   }
-                  className="mt-1 w-full border rounded p-2 text-sm"
+                  className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                 />
               </div>
               <div className="flex justify-end space-x-2 pt-3">
