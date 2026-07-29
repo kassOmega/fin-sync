@@ -9,6 +9,8 @@ interface Expense {
   id: number;
   amount: number;
   category: string;
+  quantity?: number;
+  unit?: string;
   note?: string;
   date: string;
   user?: { name: string };
@@ -22,7 +24,13 @@ export default function ProjectExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState({ amount: "", category: "", note: "" });
+  const [form, setForm] = useState({
+    amount: "",
+    category: "",
+    quantity: "1",
+    unit: "pcs",
+    note: "",
+  });
 
   const fetchAll = async () => {
     try {
@@ -36,7 +44,6 @@ export default function ProjectExpensesPage() {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     if (!companyId || !projectId) {
       router.push("/dashboard/companies");
@@ -44,7 +51,6 @@ export default function ProjectExpensesPage() {
     }
     fetchAll();
   }, []);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -54,13 +60,18 @@ export default function ProjectExpensesPage() {
       );
       toast.success("Expense added");
       setModalOpen(false);
-      setForm({ amount: "", category: "", note: "" });
+      setForm({
+        amount: "",
+        category: "",
+        quantity: "1",
+        unit: "pcs",
+        note: "",
+      });
       fetchAll();
     } catch {
       toast.error("Failed");
     }
   };
-
   const handleDelete = async (id: number) => {
     if (!confirm("Delete?")) return;
     try {
@@ -80,7 +91,6 @@ export default function ProjectExpensesPage() {
         <div className="animate-spin h-8 w-8 border-t-2 border-b-2 border-indigo-500 rounded-full" />
       </div>
     );
-
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -103,6 +113,12 @@ export default function ProjectExpensesPage() {
                 Category
               </th>
               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                Qty
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Unit
+              </th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                 Amount
               </th>
               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
@@ -113,7 +129,7 @@ export default function ProjectExpensesPage() {
           <tbody>
             {expenses.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                   No expenses recorded.
                 </td>
               </tr>
@@ -125,6 +141,12 @@ export default function ProjectExpensesPage() {
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900">
                     {e.category}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right text-gray-900">
+                    {e.quantity || 1}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-600">
+                    {e.unit || "—"}
                   </td>
                   <td className="px-4 py-3 text-sm text-right font-medium text-red-600">
                     ${e.amount}
@@ -143,7 +165,6 @@ export default function ProjectExpensesPage() {
           </tbody>
         </table>
       </div>
-
       {modalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
@@ -153,7 +174,48 @@ export default function ProjectExpensesPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Amount ($)
+                  Expense Category *
+                </label>
+                <input
+                  required
+                  placeholder="e.g. Materials, Labor"
+                  value={form.category}
+                  onChange={(e) =>
+                    setForm({ ...form, category: e.target.value })
+                  }
+                  className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Quantity
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.quantity}
+                    onChange={(e) =>
+                      setForm({ ...form, quantity: e.target.value })
+                    }
+                    className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Unit
+                  </label>
+                  <input
+                    placeholder="pcs, hrs, kg"
+                    value={form.unit}
+                    onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                    className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Unit Price ($) *
                 </label>
                 <input
                   type="number"
@@ -167,20 +229,6 @@ export default function ProjectExpensesPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Category
-                </label>
-                <input
-                  required
-                  placeholder="e.g. Materials, Labor"
-                  value={form.category}
-                  onChange={(e) =>
-                    setForm({ ...form, category: e.target.value })
-                  }
-                  className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Note (optional)
                 </label>
                 <input
@@ -189,6 +237,18 @@ export default function ProjectExpensesPage() {
                   onChange={(e) => setForm({ ...form, note: e.target.value })}
                   className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                 />
+              </div>
+              <div className="bg-gray-50 p-3 rounded text-right">
+                <p className="text-sm text-gray-500">
+                  Total:{" "}
+                  <span className="text-lg font-bold text-gray-900">
+                    $
+                    {(
+                      parseFloat(form.amount || "0") *
+                      parseInt(form.quantity || "1")
+                    ).toFixed(2)}
+                  </span>
+                </p>
               </div>
               <div className="flex justify-end space-x-2 pt-2">
                 <button
