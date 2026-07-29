@@ -73,7 +73,7 @@ export default function ProjectLayout({
           })}
         </nav>
       </header>
-      <main className="flex-1 p-4 lg:p-8">
+      <main className="flex-1 lg:p-8">
         <div className="max-w-7xl mx-auto">{children}</div>
       </main>
     </div>
