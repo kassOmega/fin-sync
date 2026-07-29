@@ -156,11 +156,13 @@ export default function ProjectIncomesPage() {
             ) : (
               incomes.map((inc) => (
                 <tr key={inc.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
                     {new Date(inc.date).toLocaleDateString()}
                   </td>
-                  <td className="px-4 py-3 text-sm">{inc.category}</td>
-                  <td className="px-4 py-3 text-sm text-right">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                    {inc.category}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-medium text-right text-gray-900">
                     {inc.quantity || 1}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
