@@ -2,6 +2,7 @@
 
 import {
   ArrowLeft,
+  BarChart3,
   Briefcase,
   Clock,
   DollarSign,
@@ -37,6 +38,7 @@ export default function ProjectLayout({
     { name: "Timesheets", href: "/timesheets", icon: Clock },
     { name: "Store", href: "/store", icon: Package },
     { name: "Machinery", href: "/machinery", icon: Wrench },
+    { name: "Reports", href: "/reports", icon: BarChart3 },
     { name: "Payroll", href: "/payroll", icon: DollarSign },
   ];
 
