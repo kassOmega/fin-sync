@@ -30,12 +30,9 @@ export default function ProjectMachineryPage() {
       return;
     }
     api
-      .get(`/companies/${companyId}/machineries`)
+      .get(`/companies/${companyId}/projects/${projectId}/machineries`)
       .then((res) => {
-        const filtered = (res.data || []).filter(
-          (m: any) => m.projectId == parseInt(projectId),
-        );
-        setMachines(filtered);
+        setMachines(res.data || []);
       })
       .catch(() => toast.error("Failed to load"))
       .finally(() => setLoading(false));
