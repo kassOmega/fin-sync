@@ -42,13 +42,6 @@ export default function CompanyOverview() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800">{company.name}</h1>
-        <p className="text-gray-500">
-          {company.industry || "Business Operations"}
-        </p>
-      </div>
-
       <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
         {cards.map((card) => (
           <Link

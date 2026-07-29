@@ -43,14 +43,9 @@ export default function CompanyLayout({
       ],
     },
     {
-      name: "Incomes",
-      href: `/incomes`,
+      name: "Finance",
+      href: `/finance/incomes`,
       roles: [SystemRole.Owner, SystemRole.Cashier, SystemRole.Sales],
-    },
-    {
-      name: "Expenses",
-      href: `/expenses`,
-      roles: [SystemRole.Owner, SystemRole.Cashier],
     },
     { name: "Staff", href: `/staff`, roles: [SystemRole.Owner] },
     {
@@ -76,16 +71,6 @@ export default function CompanyLayout({
       name: "Store",
       href: `/store`,
       roles: [SystemRole.Owner, SystemRole.Storekeeper],
-    },
-    {
-      name: "Sales",
-      href: `/sales`,
-      roles: [SystemRole.Owner, SystemRole.Cashier, SystemRole.Sales],
-    },
-    {
-      name: "Purchases",
-      href: `/purchases`,
-      roles: [SystemRole.Owner, SystemRole.Cashier, SystemRole.Storekeeper],
     },
     { name: "Roles", href: `/roles`, roles: [SystemRole.Owner] },
     { name: "Reports", href: `/reports`, roles: [SystemRole.Owner] },

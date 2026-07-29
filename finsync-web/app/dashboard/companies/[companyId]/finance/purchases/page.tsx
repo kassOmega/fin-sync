@@ -129,8 +129,7 @@ export default function PurchasesPage() {
 
   const updateLine = (index: number, field: string, value: number | string) => {
     const updated = [...purchaseItems];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (updated[index] as any)[field] = value;
+    (updated[index] as Record<string, unknown>)[field] = value;
     if (field === "categoryFilter" && typeof value === "number") {
       fetchStoreItems(value || undefined);
     }
