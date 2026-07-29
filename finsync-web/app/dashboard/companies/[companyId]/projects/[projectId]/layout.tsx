@@ -5,6 +5,7 @@ import {
   Briefcase,
   Clock,
   DollarSign,
+  Package,
   TrendingUp,
   Users,
   Wrench,
@@ -34,6 +35,7 @@ export default function ProjectLayout({
     { name: "Finance", href: "/finance/incomes", icon: TrendingUp },
     { name: "Personnel", href: "/personnel", icon: Users },
     { name: "Timesheets", href: "/timesheets", icon: Clock },
+    { name: "Store", href: "/store", icon: Package },
     { name: "Machinery", href: "/machinery", icon: Wrench },
     { name: "Payroll", href: "/payroll", icon: DollarSign },
   ];
