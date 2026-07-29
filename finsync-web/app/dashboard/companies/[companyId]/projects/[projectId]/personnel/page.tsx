@@ -40,10 +40,28 @@ export default function ProjectPersonnelPage() {
   const fetchData = async () => {
     try {
       const [mRes, eRes] = await Promise.all([
-        api.get(`/companies/${companyId}/projects/${projectId}/members`),
+        api.get(`/companies/${companyId}/projects?projectId=${projectId}`),
         api.get(`/companies/${companyId}/employees`),
       ]);
-      setMembers(Array.isArray(mRes.data) ? mRes.data : []);
+      // Get members from project assignments
+      const project = (Array.isArray(mRes.data) ? mRes.data : []).find(
+        (p: any) => String(p.id) === projectId,
+      );
+      const assigned = project?.assignments || [];
+      setMembers(
+        assigned.map((a: any) => ({
+          id: a.id,
+          employeeId: a.user?.id || a.userId,
+          employee: a.user || {
+            id: a.userId,
+            firstName: a.user?.name || "User",
+            lastName: "",
+            employeeCode: "",
+            designation: "",
+          },
+          roleOnSite: null,
+        })),
+      );
       setEmployees(eRes.data);
     } catch {
       toast.error("Failed to load");
@@ -98,7 +116,7 @@ export default function ProjectPersonnelPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Project Personnel</h1>
+        <h2 className="text-xl font-bold text-gray-800">Project Personnel</h2>
         <button
           onClick={() => setAssignOpen(true)}
           className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
