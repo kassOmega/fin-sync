@@ -290,7 +290,7 @@ export class ReportsService {
 
   async getAllProjectsReport(companyId: number) {
     const projects: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT p.* FROM finsync.projects p WHERE p.company_id = ${companyId}`,
+      `SELECT p.* FROM finsync.projects p WHERE p."companyId" = ${companyId}`,
     );
 
     const chartData: {
