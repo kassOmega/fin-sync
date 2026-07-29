@@ -154,20 +154,20 @@ export default function ProjectExpensesPage() {
                 placeholder="Amount"
                 value={form.amount}
                 onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                className="w-full border rounded p-2 text-sm"
+                className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
               />
               <input
                 required
                 placeholder="Category"
                 value={form.category}
                 onChange={(e) => setForm({ ...form, category: e.target.value })}
-                className="w-full border rounded p-2 text-sm"
+                className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
               />
               <input
                 placeholder="Note"
                 value={form.note}
                 onChange={(e) => setForm({ ...form, note: e.target.value })}
-                className="w-full border rounded p-2 text-sm"
+                className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
               />
               <div className="flex justify-end space-x-2 pt-2">
                 <button

@@ -210,7 +210,7 @@ export default function ProjectTimesheetsPage() {
                 onChange={(e) =>
                   setForm({ ...form, employeeId: e.target.value })
                 }
-                className="w-full border rounded p-2 text-sm"
+                className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
               >
                 <option value="">Select</option>
                 {employees.map((e) => (
@@ -224,7 +224,7 @@ export default function ProjectTimesheetsPage() {
                 type="date"
                 value={form.date}
                 onChange={(e) => setForm({ ...form, date: e.target.value })}
-                className="w-full border rounded p-2 text-sm"
+                className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
               />
               <div className="grid grid-cols-2 gap-3">
                 <input
@@ -235,7 +235,7 @@ export default function ProjectTimesheetsPage() {
                   onChange={(e) =>
                     setForm({ ...form, regularHours: e.target.value })
                   }
-                  className="w-full border rounded p-2 text-sm"
+                  className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                 />
                 <input
                   type="number"
@@ -245,7 +245,7 @@ export default function ProjectTimesheetsPage() {
                   onChange={(e) =>
                     setForm({ ...form, overtimeHours: e.target.value })
                   }
-                  className="w-full border rounded p-2 text-sm"
+                  className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                 />
               </div>
               <div className="flex justify-end space-x-2 pt-3">

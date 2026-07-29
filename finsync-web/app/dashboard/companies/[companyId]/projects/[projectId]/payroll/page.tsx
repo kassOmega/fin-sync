@@ -226,7 +226,7 @@ export default function ProjectPayrollPage() {
                 required
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
-                className="w-full border rounded p-2 text-sm"
+                className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                 placeholder="Title"
               />
               <div className="grid grid-cols-2 gap-3">
@@ -237,7 +237,7 @@ export default function ProjectPayrollPage() {
                   onChange={(e) =>
                     setForm({ ...form, startDate: e.target.value })
                   }
-                  className="w-full border rounded p-2 text-sm"
+                  className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                 />
                 <input
                   required
@@ -246,7 +246,7 @@ export default function ProjectPayrollPage() {
                   onChange={(e) =>
                     setForm({ ...form, endDate: e.target.value })
                   }
-                  className="w-full border rounded p-2 text-sm"
+                  className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                 />
               </div>
               <div className="flex justify-end space-x-2 pt-3">
