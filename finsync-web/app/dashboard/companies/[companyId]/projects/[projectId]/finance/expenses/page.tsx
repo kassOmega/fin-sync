@@ -24,6 +24,7 @@ export default function ProjectExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [units, setUnits] = useState<string[]>([]);
   const [form, setForm] = useState({
     amount: "",
     category: "",
@@ -31,13 +32,18 @@ export default function ProjectExpensesPage() {
     unit: "pcs",
     note: "",
   });
+  const [newUnit, setNewUnit] = useState("");
 
   const fetchAll = async () => {
     try {
-      const res = await api.get(
-        `/companies/${companyId}/projects/${projectId}/expenses`,
+      const [eRes, uRes] = await Promise.all([
+        api.get(`/companies/${companyId}/projects/${projectId}/expenses`),
+        api.get(`/measuring-units`),
+      ]);
+      setExpenses(eRes.data);
+      setUnits(
+        Array.isArray(uRes.data) ? uRes.data.map((u: any) => u.name || u) : [],
       );
-      setExpenses(res.data);
     } catch {
       toast.error("Failed");
     } finally {
@@ -51,6 +57,20 @@ export default function ProjectExpensesPage() {
     }
     fetchAll();
   }, []);
+
+  const handleAddUnit = async () => {
+    if (!newUnit.trim()) return;
+    try {
+      await api.post(`/measuring-units`, { name: newUnit.trim() });
+      toast.success("Unit added");
+      setNewUnit("");
+      const u = await api.get(`/measuring-units`);
+      setUnits(u.data.map((x: any) => x.name || x));
+    } catch {
+      toast.error("Failed");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -205,14 +225,43 @@ export default function ProjectExpensesPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Unit
                   </label>
-                  <input
-                    placeholder="pcs, hrs, kg"
+                  <select
                     value={form.unit}
-                    onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                    onChange={(e) => {
+                      if (e.target.value === "__add__") return;
+                      setForm({ ...form, unit: e.target.value });
+                    }}
                     className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
-                  />
+                  >
+                    {units.map((u) => (
+                      <option key={u} value={u}>
+                        {u}
+                      </option>
+                    ))}
+                    <option disabled>─────────</option>
+                    <option value="__add__" className="text-indigo-600">
+                      + Add new unit...
+                    </option>
+                  </select>
                 </div>
               </div>
+              {form.unit === "__add__" && (
+                <div className="bg-indigo-50 p-3 rounded flex space-x-2 items-center">
+                  <input
+                    placeholder="New unit name"
+                    value={newUnit}
+                    onChange={(e) => setNewUnit(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddUnit}
+                    className="px-3 py-2 bg-indigo-600 text-white rounded text-sm whitespace-nowrap"
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Unit Price ($) *

@@ -13,7 +13,6 @@ interface Income {
   unit?: string;
   note?: string;
   date: string;
-  user?: { name: string };
 }
 
 export default function ProjectIncomesPage() {
@@ -24,6 +23,8 @@ export default function ProjectIncomesPage() {
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [units, setUnits] = useState<string[]>([]);
+  const [newUnit, setNewUnit] = useState("");
   const [form, setForm] = useState({
     amount: "",
     category: "",
@@ -34,12 +35,17 @@ export default function ProjectIncomesPage() {
 
   const fetchAll = async () => {
     try {
-      const res = await api.get(
-        `/companies/${companyId}/projects/${projectId}/incomes`,
+      const [iRes, uRes] = await Promise.all([
+        api.get(`/companies/${companyId}/projects/${projectId}/incomes`),
+        api.get(`/measuring-units`),
+      ]);
+      setIncomes(iRes.data);
+      setUnits(
+        Array.isArray(uRes.data)
+          ? uRes.data.map((u: any) => u.name || u)
+          : ["pcs", "hrs", "kg", "m", "L", "box"],
       );
-      setIncomes(res.data);
     } catch {
-      toast.error("Failed");
     } finally {
       setLoading(false);
     }
@@ -51,6 +57,20 @@ export default function ProjectIncomesPage() {
     }
     fetchAll();
   }, []);
+
+  const handleAddUnit = async () => {
+    if (!newUnit.trim()) return;
+    try {
+      await api.post(`/measuring-units`, { name: newUnit.trim() });
+      toast.success("Unit added");
+      setNewUnit("");
+      const u = await api.get(`/measuring-units`);
+      setUnits(u.data.map((x: any) => x.name || x));
+    } catch {
+      toast.error("Failed");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -58,7 +78,7 @@ export default function ProjectIncomesPage() {
         `/companies/${companyId}/projects/${projectId}/incomes`,
         form,
       );
-      toast.success("Income added");
+      toast.success("Added");
       setModalOpen(false);
       setForm({
         amount: "",
@@ -84,6 +104,7 @@ export default function ProjectIncomesPage() {
       toast.error("Failed");
     }
   };
+
   if (loading)
     return (
       <div className="flex justify-center py-20">
@@ -135,13 +156,11 @@ export default function ProjectIncomesPage() {
             ) : (
               incomes.map((inc) => (
                 <tr key={inc.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm text-gray-900">
+                  <td className="px-4 py-3 text-sm">
                     {new Date(inc.date).toLocaleDateString()}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {inc.category}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-900">
+                  <td className="px-4 py-3 text-sm">{inc.category}</td>
+                  <td className="px-4 py-3 text-sm text-right">
                     {inc.quantity || 1}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
@@ -171,7 +190,7 @@ export default function ProjectIncomesPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Income Category *
+                  Category *
                 </label>
                 <input
                   required
@@ -202,12 +221,41 @@ export default function ProjectIncomesPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Unit
                   </label>
-                  <input
-                    placeholder="pcs, hrs, kg"
+                  <select
                     value={form.unit}
-                    onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                    onChange={(e) => {
+                      if (e.target.value === "__add__") return;
+                      setForm({ ...form, unit: e.target.value });
+                    }}
                     className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
-                  />
+                  >
+                    {units.map((u) => (
+                      <option key={u} value={u}>
+                        {u}
+                      </option>
+                    ))}
+                    <option disabled>─────────</option>
+                    <option value="__add__" className="text-indigo-600">
+                      + Add new unit...
+                    </option>
+                  </select>
+                  {form.unit === "__add__" && (
+                    <div className="mt-2 bg-indigo-50 p-2 rounded flex space-x-2">
+                      <input
+                        placeholder="e.g. ton"
+                        value={newUnit}
+                        onChange={(e) => setNewUnit(e.target.value)}
+                        className="flex-1 border border-gray-300 rounded p-1.5 text-sm bg-white text-gray-900"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddUnit}
+                        className="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm whitespace-nowrap"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
               <div>
@@ -229,7 +277,7 @@ export default function ProjectIncomesPage() {
                   Note (optional)
                 </label>
                 <input
-                  placeholder="Description or reference"
+                  placeholder="Description"
                   value={form.note}
                   onChange={(e) => setForm({ ...form, note: e.target.value })}
                   className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
