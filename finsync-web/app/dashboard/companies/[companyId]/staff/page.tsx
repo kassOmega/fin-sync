@@ -3,6 +3,7 @@
 import Loading from "@/components/Loading";
 
 import api from "@/lib/api";
+import { STAFF_ROLES } from "@/lib/roles";
 import { SystemRole } from "@/lib/types";
 import { Pencil, Shield, Trash2, UserPlus, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -387,16 +388,11 @@ export default function StaffPage() {
                   }
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
                 >
-                  <option value={SystemRole.Cashier}>Cashier</option>
-                  <option value={SystemRole.Storekeeper}>Storekeeper</option>
-                  <option value={SystemRole.OperatorDriver}>
-                    Operator/Driver
-                  </option>
-                  <option value={SystemRole.Sales}>Sales</option>
-                  <option value={SystemRole.ProjectManager}>
-                    Project Manager
-                  </option>
-                  <option value={SystemRole.Foreman}>Foreman</option>
+                  {STAFF_ROLES.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="flex justify-end space-x-2 pt-4">
