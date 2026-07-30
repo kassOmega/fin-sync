@@ -182,7 +182,11 @@ export class UsersService {
           lastName,
           email: newUser.email,
           designation: dto.role,
-          employmentType: 'FULL_TIME',
+          employmentType: dto.employmentType || 'FULL_TIME',
+          hourlyRate: dto.hourlyRate,
+          dailyRate: dto.dailyRate,
+          baseSalary: dto.baseSalary,
+          phone: dto.phone,
         },
       });
 

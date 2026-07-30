@@ -40,6 +40,11 @@ export default function StaffPage() {
     email: "",
     password: "",
     role: SystemRole.Cashier,
+    phone: "",
+    employmentType: "FULL_TIME",
+    hourlyRate: "",
+    dailyRate: "",
+    baseSalary: "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -80,7 +85,21 @@ export default function StaffPage() {
     setLoading(true);
     try {
       await api.post("/users/staff", {
-        ...formData,
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        role: formData.role,
+        phone: formData.phone || undefined,
+        employmentType: formData.employmentType,
+        hourlyRate: formData.hourlyRate
+          ? parseFloat(formData.hourlyRate)
+          : undefined,
+        dailyRate: formData.dailyRate
+          ? parseFloat(formData.dailyRate)
+          : undefined,
+        baseSalary: formData.baseSalary
+          ? parseFloat(formData.baseSalary)
+          : undefined,
         companyId: parseInt(companyId),
       });
       toast.success("Staff member added!");
@@ -90,6 +109,11 @@ export default function StaffPage() {
         email: "",
         password: "",
         role: SystemRole.Cashier,
+        phone: "",
+        employmentType: "FULL_TIME",
+        hourlyRate: "",
+        dailyRate: "",
+        baseSalary: "",
       });
       fetchStaff();
     } catch (err: any) {
@@ -394,6 +418,80 @@ export default function StaffPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Phone
+                </label>
+                <input
+                  type="text"
+                  value={formData.phone}
+                  onChange={(e) =>
+                    setFormData({ ...formData, phone: e.target.value })
+                  }
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900 bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Employment Type
+                </label>
+                <select
+                  value={formData.employmentType}
+                  onChange={(e) =>
+                    setFormData({ ...formData, employmentType: e.target.value })
+                  }
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                >
+                  <option value="FULL_TIME">Full-Time</option>
+                  <option value="PART_TIME">Part-Time</option>
+                  <option value="CONTRACT">Contract</option>
+                  <option value="DAILY_LABORER">Daily Laborer</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    Hourly Rate
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.hourlyRate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, hourlyRate: e.target.value })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    Daily Rate
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.dailyRate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, dailyRate: e.target.value })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    Base Salary
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.baseSalary}
+                    onChange={(e) =>
+                      setFormData({ ...formData, baseSalary: e.target.value })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900 bg-white"
+                  />
+                </div>
               </div>
               <div className="flex justify-end space-x-2 pt-4">
                 <button

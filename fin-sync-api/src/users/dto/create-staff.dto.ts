@@ -3,6 +3,7 @@ import {
   IsEmail,
   IsEnum,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   MinLength,
@@ -24,8 +25,24 @@ export class CreateStaffDto {
   phone?: string;
 
   @IsEnum(SystemRole)
-  role: SystemRole; // Cashier, Storekeeper, etc.
+  role: SystemRole;
 
   @IsInt()
-  companyId: number; // The company they are being assigned to
+  companyId: number;
+
+  @IsString()
+  @IsOptional()
+  employmentType?: string;
+
+  @IsNumber()
+  @IsOptional()
+  hourlyRate?: number;
+
+  @IsNumber()
+  @IsOptional()
+  dailyRate?: number;
+
+  @IsNumber()
+  @IsOptional()
+  baseSalary?: number;
 }
