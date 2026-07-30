@@ -34,7 +34,7 @@ export class MachineriesService {
     return this.prisma.$queryRawUnsafe(
       `SELECT m.* FROM finsync.machineries m
        WHERE m."companyId" = ${companyId} AND m."operatorId" IN (
-         SELECT id FROM finsync.employees WHERE user_id = ${userId}
+         SELECT id FROM finsync.employees WHERE "userId" = ${userId}
        )
        ORDER BY m.name`,
     );
@@ -72,7 +72,7 @@ export class MachineriesService {
 
   async assignOperator(machineryId: number, userId: number) {
     const empRows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT id FROM finsync.employees WHERE user_id = ${userId} LIMIT 1`,
+      `SELECT id FROM finsync.employees WHERE "userId" = ${userId} LIMIT 1`,
     );
     if (!empRows.length)
       throw new NotFoundException('Employee record not found for this user');

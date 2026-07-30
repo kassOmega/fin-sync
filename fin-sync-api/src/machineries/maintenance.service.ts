@@ -19,9 +19,9 @@ export class MaintenanceService {
     // Verify operator assignment
     if (machine.operatorId) {
       const empRows: any[] = await this.prisma.$queryRawUnsafe(
-        `SELECT user_id FROM finsync.employees WHERE id = ${machine.operatorId}`,
+        `SELECT "userId" FROM finsync.employees WHERE id = ${machine.operatorId}`,
       );
-      if (!empRows.length || empRows[0].user_id !== userId) {
+      if (!empRows.length || empRows[0].userId !== userId) {
         const companyRows: any[] = await this.prisma.$queryRawUnsafe(
           `SELECT owner_id FROM finsync."Company" WHERE id = ${machine.companyId}`,
         );
