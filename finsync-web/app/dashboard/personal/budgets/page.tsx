@@ -192,7 +192,7 @@ export default function PersonalBudgetsPage() {
                   <input
                     type="number"
                     required
-                    value={budgetData.amount}
+                    value={budgetData.amount ?? ""}
                     onChange={(e) =>
                       setBudgetData({
                         ...budgetData,
