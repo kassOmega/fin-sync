@@ -1,5 +1,7 @@
 "use client";
 
+import Loading from "@/components/Loading";
+
 import api from "@/lib/api";
 import { SystemRole } from "@/lib/types";
 import { useAuthStore } from "@/store/authStore";
@@ -180,13 +182,7 @@ export default function StorePage() {
     }
   };
 
-  if (pageLoading) {
-    return (
-      <div className="flex justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
-      </div>
-    );
-  }
+  if (pageLoading) return <Loading />;
 
   return (
     <div className="space-y-6">

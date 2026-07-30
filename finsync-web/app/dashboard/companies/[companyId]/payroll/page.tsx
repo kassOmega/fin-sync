@@ -1,5 +1,6 @@
 "use client";
 
+import Loading from "@/components/Loading";
 import api from "@/lib/api";
 import { CheckCircle, FileText, Plus } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -115,12 +116,7 @@ export default function PayrollPage() {
     );
   };
 
-  if (loading)
-    return (
-      <div className="flex justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500" />
-      </div>
-    );
+  if (loading) return <Loading />;
   if (!companyId) return null;
 
   return (
@@ -173,7 +169,9 @@ export default function PayrollPage() {
                   <td className="px-4 py-3 text-sm font-bold">
                     ${Number(p.totalAmount || 0).toLocaleString()}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{statusBadge(p.status)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {statusBadge(p.status)}
+                  </td>
                   <td className="px-4 py-3 text-right text-sm space-x-1">
                     <button
                       onClick={() => handleViewItems(p.id)}

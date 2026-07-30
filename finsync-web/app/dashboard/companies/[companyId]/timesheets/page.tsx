@@ -1,5 +1,7 @@
 "use client";
 
+import Loading from "@/components/Loading";
+
 import api from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { CheckCircle, Plus, Send } from "lucide-react";
@@ -130,12 +132,7 @@ export default function TimesheetsPage() {
     );
   };
 
-  if (loading)
-    return (
-      <div className="flex justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500" />
-      </div>
-    );
+  if (loading) return <Loading />;
   if (!companyId) return null;
 
   return (

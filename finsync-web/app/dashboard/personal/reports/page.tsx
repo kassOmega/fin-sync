@@ -1,5 +1,6 @@
 "use client";
 
+import Loading from "@/components/Loading";
 import api from "@/lib/api";
 import { useLangStore } from "@/store/langStore";
 import {
@@ -99,13 +100,7 @@ export default function PersonalReportsPage() {
     api.get("/personal/reports").then((res) => setReport(res.data));
   }, []);
 
-  if (!report)
-    return (
-      <div className="p-8 text-center text-gray-500">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500 mx-auto mb-4"></div>
-        {t("reports.generating")}
-      </div>
-    );
+  if (!report) return <Loading text={t("reports.generating")} />;
 
   const pieData = Object.entries(report.expensesByCategory).map(
     ([name, value]) => ({ name, value }),

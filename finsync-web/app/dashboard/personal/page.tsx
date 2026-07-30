@@ -1,5 +1,6 @@
 "use client";
 
+import Loading from "@/components/Loading";
 import api from "@/lib/api";
 import { useLangStore } from "@/store/langStore";
 import {
@@ -20,6 +21,7 @@ export default function PersonalFinanceHub() {
   const { t } = useLangStore();
   const [status, setStatus] = useState(null);
   const [accounts, setAccounts] = useState([]);
+  const [pageLoading, setPageLoading] = useState(true);
 
   const [quickAmount, setQuickAmount] = useState("");
   const [quickCategory, setQuickCategory] = useState("Misc");
@@ -28,15 +30,16 @@ export default function PersonalFinanceHub() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api
-      .get("/personal-finance/budget-status")
-      .then((res) => setStatus(res.data))
-      .catch(() => console.log("No budget setup"));
-
-    api
-      .get("/personal-accounts")
-      .then((res) => setAccounts(res.data))
-      .catch(() => console.error("Failed to fetch accounts"));
+    Promise.all([
+      api
+        .get("/personal-finance/budget-status")
+        .then((res) => setStatus(res.data))
+        .catch(() => console.log("No budget setup")),
+      api
+        .get("/personal-accounts")
+        .then((res) => setAccounts(res.data))
+        .catch(() => console.error("Failed to fetch accounts")),
+    ]).finally(() => setPageLoading(false));
   }, []);
 
   const handleQuickAdd = async (type: string) => {
@@ -72,6 +75,8 @@ export default function PersonalFinanceHub() {
       setLoading(false);
     }
   };
+
+  if (pageLoading) return <Loading />;
 
   return (
     <div className="space-y-8">

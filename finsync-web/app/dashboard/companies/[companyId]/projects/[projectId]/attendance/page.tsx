@@ -1,5 +1,7 @@
 "use client";
 
+import Loading from "@/components/Loading";
+
 import api from "@/lib/api";
 import { CheckCircle, Clock, UserX } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -75,12 +77,7 @@ export default function ProjectAttendancePage() {
     HALF_DAY: <Clock className="h-4 w-4 text-orange-500" />,
   };
 
-  if (loading)
-    return (
-      <div className="flex justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500" />
-      </div>
-    );
+  if (loading) return <Loading />;
 
   return (
     <div className="space-y-4">

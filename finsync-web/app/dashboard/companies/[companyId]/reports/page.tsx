@@ -1,5 +1,7 @@
 "use client";
 
+import Loading from "@/components/Loading";
+
 import api from "@/lib/api";
 import { BarChart3, Download } from "lucide-react";
 import Link from "next/link";
@@ -70,13 +72,7 @@ export default function CompanyReportsPage() {
     fetchData();
   }, [companyId]);
 
-  if (!report || !forecast)
-    return (
-      <div className="flex justify-center items-center py-20">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-500 mr-3"></div>
-        <p className="text-gray-500 text-lg">Generating Reports...</p>
-      </div>
-    );
+  if (!report || !forecast) return <Loading text="Generating Reports..." />;
 
   const expensePieData = Object.entries(report.expensesByCategory).map(
     ([name, value]) => ({ name, value }),

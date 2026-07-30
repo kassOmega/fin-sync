@@ -15,7 +15,9 @@ import { seedRoles } from './11-roles';
 import { createContext, disconnect, getPrisma } from './utils';
 
 async function clearDatabase(prisma: PrismaClient): Promise<void> {
-  console.log('🧹 Clearing existing database records...');
+  console.log(
+    '🧹 Clearing existing database records without dropping tables...',
+  );
 
   const { Pool } = require('pg');
   const pool = new Pool({
@@ -65,10 +67,17 @@ async function clearDatabase(prisma: PrismaClient): Promise<void> {
       '"User"',
       '"MeasuringUnit"',
     ];
+
+    // Use TRUNCATE with RESTART IDENTITY CASCADE to safely clear rows and reset IDs
+    // without dropping table schemas which causes relation errors.
     for (const t of tables) {
       try {
-        await client.query(`DELETE FROM finsync.${t}`);
-      } catch {}
+        await client.query(
+          `TRUNCATE TABLE finsync.${t} RESTART IDENTITY CASCADE`,
+        );
+      } catch (err) {
+        // Ignore if table doesn't exist yet
+      }
     }
   } finally {
     client.release();

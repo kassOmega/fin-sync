@@ -1,5 +1,6 @@
 "use client";
 
+import Loading from "@/components/Loading";
 import api from "@/lib/api";
 import {
   BarChart3,
@@ -28,7 +29,7 @@ export default function CompanyOverview() {
     api.get(`/companies/${companyId}`).then((res) => setCompany(res.data));
   }, [companyId]);
 
-  if (!company) return <div>Loading company...</div>;
+  if (!company) return <Loading />;
 
   const cards = [
     { name: "Incomes", href: "incomes", icon: Wallet },

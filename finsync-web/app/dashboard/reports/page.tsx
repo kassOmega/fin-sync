@@ -1,5 +1,6 @@
 "use client";
 
+import Loading from "@/components/Loading";
 import api from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { Building2, User } from "lucide-react";
@@ -75,11 +76,7 @@ export default function ReportsDashboardPage() {
         </div>
       </div>
 
-      {loading && (
-        <div className="flex justify-center py-20">
-          <div className="animate-spin h-8 w-8 border-t-2 border-b-2 border-indigo-500 rounded-full" />
-        </div>
-      )}
+      {loading && <Loading />}
 
       {!loading && tab === "personal" && personalReport && (
         <div className="space-y-6">
