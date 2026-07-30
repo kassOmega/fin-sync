@@ -77,9 +77,15 @@ export class MachineriesController {
   @RequirePermissions(PermissionCode.MACHINERY_OPERATE)
   assignOperator(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: { userId: number; isHelper?: boolean },
+    @Body() body: { userId: number },
   ) {
     return this.service.assignOperator(id, body.userId);
+  }
+
+  @Delete(':id/operators')
+  @RequirePermissions(PermissionCode.MACHINERY_OPERATE)
+  unassignOperator(@Param('id', ParseIntPipe) id: number) {
+    return this.service.unassignOperator(id);
   }
 
   // --- Log hours: allowed for assigned operators + Owner ---

@@ -60,23 +60,40 @@ export class ProjectsController {
     return this.service.remove(id);
   }
 
-  // Assign a user to a project (supports multiple assignments per user)
+  // Assign an employee to a project (supports multiple assignments per employee)
   @Post(':id/assign')
   @RequirePermissions(PermissionCode.PROJECTS_WRITE)
-  assignUser(
+  assignEmployee(
     @Param('id', ParseIntPipe) projectId: number,
-    @Body() body: { userId: number },
+    @Body() body: { employeeId: number },
   ) {
-    return this.service.assignUser(projectId, body.userId);
+    return this.service.assignEmployee(projectId, body.employeeId);
   }
 
-  // Unassign a user from a project
-  @Delete(':id/assign/:userId')
+  // Unassign an employee from a project
+  @Delete(':id/assign/:employeeId')
   @RequirePermissions(PermissionCode.PROJECTS_WRITE)
-  unassignUser(
+  unassignEmployee(
     @Param('id', ParseIntPipe) projectId: number,
-    @Param('userId', ParseIntPipe) userId: number,
+    @Param('employeeId', ParseIntPipe) employeeId: number,
   ) {
-    return this.service.unassignUser(projectId, userId);
+    return this.service.unassignEmployee(projectId, employeeId);
+  }
+
+  // Set project manager
+  @Post(':id/manager')
+  @RequirePermissions(PermissionCode.PROJECTS_WRITE)
+  setManager(
+    @Param('id', ParseIntPipe) projectId: number,
+    @Body() body: { employeeId: number },
+  ) {
+    return this.service.setManager(projectId, body.employeeId);
+  }
+
+  // Remove project manager
+  @Delete(':id/manager')
+  @RequirePermissions(PermissionCode.PROJECTS_WRITE)
+  removeManager(@Param('id', ParseIntPipe) projectId: number) {
+    return this.service.removeManager(projectId);
   }
 }

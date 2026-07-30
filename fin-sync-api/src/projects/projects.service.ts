@@ -18,27 +18,69 @@ export class ProjectsService {
   }
 
   async findAll(companyId: number) {
-    return this.prisma.project.findMany({ where: { companyId } });
+    return this.prisma.project.findMany({
+      where: { companyId },
+      include: {
+        manager: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+        members: {
+          include: {
+            employee: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                employeeCode: true,
+                designation: true,
+                userId: true,
+              },
+            },
+          },
+        },
+      },
+    });
   }
 
   // Project Manager/Foreman sees only projects assigned to them
   async findMyProjects(companyId: number, userId: number) {
-    const rows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT p.*, json_agg(json_build_object(
-        'id', pa.id, 'userId', pa.user_id,
-        'user', json_build_object('id', u.id, 'name', u.name)
-      )) FILTER (WHERE pa.id IS NOT NULL) AS assignments
-       FROM finsync."Project" p
-       INNER JOIN finsync."ProjectAssignment" pa ON pa.project_id = p.id
-       LEFT JOIN finsync."User" u ON u.id = pa.user_id
-       WHERE p.company_id = ${companyId} AND pa.user_id = ${userId}
-       GROUP BY p.id`,
+    // First find the employee record for this user
+    const empRows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT id FROM finsync.employees WHERE "userId" = ${userId} AND "companyId" = ${companyId} LIMIT 1`,
     );
 
-    return rows.map((row) => ({
-      ...row,
-      assignments: row.assignments || [],
-    }));
+    if (!empRows.length) return [];
+
+    const employeeId = empRows[0].id;
+
+    // Find projects where this employee is either a member or manager
+    const rows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT DISTINCT p.*,
+        json_build_object('id', m.id, 'firstName', m."firstName", 'lastName', m."lastName") AS manager,
+        COALESCE(
+          (SELECT json_agg(json_build_object(
+            'id', pm.id,
+            'employee', json_build_object(
+              'id', e.id, 'firstName', e."firstName", 'lastName', e."lastName",
+              'employeeCode', e."employeeCode", 'designation', e.designation
+            ),
+            'roleOnSite', pm."roleOnSite",
+            'assignedAt', pm."assignedAt"
+          ))
+           FROM finsync."project_members" pm
+           JOIN finsync.employees e ON e.id = pm."employeeId"
+           WHERE pm."projectId" = p.id
+          ), '[]'::json
+        ) AS members
+       FROM finsync.projects p
+       LEFT JOIN finsync.employees m ON m.id = p."managerId"
+       LEFT JOIN finsync."project_members" pm ON pm."projectId" = p.id
+       WHERE p."companyId" = ${companyId}
+         AND (p."managerId" = ${employeeId} OR pm."employeeId" = ${employeeId})
+       ORDER BY p.name`,
+    );
+
+    return rows;
   }
 
   async update(id: number, dto: UpdateProjectDto) {
@@ -53,20 +95,38 @@ export class ProjectsService {
     return this.prisma.project.delete({ where: { id } });
   }
 
-  async assignUser(projectId: number, userId: number) {
+  // Assign an employee to a project
+  async assignEmployee(projectId: number, employeeId: number) {
     await this.prisma.$executeRawUnsafe(
-      `INSERT INTO finsync."ProjectAssignment" (project_id, user_id, "createdAt")
-       VALUES (${projectId}, ${userId}, NOW())
-       ON CONFLICT (project_id, user_id) DO NOTHING`,
+      `INSERT INTO finsync."project_members" ("projectId", "employeeId", "assignedAt")
+       VALUES (${projectId}, ${employeeId}, NOW())
+       ON CONFLICT ("projectId", "employeeId") DO NOTHING`,
     );
-    return { projectId, userId, assigned: true };
+    return { projectId, employeeId, assigned: true };
   }
 
-  async unassignUser(projectId: number, userId: number) {
+  // Unassign an employee from a project
+  async unassignEmployee(projectId: number, employeeId: number) {
     await this.prisma.$executeRawUnsafe(
-      `DELETE FROM finsync."ProjectAssignment"
-       WHERE project_id = ${projectId} AND user_id = ${userId}`,
+      `DELETE FROM finsync."project_members"
+       WHERE "projectId" = ${projectId} AND "employeeId" = ${employeeId}`,
     );
-    return { projectId, userId, unassigned: true };
+    return { projectId, employeeId, unassigned: true };
+  }
+
+  // Set project manager
+  async setManager(projectId: number, employeeId: number) {
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE finsync.projects SET "managerId" = ${employeeId} WHERE id = ${projectId}`,
+    );
+    return { projectId, managerId: employeeId };
+  }
+
+  // Remove project manager
+  async removeManager(projectId: number) {
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE finsync.projects SET "managerId" = NULL WHERE id = ${projectId}`,
+    );
+    return { projectId, managerId: null };
   }
 }

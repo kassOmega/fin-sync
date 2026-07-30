@@ -167,7 +167,26 @@ export class UsersService {
         },
       });
 
-      return { user: newUser, companyAssignment: memberLink };
+      // Auto-create employee record so staff appears in personnel, payroll, attendance etc.
+      const nameParts = newUser.name.split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ') || firstName;
+      const employeeCode = 'EMP-' + newUser.id;
+
+      const employee = await prisma.employee.create({
+        data: {
+          companyId: dto.companyId,
+          userId: newUser.id,
+          employeeCode,
+          firstName,
+          lastName,
+          email: newUser.email,
+          designation: dto.role,
+          employmentType: 'FULL_TIME',
+        },
+      });
+
+      return { user: newUser, companyAssignment: memberLink, employee };
     });
   }
 

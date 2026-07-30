@@ -174,7 +174,7 @@ export default function ReportsDashboardPage() {
 
           {companyReport.expensesByCategory &&
             Object.keys(companyReport.expensesByCategory).length > 0 && (
-              <div className="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white p-6 rounded-lg shadow-sm border">
                   <h3 className="text-sm font-semibold text-gray-500 mb-4">
                     Expenses by Category

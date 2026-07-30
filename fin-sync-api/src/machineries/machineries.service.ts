@@ -81,4 +81,11 @@ export class MachineriesService {
     );
     return { machineryId, operatorId: empRows[0].id };
   }
+
+  async unassignOperator(machineryId: number) {
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE finsync.machineries SET "operatorId" = NULL WHERE id = ${machineryId}`,
+    );
+    return { machineryId, operatorId: null };
+  }
 }
