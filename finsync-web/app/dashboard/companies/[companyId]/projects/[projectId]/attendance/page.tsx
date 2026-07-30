@@ -140,7 +140,7 @@ export default function ProjectAttendancePage() {
                         <button
                           key={s}
                           onClick={() => mark(emp.id, s)}
-                          className={`px-2 py-1 text-xs rounded ${rec?.status === s ? "bg-indigo-600 text-white" : "bg-gray-100 hover:bg-gray-200"}`}
+                          className={`px-2 py-1 text-xs rounded ${rec?.status === s ? "bg-indigo-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
                         >
                           {s}
                         </button>
