@@ -173,7 +173,7 @@ export default function PayrollPage() {
                   <td className="px-4 py-3 text-sm font-bold">
                     ${Number(p.totalAmount || 0).toLocaleString()}
                   </td>
-                  <td className="px-4 py-3 text-sm">{statusBadge(p.status)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{statusBadge(p.status)}</td>
                   <td className="px-4 py-3 text-right text-sm space-x-1">
                     <button
                       onClick={() => handleViewItems(p.id)}

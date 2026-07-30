@@ -171,10 +171,10 @@ export default function ProjectTimesheetsPage() {
                     {t.employee?.firstName} {t.employee?.lastName}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">{t.date}</td>
-                  <td className="px-4 py-3 text-sm">
+                  <td className="px-4 py-3 text-sm text-gray-900">
                     {Number(t.regularHours) + Number(t.overtimeHours)}h
                   </td>
-                  <td className="px-4 py-3 text-sm">{statusBadge(t.status)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{statusBadge(t.status)}</td>
                   <td className="px-4 py-3 text-right text-sm space-x-1">
                     {t.status === "DRAFT" && (
                       <button
