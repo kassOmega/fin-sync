@@ -119,13 +119,13 @@ export default function ProjectAttendancePage() {
               const rec = getRec(emp.id);
               return (
                 <tr key={emp.id}>
-                  <td className="px-4 py-3 text-sm font-mono">
+                  <td className="px-4 py-3 text-sm font-mono text-gray-900">
                     {emp.employeeCode}
                   </td>
-                  <td className="px-4 py-3 text-sm font-medium">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
                     {emp.firstName} {emp.lastName}
                   </td>
-                  <td className="px-4 py-3 text-sm flex items-center gap-1">
+                  <td className="px-4 py-3 text-sm flex items-center gap-1 text-gray-900">
                     {rec ? (
                       <>
                         {icons[rec.status]} {rec.status}

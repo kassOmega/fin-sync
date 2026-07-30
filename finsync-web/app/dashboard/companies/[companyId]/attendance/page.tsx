@@ -138,13 +138,13 @@ export default function AttendancePage() {
               const rec = getRecord(emp.id);
               return (
                 <tr key={emp.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-mono">
+                  <td className="px-4 py-3 text-sm font-mono text-gray-900">
                     {emp.employeeCode}
                   </td>
-                  <td className="px-4 py-3 text-sm font-medium">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
                     {emp.firstName} {emp.lastName}
                   </td>
-                  <td className="px-4 py-3 text-sm flex items-center gap-1">
+                  <td className="px-4 py-3 text-sm flex items-center gap-1 text-gray-900">
                     {rec ? (
                       <>
                         {statusIcon(rec.status)} {rec.status}
