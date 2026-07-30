@@ -1,5 +1,6 @@
 "use client";
 
+import EmployeeSelector from "@/components/EmployeeSelector";
 import Loading from "@/components/Loading";
 import api from "@/lib/api";
 import { SystemRole } from "@/lib/types";
@@ -11,7 +12,9 @@ import {
   Pencil,
   Plus,
   Trash2,
+  UserCog,
   Wrench,
+  X,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -27,6 +30,7 @@ interface Machine {
   project?: { id: number; name: string };
   runningHours: number;
   lastMaintenanceHours: number;
+  operator?: { id: number; firstName: string; lastName: string };
 }
 
 interface Project {
@@ -62,6 +66,11 @@ export default function MachineriesPage() {
     ownershipType: "OWNED",
   });
 
+  // Operator assignment modal
+  const [operatorModalOpen, setOperatorModalOpen] = useState(false);
+  const [operatorMachine, setOperatorMachine] = useState<Machine | null>(null);
+  const [selectedOperatorIds, setSelectedOperatorIds] = useState<number[]>([]);
+
   const fetchMachines = async () => {
     if (!companyId) return;
     try {
@@ -70,7 +79,7 @@ export default function MachineriesPage() {
           ? `/companies/${companyId}/machineries/my`
           : `/companies/${companyId}/machineries`;
       const res = await api.get(endpoint);
-      setMachines(res.data);
+      setMachines(res.data || []);
     } catch {
       toast.error("Failed to load machineries");
     }
@@ -80,7 +89,7 @@ export default function MachineriesPage() {
     if (!companyId) return;
     try {
       const res = await api.get(`/companies/${companyId}/projects`);
-      setProjects(res.data);
+      setProjects(res.data || []);
     } catch (error) {
       console.error("Failed to fetch projects", error);
     }
@@ -99,9 +108,7 @@ export default function MachineriesPage() {
     load();
   }, [companyId, router]);
 
-  if (!companyId) {
-    return null;
-  }
+  if (!companyId) return null;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -150,7 +157,9 @@ export default function MachineriesPage() {
     try {
       const res = await api.post(
         `/companies/${companyId}/machineries/${id}/log-hours`,
-        { hours: parseFloat(hours) },
+        {
+          hours: parseFloat(hours),
+        },
       );
       if (res.data.maintenanceDue)
         toast(`Maintenance Due! ${res.data.machine.name} needs servicing.`, {
@@ -185,9 +194,38 @@ export default function MachineriesPage() {
     }
   };
 
-  if (pageLoading) {
-    return <Loading />;
-  }
+  const handleAssignOperator = async () => {
+    if (!operatorMachine || selectedOperatorIds.length === 0) return;
+    try {
+      await api.post(
+        `/companies/${companyId}/machineries/${operatorMachine.id}/operators`,
+        {
+          userId: selectedOperatorIds[0],
+        },
+      );
+      toast.success("Operator assigned");
+      setOperatorModalOpen(false);
+      setOperatorMachine(null);
+      setSelectedOperatorIds([]);
+      fetchMachines();
+    } catch {
+      toast.error("Failed to assign");
+    }
+  };
+
+  const handleUnassignOperator = async (machineId: number | string) => {
+    try {
+      await api.delete(
+        `/companies/${companyId}/machineries/${machineId}/operators`,
+      );
+      toast.success("Operator unassigned");
+      fetchMachines();
+    } catch {
+      toast.error("Failed to unassign");
+    }
+  };
+
+  if (pageLoading) return <Loading />;
 
   return (
     <div className="space-y-6">
@@ -230,9 +268,12 @@ export default function MachineriesPage() {
                     <h3 className="font-semibold text-gray-900">
                       {machine.name}
                     </h3>
-                    {/* Ownership Badge */}
                     <span
-                      className={`px-2 py-0.5 text-xs rounded-full font-medium ${machine.ownershipType === "OWNED" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}
+                      className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                        machine.ownershipType === "OWNED"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-yellow-100 text-yellow-800"
+                      }`}
                     >
                       {machine.ownershipType}
                     </span>
@@ -248,6 +289,17 @@ export default function MachineriesPage() {
                     className="text-gray-400 hover:text-gray-600"
                   >
                     <Eye className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setOperatorMachine(machine);
+                      setSelectedOperatorIds([]);
+                      setOperatorModalOpen(true);
+                    }}
+                    className="text-blue-500 hover:text-blue-700"
+                    title="Assign Operator"
+                  >
+                    <UserCog className="h-5 w-5" />
                   </button>
                   <button
                     onClick={() => {
@@ -275,6 +327,23 @@ export default function MachineriesPage() {
                 </div>
               </div>
               <div className="space-y-2 text-sm border-t pt-4">
+                {machine.operator && (
+                  <div className="flex justify-between items-center text-gray-600">
+                    <span>Operator:</span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="font-medium text-gray-900">
+                        {machine.operator.firstName} {machine.operator.lastName}
+                      </span>
+                      <button
+                        onClick={() => handleUnassignOperator(machine.id)}
+                        className="text-red-500 hover:text-red-700"
+                        title="Unassign"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between text-gray-600">
                   <span>Hours:</span>
                   <span className="font-medium text-gray-900">
@@ -310,6 +379,49 @@ export default function MachineriesPage() {
           );
         })}
       </div>
+
+      {/* Operator Assignment Modal */}
+      {operatorModalOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">
+                Assign Operator — {operatorMachine?.name}
+              </h2>
+              <button
+                onClick={() => setOperatorModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <EmployeeSelector
+                companyId={parseInt(companyId)}
+                roleFilter={SystemRole.OperatorDriver}
+                selectedIds={selectedOperatorIds}
+                onChange={setSelectedOperatorIds}
+                multiple={false}
+              />
+            </div>
+            <div className="flex justify-end space-x-2 pt-4 border-t mt-4">
+              <button
+                onClick={() => setOperatorModalOpen(false)}
+                className="px-4 py-2 text-gray-600 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAssignOperator}
+                disabled={selectedOperatorIds.length === 0}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 text-sm"
+              >
+                Assign
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {viewingMachine && (
         <div
