@@ -346,7 +346,8 @@ export default function EmployeesPage() {
                         <button
                           onClick={() => {
                             setSelectedEmployee(e);
-                            setSelectedProjectIds([]);
+                            const ids = (e.projectMemberships || []).map((pm: any) => pm.projectId || pm.id);
+                            setSelectedProjectIds(ids);
                             setProjectModalOpen(true);
                           }}
                           className="text-blue-500 hover:text-blue-700"
