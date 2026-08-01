@@ -47,6 +47,12 @@ export class AccountsController {
     });
   }
 
+  @Get('types')
+  @RequirePermissions(PermissionCode.ACCOUNTS_READ)
+  getAccountTypes(@Param('companyId', ParseIntPipe) companyId: number) {
+    return this.service.getAccountTypes(companyId);
+  }
+
   @Get('tree')
   @RequirePermissions(PermissionCode.ACCOUNTS_READ)
   getTree(@Param('companyId', ParseIntPipe) companyId: number) {

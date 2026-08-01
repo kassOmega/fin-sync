@@ -37,6 +37,35 @@ export class AccountsService {
     });
   }
 
+  /**
+   * Return the full list of supported Account Types (data-driven from the
+   * Prisma enum) plus any custom categories already in use by the company.
+   * This keeps the account-create/edit type dropdown dynamic — administrators
+   * can add custom classification labels via the free-form `category` field.
+   */
+  async getAccountTypes(companyId: number) {
+    // Read the actual AccountType enum values straight from Postgres
+    // (fully data-driven — the DB is the source of truth, no hardcoding)
+    const enumRows: { enumlabel: string }[] = await this.prisma.$queryRawUnsafe(
+      `SELECT e.enumlabel
+       FROM pg_type t
+       JOIN pg_enum e ON t.oid = e.enumtypid
+       JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+       WHERE n.nspname = 'finsync' AND t.typname = 'AccountType'
+       ORDER BY e.enumsortorder`,
+    );
+    const custom = await this.prisma.account.findMany({
+      where: { companyId },
+      select: { category: true },
+      distinct: ['category'],
+      orderBy: { category: 'asc' },
+    });
+    return {
+      types: enumRows.map((r) => ({ value: r.enumlabel, label: r.enumlabel })),
+      customCategories: custom.map((a) => a.category).filter(Boolean),
+    };
+  }
+
   async findAll(
     companyId: number,
     options?: { type?: string; search?: string; isActive?: string },
