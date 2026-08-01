@@ -375,6 +375,7 @@ export class PayrollService {
       }
 
       try {
+        const acc = await this.getPayrollAccountIds(p.companyId);
         await this.ledger.createAutoEntry(p.companyId, {
           sourceType: 'PAYROLL',
           sourceId: payrollId,
@@ -383,13 +384,17 @@ export class PayrollService {
           projectId: p.projectId ?? undefined,
           lines: [
             {
-              accountCode: '5101',
+              ...(acc.wageExpenseId
+                ? { accountId: acc.wageExpenseId }
+                : { accountCode: '5101' }),
               description: 'Salaries & Wages',
               debit: amount,
               credit: 0,
             },
             {
-              accountCode: '2200',
+              ...(acc.salariesPayableId
+                ? { accountId: acc.salariesPayableId }
+                : { accountCode: '2200' }),
               description: 'Salaries Payable',
               debit: 0,
               credit: amount,
@@ -441,6 +446,7 @@ export class PayrollService {
 
       // 3. Settlement journal entry: reverse payable → cash out
       try {
+        const acc = await this.getPayrollAccountIds(p.companyId);
         await this.ledger.createAutoEntry(p.companyId, {
           sourceType: 'PAYROLL',
           sourceId: payrollId,
@@ -449,13 +455,17 @@ export class PayrollService {
           projectId: p.projectId ?? undefined,
           lines: [
             {
-              accountCode: '2200',
+              ...(acc.salariesPayableId
+                ? { accountId: acc.salariesPayableId }
+                : { accountCode: '2200' }),
               description: 'Settle Salaries Payable',
               debit: amount,
               credit: 0,
             },
             {
-              accountCode: '1001',
+              ...(acc.cashId
+                ? { accountId: acc.cashId }
+                : { accountCode: '1001' }),
               description: 'Cash/Bank payment',
               debit: 0,
               credit: amount,
