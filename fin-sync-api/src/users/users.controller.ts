@@ -10,7 +10,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
+import { PermissionCode } from '../common/constants/permission-codes';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { RequirePermissions } from '../common/decorators/permission.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { UpdateStaffRoleDto, UpdateUserDto } from './dto/update-user.dto';
@@ -47,6 +49,13 @@ export class UsersController {
     @CurrentUser('id') ownerId: number,
   ) {
     return this.usersService.updateStaff(id, dto, ownerId);
+  }
+
+  // @Get('staff-roles')
+  @Get('roles/assignable')
+  @RequirePermissions(PermissionCode.EMPLOYEES_MANAGE)
+  getAssignableRoles() {
+    return this.usersService.getAssignableRoles();
   }
 
   // ONLY Owner can change a staff member's role

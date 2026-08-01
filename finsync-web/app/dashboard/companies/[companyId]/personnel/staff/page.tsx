@@ -3,7 +3,6 @@
 import Loading from "@/components/Loading";
 
 import api from "@/lib/api";
-import { STAFF_ROLES } from "@/lib/roles";
 import { SystemRole } from "@/lib/types";
 import { Pencil, Shield, Trash2, UserPlus, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -31,6 +30,9 @@ export default function StaffPage() {
   const router = useRouter();
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [roles, setRoles] = useState<CompanyRole[]>([]);
+  const [assignableRoles, setAssignableRoles] = useState<
+    { value: string; label: string }[]
+  >([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
@@ -47,6 +49,15 @@ export default function StaffPage() {
     baseSalary: "",
   });
   const [loading, setLoading] = useState(false);
+
+  const fetchAssignableRoles = async () => {
+    try {
+      const res = await api.get("/users/roles/assignable");
+      setAssignableRoles(res.data || []);
+    } catch {
+      /* fallback */
+    }
+  };
 
   const fetchStaff = async () => {
     try {
@@ -70,7 +81,7 @@ export default function StaffPage() {
     }
     const load = async () => {
       setPageLoading(true);
-      await Promise.all([fetchStaff()]);
+      await Promise.all([fetchStaff(), fetchAssignableRoles()]);
       setPageLoading(false);
     };
     load();
@@ -412,7 +423,7 @@ export default function StaffPage() {
                   }
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
                 >
-                  {STAFF_ROLES.map((r) => (
+                  {assignableRoles.map((r) => (
                     <option key={r.value} value={r.value}>
                       {r.label}
                     </option>

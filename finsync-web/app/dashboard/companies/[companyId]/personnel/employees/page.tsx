@@ -2,7 +2,7 @@
 
 import Loading from "@/components/Loading";
 import api from "@/lib/api";
-import { STAFF_ROLES, getRoleLabel } from "@/lib/roles";
+import { getRoleLabel } from "@/lib/roles";
 import { useAuthStore } from "@/store/authStore";
 import { Briefcase, Pencil, Trash2, UserPlus, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -37,6 +37,7 @@ export default function EmployeesPage() {
   const router = useRouter();
   const { user } = useAuthStore();
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [roles, setRoles] = useState<{ value: string; label: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
@@ -68,6 +69,15 @@ export default function EmployeesPage() {
   const [empTypeFilter, setEmpTypeFilter] = useState("");
   const [activeFilter, setActiveFilter] = useState("");
   const [searchFilter, setSearchFilter] = useState("");
+
+  const fetchRoles = async () => {
+    try {
+      const res = await api.get("/users/roles/assignable");
+      setRoles(res.data || []);
+    } catch {
+      /* fallback to empty */
+    }
+  };
 
   const fetchAll = async () => {
     try {
@@ -116,6 +126,7 @@ export default function EmployeesPage() {
       return;
     }
     fetchAll();
+    fetchRoles();
   }, [companyId, empTypeFilter, activeFilter, searchFilter]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -550,7 +561,7 @@ export default function EmployeesPage() {
                     className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   >
                     <option value="">No role</option>
-                    {STAFF_ROLES.map((r) => (
+                    {roles.map((r) => (
                       <option key={r.value} value={r.value}>
                         {r.label}
                       </option>

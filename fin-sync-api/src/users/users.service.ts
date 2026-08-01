@@ -121,6 +121,20 @@ export class UsersService {
   }
 
   // Owner creates a staff member and assigns them to a company
+  /**
+   * Return the list of system roles that can be assigned to an employee.
+   * Excludes Owner (single-owner per deployment). Used to populate the
+   * "System Role" dropdown in the employee form via the API.
+   */
+  async getAssignableRoles() {
+    return Object.values(SystemRole)
+      .filter((r) => r !== SystemRole.Owner)
+      .map((role) => ({
+        value: role,
+        label: role.replace(/([a-z])([A-Z])/g, '$1 $2'),
+      }));
+  }
+
   async createStaff(dto: CreateStaffDto, ownerId: number) {
     // 1. Prevent creating users with the Owner role
     if (dto.role === SystemRole.Owner) {
