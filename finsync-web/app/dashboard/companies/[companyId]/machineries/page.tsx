@@ -11,9 +11,9 @@ import {
   Eye,
   Pencil,
   Plus,
+  Search,
   Trash2,
   UserCog,
-  Wrench,
   X,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -70,6 +70,11 @@ export default function MachineriesPage() {
   const [operatorModalOpen, setOperatorModalOpen] = useState(false);
   const [operatorMachine, setOperatorMachine] = useState<Machine | null>(null);
   const [selectedOperatorIds, setSelectedOperatorIds] = useState<number[]>([]);
+
+  // Table filters
+  const [searchFilter, setSearchFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [ownershipFilter, setOwnershipFilter] = useState("");
 
   const fetchMachines = async () => {
     if (!companyId) return;
@@ -227,6 +232,24 @@ export default function MachineriesPage() {
 
   if (pageLoading) return <Loading />;
 
+  const categories = Array.from(
+    new Set(machines.map((m) => m.category).filter(Boolean)),
+  ).sort();
+
+  const filteredMachines = machines.filter((machine) => {
+    const q = searchFilter.toLowerCase();
+    const matchesSearch =
+      !q ||
+      machine.name.toLowerCase().includes(q) ||
+      (machine.category || "").toLowerCase().includes(q) ||
+      (machine.project?.name || "").toLowerCase().includes(q);
+    const matchesCategory =
+      !categoryFilter || machine.category === categoryFilter;
+    const matchesOwnership =
+      !ownershipFilter || machine.ownershipType === ownershipFilter;
+    return matchesSearch && matchesCategory && matchesOwnership;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -252,132 +275,214 @@ export default function MachineriesPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {machines.map((machine) => {
-          const hoursSinceMaintenance =
-            machine.runningHours - machine.lastMaintenanceHours;
-          const maintenanceDue = hoursSinceMaintenance >= 250;
-          return (
-            <div
-              key={machine.id}
-              className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <h3 className="font-semibold text-gray-900">
-                      {machine.name}
-                    </h3>
-                    <span
-                      className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                        machine.ownershipType === "OWNED"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {machine.ownershipType}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {machine.category}{" "}
-                    {machine.project && `| ${machine.project.name}`}
-                  </p>
-                </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleViewDetails(machine)}
-                    className="text-gray-400 hover:text-gray-600"
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-3 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+          <input
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            placeholder="Search name/category/project..."
+            className="pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md w-64"
+          />
+        </div>
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-300 rounded-md"
+        >
+          <option value="">All Categories</option>
+          {categories.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+        <select
+          value={ownershipFilter}
+          onChange={(e) => setOwnershipFilter(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-300 rounded-md"
+        >
+          <option value="">All Ownership</option>
+          <option value="OWNED">OWNED</option>
+          <option value="RENTED">RENTED</option>
+        </select>
+        <span className="ml-auto text-sm text-gray-500">
+          {filteredMachines.length} of {machines.length} machines
+        </span>
+      </div>
+
+      {/* Table view */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Name
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Category
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Type
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Project
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Operator
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  Hours
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Maintenance
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredMachines.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="px-6 py-8 text-center text-gray-500"
                   >
-                    <Eye className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setOperatorMachine(machine);
-                      setSelectedOperatorIds([]);
-                      setOperatorModalOpen(true);
-                    }}
-                    className="text-blue-500 hover:text-blue-700"
-                    title="Assign Operator"
-                  >
-                    <UserCog className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingMachine(machine);
-                      setFormData({
-                        name: machine.name,
-                        category: machine.category,
-                        projectId: machine.projectId
-                          ? String(machine.projectId)
-                          : "",
-                        ownershipType: machine.ownershipType,
-                      });
-                      setIsModalOpen(true);
-                    }}
-                    className="text-indigo-600 hover:text-indigo-900"
-                  >
-                    <Pencil className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(machine.id)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-2 text-sm border-t pt-4">
-                {machine.operator && (
-                  <div className="flex justify-between items-center text-gray-600">
-                    <span>Operator:</span>
-                    <span className="inline-flex items-center gap-1">
-                      <span className="font-medium text-gray-900">
-                        {machine.operator.firstName} {machine.operator.lastName}
-                      </span>
-                      <button
-                        onClick={() => handleUnassignOperator(machine.id)}
-                        className="text-red-500 hover:text-red-700"
-                        title="Unassign"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between text-gray-600">
-                  <span>Hours:</span>
-                  <span className="font-medium text-gray-900">
-                    {machine.runningHours} hrs
-                  </span>
-                </div>
-                {maintenanceDue ? (
-                  <div className="mt-4 bg-red-50 border border-red-200 rounded-md p-3 text-center">
-                    <Wrench className="h-5 w-5 text-red-600 mx-auto mb-1" />
-                    <p className="text-xs text-red-800 font-medium mb-2">
-                      Maintenance Required
-                    </p>
-                    <button
-                      onClick={() => handleCompleteMaintenance(machine.id)}
-                      className="text-xs flex items-center mx-auto text-white bg-red-600 px-3 py-1 rounded-md hover:bg-red-700"
-                    >
-                      <CheckCircle className="h-3 w-3 mr-1" /> Mark as Serviced
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => {
-                      const h = prompt("Enter hours worked:");
-                      if (h) handleLogHours(machine.id, h);
-                    }}
-                    className="mt-4 w-full flex items-center justify-center text-sm text-indigo-600 border border-indigo-200 rounded-md py-2 hover:bg-indigo-50"
-                  >
-                    <Clock className="h-4 w-4 mr-1" /> Log Working Hours
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
+                    No machinery found matching your filters.
+                  </td>
+                </tr>
+              ) : (
+                filteredMachines.map((machine) => {
+                  const hoursSinceMaintenance =
+                    machine.runningHours - machine.lastMaintenanceHours;
+                  const maintenanceDue = hoursSinceMaintenance >= 250;
+                  return (
+                    <tr key={machine.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">
+                        {machine.name}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                        {machine.category}
+                      </td>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap">
+                        <span
+                          className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                            machine.ownershipType === "OWNED"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {machine.ownershipType}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                        {machine.project?.name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                        {machine.operator ? (
+                          <span className="inline-flex items-center gap-1">
+                            {machine.operator.firstName}{" "}
+                            {machine.operator.lastName}
+                            <button
+                              onClick={() => handleUnassignOperator(machine.id)}
+                              className="text-red-500 hover:text-red-700"
+                              title="Unassign"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 whitespace-nowrap">
+                        {machine.runningHours} hrs
+                      </td>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap">
+                        {maintenanceDue ? (
+                          <button
+                            onClick={() =>
+                              handleCompleteMaintenance(machine.id)
+                            }
+                            className="text-xs flex items-center text-white bg-red-600 px-2 py-1 rounded-md hover:bg-red-700"
+                          >
+                            <CheckCircle className="h-3 w-3 mr-1" /> Service Now
+                          </button>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
+                            OK
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm whitespace-nowrap">
+                        <div className="flex items-center justify-end space-x-1">
+                          <button
+                            onClick={() => handleViewDetails(machine)}
+                            className="text-gray-400 hover:text-gray-600"
+                            title="View"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setOperatorMachine(machine);
+                              setSelectedOperatorIds([]);
+                              setOperatorModalOpen(true);
+                            }}
+                            className="text-blue-500 hover:text-blue-700"
+                            title="Assign Operator"
+                          >
+                            <UserCog className="h-4 w-4" />
+                          </button>
+                          {!maintenanceDue && (
+                            <button
+                              onClick={() => {
+                                const h = prompt("Enter hours worked:");
+                                if (h) handleLogHours(machine.id, h);
+                              }}
+                              className="text-gray-500 hover:text-indigo-600"
+                              title="Log Hours"
+                            >
+                              <Clock className="h-4 w-4" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setEditingMachine(machine);
+                              setFormData({
+                                name: machine.name,
+                                category: machine.category,
+                                projectId: machine.projectId
+                                  ? String(machine.projectId)
+                                  : "",
+                                ownershipType: machine.ownershipType,
+                              });
+                              setIsModalOpen(true);
+                            }}
+                            className="text-indigo-600 hover:text-indigo-900"
+                            title="Edit"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(machine.id)}
+                            className="text-red-500 hover:text-red-700"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Operator Assignment Modal */}

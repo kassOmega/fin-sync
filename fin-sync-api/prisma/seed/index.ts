@@ -16,6 +16,7 @@ import { seedChartOfAccounts } from './12-chart-of-accounts';
 import { seedLeaveManagement } from './13-leave-management';
 import { seedPayrollConfig } from './14-payroll-config';
 import { seedDepreciation } from './15-depreciation';
+import { seedJournalBackfill } from './16-journal-backfill';
 import { createContext, disconnect, getPrisma } from './utils';
 
 async function clearDatabase(prisma: PrismaClient): Promise<void> {
@@ -128,6 +129,12 @@ export async function seedAll(): Promise<void> {
     }
     await seedCompanyFinance(prisma, ctx);
     await seedEmployees(prisma, ctx);
+    // Backfill journal entries from the seeded finances → populates the ledger
+    try {
+      await seedJournalBackfill(prisma, ctx);
+    } catch (e) {
+      console.warn('⚠️ Journal backfill skipped:', (e as Error).message);
+    }
     await seedStoreInventory(prisma, ctx);
     await seedRetail(prisma, ctx);
     await seedNotifications(prisma, ctx);
