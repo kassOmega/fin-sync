@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AccountsModule } from './accounts/accounts.module';
 import { AppController } from './app.controller';
@@ -10,6 +11,7 @@ import { AutomationModule } from './automation/automation.module';
 import { BudgetsModule } from './budgets/budgets.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
+import { NoStoreInterceptor } from './common/interceptors/no-store.interceptor';
 import { CompaniesModule } from './companies/companies.module';
 import { CompanyExpensesModule } from './company-expenses/company-expenses.module';
 import { CompanyIncomesModule } from './company-incomes/company-incomes.module';
@@ -85,6 +87,10 @@ import { UsersModule } from './users/users.module';
     {
       provide: 'APP_GUARD',
       useClass: PermissionsGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: NoStoreInterceptor,
     },
   ],
 })

@@ -216,6 +216,100 @@ export class LeavesService {
     return request;
   }
 
+  /**
+   * Update a PENDING leave request (dates, leave type, reason, half-day).
+   * Recomputes totalDays and re-adjusts the pending balance delta.
+   * Used by the Team Calendar CRUD.
+   */
+  async updateRequest(
+    requestId: number,
+    dto: {
+      leaveTypeId?: number;
+      startDate?: string;
+      endDate?: string;
+      isHalfDay?: boolean;
+      reason?: string;
+    },
+  ) {
+    const request = await this.prisma.leaveRequest.findUnique({
+      where: { id: requestId },
+    });
+    if (!request) throw new NotFoundException('Leave request not found');
+    if (request.status !== 'PENDING') {
+      throw new BadRequestException(
+        'Only PENDING requests can be edited from the calendar',
+      );
+    }
+
+    const start = dto.startDate ? new Date(dto.startDate) : request.startDate;
+    const end = dto.endDate ? new Date(dto.endDate) : request.endDate;
+    const isHalfDay = dto.isHalfDay ?? request.isHalfDay;
+    const reason = dto.reason !== undefined ? dto.reason : request.reason;
+
+    let totalDays: number;
+    if (isHalfDay) {
+      totalDays = 0.5;
+    } else {
+      totalDays = this.calculateBusinessDays(start, end);
+    }
+    if (totalDays <= 0) {
+      throw new BadRequestException('Leave request must be at least 0.5 days');
+    }
+
+    return this.prisma.$transaction(async (prisma) => {
+      const oldDays = Number(request.totalDays);
+      await prisma.leaveRequest.update({
+        where: { id: requestId },
+        data: {
+          leaveTypeId: dto.leaveTypeId ?? request.leaveTypeId,
+          startDate: start,
+          endDate: end,
+          totalDays,
+          isHalfDay,
+          reason,
+        },
+      });
+
+      // Re-adjust pending balance: remove old delta, add new delta
+      if (oldDays !== totalDays || dto.leaveTypeId) {
+        // Restore pending for the old type
+        await this.adjustPending(
+          prisma,
+          request.employeeId,
+          request.leaveTypeId,
+          -oldDays,
+        );
+        // Add pending for the (possibly new) type
+        await this.adjustPending(
+          prisma,
+          request.employeeId,
+          dto.leaveTypeId ?? request.leaveTypeId,
+          totalDays,
+        );
+      }
+
+      return { updated: true, id: requestId, totalDays };
+    });
+  }
+
+  /** Internal helper: change pendingDays on the current-year balance. */
+  private async adjustPending(
+    prisma: any,
+    employeeId: number,
+    leaveTypeId: number,
+    delta: number,
+  ) {
+    const balance = await prisma.leaveBalance.findFirst({
+      where: { employeeId, leaveTypeId, year: new Date().getFullYear() },
+    });
+    if (balance) {
+      await prisma.leaveBalance.update({
+        where: { id: balance.id },
+        data: { pendingDays: { increment: delta } },
+      });
+    }
+  }
+
   async approveRequest(requestId: number, reviewerId: number) {
     const request = await this.prisma.leaveRequest.findUnique({
       where: { id: requestId },
@@ -235,7 +329,7 @@ export class LeavesService {
         },
       });
 
-      // Move from pending to used
+      // Move from pending to used — decrement pendingDays AND increment usedDays
       const balance = await prisma.leaveBalance.findFirst({
         where: {
           employeeId: request.employeeId,

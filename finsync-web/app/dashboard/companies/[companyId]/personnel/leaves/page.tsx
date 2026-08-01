@@ -157,7 +157,9 @@ export default function LeavesPage() {
 
       {tab === "my" && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {balances.map((bal) => {
+          {Array.from(
+            new Map(balances.map((bal) => [bal.leaveTypeId, bal])).values(),
+          ).map((bal) => {
             const remaining = bal.totalDays - bal.usedDays - bal.pendingDays;
             const pct = Math.min(
               100,
@@ -246,7 +248,14 @@ export default function LeavesPage() {
         />
       )}
 
-      {tab === "calendar" && <LeaveCalendarView entries={calendar} />}
+      {tab === "calendar" && (
+        <LeaveCalendarView
+          companyId={companyId}
+          entries={calendar}
+          types={products}
+          onMonthChange={loadCalendar}
+        />
+      )}
 
       {tab === "admin" && (
         <div className="space-y-6">
@@ -307,6 +316,7 @@ function LeaveRequestForm({
   types,
   onCancel,
   onSubmit,
+  initial,
 }: {
   types: LeaveType[];
   onCancel: () => void;
@@ -317,12 +327,21 @@ function LeaveRequestForm({
     isHalfDay?: boolean;
     reason?: string;
   }) => Promise<void>;
+  initial?: {
+    leaveTypeId: number;
+    startDate: string;
+    endDate: string;
+    isHalfDay?: boolean;
+    reason?: string;
+  };
 }) {
-  const [leaveTypeId, setLeaveTypeId] = useState<number | 0>(0);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [isHalfDay, setIsHalfDay] = useState(false);
-  const [reason, setReason] = useState("");
+  const [leaveTypeId, setLeaveTypeId] = useState<number | 0>(
+    initial?.leaveTypeId || 0,
+  );
+  const [startDate, setStartDate] = useState(initial?.startDate || "");
+  const [endDate, setEndDate] = useState(initial?.endDate || "");
+  const [isHalfDay, setIsHalfDay] = useState(initial?.isHalfDay || false);
+  const [reason, setReason] = useState(initial?.reason || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -822,32 +841,105 @@ function LeaveTypeModal({
   );
 }
 
-function LeaveCalendarView({ entries }: { entries: LeaveCalendarEntry[] }) {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+function LeaveCalendarView({
+  companyId,
+  entries,
+  types,
+  onMonthChange,
+}: {
+  companyId: number;
+  entries: LeaveCalendarEntry[];
+  types: LeaveType[];
+  onMonthChange: () => Promise<void>;
+}) {
+  const [viewDate, setViewDate] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+  const [editingEntry, setEditingEntry] = useState<LeaveCalendarEntry | null>(
+    null,
+  );
+
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDay = new Date(year, month, 1).getDay();
 
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const blanks = Array.from({ length: firstDay }, (_, i) => i);
 
+  const monthLabel = viewDate.toLocaleString("default", { month: "long" });
+
+  const shiftMonth = (delta: number) => {
+    const next = new Date(year, month + delta, 1);
+    setViewDate(next);
+    onMonthChange();
+  };
+
   const entriesForDay = (day: number) =>
     entries.filter((e) => {
-      const start = new Date(e.startDate).getDate();
-      const end = new Date(e.endDate).getDate();
-      const startMonth = new Date(e.startDate).getMonth();
-      const endMonth = new Date(e.endDate).getMonth();
-      if (startMonth !== month && endMonth !== month) return false;
-      return day >= start && day <= end;
+      const start = new Date(e.startDate);
+      const end = new Date(e.endDate);
+      // Does the entry span the viewed month/day?
+      const entryStartMonth = start.getFullYear() * 12 + start.getMonth();
+      const entryEndMonth = end.getFullYear() * 12 + end.getMonth();
+      const viewMonthIndex = year * 12 + month;
+      if (viewMonthIndex < entryStartMonth || viewMonthIndex > entryEndMonth)
+        return false;
+      const startDay = start.getMonth() === month ? start.getDate() : 1;
+      const endDay = end.getMonth() === month ? end.getDate() : daysInMonth;
+      return day >= startDay && day <= endDay;
     });
+
+  const saveEdit = async (dto: {
+    leaveTypeId: number;
+    startDate: string;
+    endDate: string;
+    isHalfDay?: boolean;
+    reason?: string;
+  }) => {
+    await leaveService.updateRequest(companyId, editingEntry!.id, dto);
+    setEditingEntry(null);
+    await onMonthChange();
+  };
+
+  const cancelEntry = async (id: number) => {
+    if (!confirm("Cancel this leave request?")) return;
+    await leaveService.cancelRequest(companyId, id);
+    await onMonthChange();
+  };
 
   return (
     <div className="bg-white rounded-lg shadow border p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">
-        Team Calendar — {today.toLocaleString("default", { month: "long" })}{" "}
-        {year}
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-gray-900">
+          Team Calendar — {monthLabel} {year}
+        </h2>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => shiftMonth(-1)}
+            className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            ← Prev
+          </button>
+          <button
+            onClick={() => {
+              setViewDate(new Date());
+              onMonthChange();
+            }}
+            className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            Today
+          </button>
+          <button
+            onClick={() => shiftMonth(1)}
+            className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            Next →
+          </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-7 gap-1 text-xs">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
           <div key={d} className="py-1 text-center font-medium text-gray-500">
@@ -872,7 +964,7 @@ function LeaveCalendarView({ entries }: { entries: LeaveCalendarEntry[] }) {
               {dayEntries.map((e) => (
                 <div
                   key={e.id}
-                  className={`mt-1 px-1 py-0.5 rounded text-[10px] truncate ${
+                  className={`mt-1 px-1 py-0.5 rounded text-[10px] truncate relative group ${
                     e.isHalfDay
                       ? "bg-yellow-100 text-yellow-800"
                       : "bg-indigo-100 text-indigo-800"
@@ -880,12 +972,44 @@ function LeaveCalendarView({ entries }: { entries: LeaveCalendarEntry[] }) {
                   title={`${e.employeeName} — ${e.leaveType}`}
                 >
                   {e.employeeName} {e.isHalfDay ? "(½)" : ""}
+                  <span className="hidden group-hover:inline absolute right-0.5 top-0.5 space-x-1 bg-white/80 rounded px-0.5">
+                    <button
+                      onClick={() => setEditingEntry(e)}
+                      className="text-[9px] text-indigo-700 hover:underline"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={() => cancelEntry(e.id)}
+                      className="text-[9px] text-red-700 hover:underline"
+                    >
+                      ✕
+                    </button>
+                  </span>
                 </div>
               ))}
             </div>
           );
         })}
       </div>
+
+      {editingEntry && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50">
+          <LeaveRequestForm
+            types={types}
+            onCancel={() => setEditingEntry(null)}
+            onSubmit={saveEdit}
+            initial={{
+              leaveTypeId:
+                types.find((t) => t.name === editingEntry.leaveType)?.id || 0,
+              startDate: editingEntry.startDate.split("T")[0],
+              endDate: editingEntry.endDate.split("T")[0],
+              isHalfDay: editingEntry.isHalfDay,
+              reason: editingEntry.reason,
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

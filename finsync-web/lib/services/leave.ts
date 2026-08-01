@@ -99,6 +99,18 @@ export const leaveService = {
     return res.data;
   },
 
+  updateRequest: async (
+    companyId: number,
+    id: number,
+    dto: Partial<CreateLeaveRequestDto>,
+  ): Promise<{ updated: boolean; id: number; totalDays: number }> => {
+    const res = await api.patch(
+      `/companies/${companyId}/leaves/requests/${id}`,
+      dto,
+    );
+    return res.data;
+  },
+
   approveRequest: async (
     companyId: number,
     id: number,

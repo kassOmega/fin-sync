@@ -102,6 +102,22 @@ export class LeavesController {
     return this.service.getCompanyRequests(companyId, status);
   }
 
+  @Patch('requests/:id')
+  @RequirePermissions(PermissionCode.LEAVE_REQUEST_CREATE)
+  updateRequest(
+    @Param('id', ParseIntPipe) requestId: number,
+    @Body()
+    dto: {
+      leaveTypeId?: number;
+      startDate?: string;
+      endDate?: string;
+      isHalfDay?: boolean;
+      reason?: string;
+    },
+  ) {
+    return this.service.updateRequest(requestId, dto);
+  }
+
   @Post('requests/:id/approve')
   @RequirePermissions(PermissionCode.LEAVE_REQUEST_APPROVE)
   approveRequest(
