@@ -131,10 +131,6 @@ export async function seedLeaveManagement(
   prisma: PrismaClient,
   ctx: SeedContext,
 ): Promise<void> {
-  if (!(prisma as any).leaveType) {
-    console.log('⚠️ leaveType model not available — skipping Leave seed');
-    return;
-  }
   console.log('🏖️  Seeding Leave Management...');
 
   const companyKeys = Object.keys(ctx.companies);
@@ -145,24 +141,22 @@ export async function seedLeaveManagement(
   for (const companyKey of companyKeys) {
     const companyId = Number(ctx.companies[companyKey]);
 
-    // Create leave types
+    // Create leave types via raw SQL (works even with stale typed client)
     const leaveTypeMap = new Map<string, number>();
     for (const lt of DEFAULT_LEAVE_TYPES) {
-      const existing = await (prisma as any).leaveType.findFirst({
-        where: { companyId, name: lt.name },
-      });
-      if (!existing) {
-        const created = await (prisma as any).leaveType.create({
-          data: {
-            companyId,
-            name: lt.name,
-            isPaid: lt.isPaid,
-            defaultDaysPerYear: lt.defaultDaysPerYear,
-            maxCarryForwardDays: lt.maxCarryForwardDays,
-            requiresApproval: lt.requiresApproval,
-          },
-        });
-        leaveTypeMap.set(lt.name, created.id);
+      const existing: { id: number }[] = await prisma.$queryRawUnsafe(
+        `SELECT id FROM finsync.leave_types WHERE "companyId" = ${companyId} AND name = '${lt.name}' LIMIT 1`,
+      );
+      if (existing.length > 0) {
+        leaveTypeMap.set(lt.name, existing[0].id);
+      } else {
+        const inserted: { id: number }[] = await prisma.$queryRawUnsafe(
+          `INSERT INTO finsync.leave_types ("companyId", name, "isPaid", "defaultDaysPerYear", "maxCarryForwardDays", "requiresApproval")
+           VALUES (${companyId}, '${lt.name}', ${lt.isPaid}, ${lt.defaultDaysPerYear},
+                   ${lt.maxCarryForwardDays ?? 'NULL'}, ${lt.requiresApproval})
+           RETURNING id`,
+        );
+        leaveTypeMap.set(lt.name, inserted[0].id);
         leaveTypeCount++;
       }
     }

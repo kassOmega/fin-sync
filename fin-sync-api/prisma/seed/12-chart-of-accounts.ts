@@ -453,47 +453,49 @@ export async function seedChartOfAccounts(
 ): Promise<void> {
   console.log('📊 Seeding Chart of Accounts...');
 
-  // Guard: if the seed client doesn't have the Account model (deploy with stale client),
-  // skip gracefully rather than crash the whole deploy.
-  if (!(prisma as any).account) {
-    console.log('⚠️ Account model not available on client — skipping COA seed');
-    return;
-  }
-
   const companyKeys = Object.keys(ctx.companies);
   const flatAccounts = flattenAccounts(STANDARD_CHART_OF_ACCOUNTS);
 
   for (const companyKey of companyKeys) {
     const companyId = Number(ctx.companies[companyKey]);
 
-    // First pass: create all accounts (without parent references)
+    // First pass: create all accounts (without parent references).
+    // Uses raw SQL so it works regardless of whether the typed model
+    // exists on the seed client (prevents deploy failures on stale clients).
     const createdMap = new Map<string, number>();
 
     for (const acc of flatAccounts) {
-      const result: any = await (prisma as any).account.create({
-        data: {
-          companyId,
-          code: acc.code,
-          name: acc.name,
-          type: acc.type,
-          category: acc.category,
-          normalSide: acc.normalSide,
-          isActive: true,
-        },
-      });
-      createdMap.set(acc.code, result.id);
+      const existing: { id: number }[] = await prisma.$queryRawUnsafe(
+        `SELECT id FROM finsync.accounts WHERE "companyId" = ${companyId} AND code = '${acc.code}' LIMIT 1`,
+      );
+      let accountId: number;
+      if (existing.length > 0) {
+        accountId = existing[0].id;
+      } else {
+        const categorySql = acc.category
+          ? `'${acc.category.replace(/'/g, "''")}'`
+          : 'NULL';
+        const inserted: { id: number }[] = await prisma.$queryRawUnsafe(
+          `INSERT INTO finsync.accounts ("companyId", code, name, type, category, "normalSide", "isActive", "created_at", "updated_at")
+           VALUES (${companyId}, '${acc.code}', '${acc.name.replace(/'/g, "''")}',
+                   '${acc.type}', ${categorySql},
+                   '${acc.normalSide ?? 'DEBIT'}', true, NOW(), NOW())
+           RETURNING id`,
+        );
+        accountId = inserted[0].id;
+      }
+      createdMap.set(acc.code, accountId);
     }
 
-    // Second pass: set parent relationships
+    // Second pass: set parent relationships via raw SQL
     for (const acc of flatAccounts) {
       if (acc.parentCode && createdMap.has(acc.parentCode)) {
         const accId = createdMap.get(acc.code);
         const parentId = createdMap.get(acc.parentCode);
         if (accId && parentId) {
-          await (prisma as any).account.update({
-            where: { id: accId },
-            data: { parentId },
-          });
+          await prisma.$executeRawUnsafe(
+            `UPDATE finsync.accounts SET "parentId" = ${parentId} WHERE id = ${accId}`,
+          );
         }
       }
     }

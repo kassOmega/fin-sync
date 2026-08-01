@@ -20,12 +20,6 @@ export async function seedPayrollConfig(
   prisma: PrismaClient,
   ctx: SeedContext,
 ): Promise<void> {
-  if (!(prisma as any).taxTable) {
-    console.log(
-      '⚠️ taxTable model not available — skipping Payroll Config seed',
-    );
-    return;
-  }
   console.log('💰 Seeding Payroll Configuration...');
 
   const companyKeys = Object.keys(ctx.companies);
@@ -35,43 +29,36 @@ export async function seedPayrollConfig(
   for (const companyKey of companyKeys) {
     const companyId = Number(ctx.companies[companyKey]);
 
-    // Create tax table
-    const existingTax = await (prisma as any).taxTable.findFirst({
-      where: { companyId, name: 'Standard 2026' },
-    });
-    if (!existingTax) {
-      await (prisma as any).taxTable.create({
-        data: {
-          companyId,
-          name: 'Standard 2026',
-          description: 'Standard progressive income tax brackets',
-          brackets: {
-            create: STANDARD_TAX_BRACKETS.map((b) => ({
-              minIncome: b.minIncome,
-              maxIncome: b.maxIncome,
-              rate: b.rate,
-              fixedAmount: b.fixedAmount,
-            })),
-          },
-        },
-      });
+    // Create tax table via raw SQL (company-linked, works with stale client)
+    const existingTax: { id: number }[] = await prisma.$queryRawUnsafe(
+      `SELECT id FROM finsync.tax_tables WHERE "companyId" = ${companyId} AND name = 'Standard 2026' LIMIT 1`,
+    );
+    if (existingTax.length === 0) {
+      const insertedTax: { id: number }[] = await prisma.$queryRawUnsafe(
+        `INSERT INTO finsync.tax_tables ("companyId", name, description, "isActive")
+         VALUES (${companyId}, 'Standard 2026', 'Standard progressive income tax brackets', true)
+         RETURNING id`,
+      );
+      const taxTableId = insertedTax[0].id;
+      for (const b of STANDARD_TAX_BRACKETS) {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO finsync.tax_brackets ("taxTableId", "minIncome", "maxIncome", rate, "fixedAmount")
+           VALUES (${taxTableId}, ${b.minIncome}, ${b.maxIncome ?? 'NULL'}, ${b.rate}, ${b.fixedAmount})`,
+        );
+      }
       taxCount++;
     }
 
-    // Create deduction rules
+    // Create deduction rules via raw SQL
     for (const rule of DEFAULT_DEDUCTIONS) {
-      const existing = await (prisma as any).payrollDeduction.findFirst({
-        where: { companyId, name: rule.name },
-      });
-      if (!existing) {
-        await (prisma as any).payrollDeduction.create({
-          data: {
-            companyId,
-            name: rule.name,
-            type: rule.type,
-            value: rule.value,
-          },
-        });
+      const existing: { id: number }[] = await prisma.$queryRawUnsafe(
+        `SELECT id FROM finsync.payroll_deductions WHERE "companyId" = ${companyId} AND name = '${rule.name}' LIMIT 1`,
+      );
+      if (existing.length === 0) {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO finsync.payroll_deductions ("companyId", name, type, value)
+           VALUES (${companyId}, '${rule.name}', '${rule.type}', ${rule.value})`,
+        );
         deductionCount++;
       }
     }

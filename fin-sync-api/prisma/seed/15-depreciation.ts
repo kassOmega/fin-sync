@@ -86,12 +86,6 @@ export async function seedDepreciation(
   prisma: PrismaClient,
   ctx: SeedContext,
 ): Promise<void> {
-  if (!(prisma as any).depreciationMethod) {
-    console.log(
-      '⚠️ depreciationMethod model not available — skipping Depreciation seed',
-    );
-    return;
-  }
   console.log('📉 Seeding Depreciation...');
 
   const companyKeys = Object.keys(ctx.companies);
@@ -101,26 +95,22 @@ export async function seedDepreciation(
   for (const companyKey of companyKeys) {
     const companyId = Number(ctx.companies[companyKey]);
 
-    // Create depreciation methods
+    // Create depreciation methods via raw SQL (company-linked, works with stale client)
     const methodMap = new Map<string, number>();
     for (const m of METHODS) {
-      const existing = await (prisma as any).depreciationMethod.findFirst({
-        where: { companyId, name: m.name },
-      });
-      if (!existing) {
-        const created = await (prisma as any).depreciationMethod.create({
-          data: {
-            companyId,
-            name: m.name,
-            type: m.type,
-            defaultRate: m.defaultRate,
-            defaultUsefulLifeYears: m.defaultUsefulLifeYears,
-          },
-        });
-        methodMap.set(m.name, created.id);
-        methodCount++;
+      const existing: { id: number }[] = await prisma.$queryRawUnsafe(
+        `SELECT id FROM finsync.depreciation_methods WHERE "companyId" = ${companyId} AND name = '${m.name}' LIMIT 1`,
+      );
+      if (existing.length > 0) {
+        methodMap.set(m.name, existing[0].id);
       } else {
-        methodMap.set(m.name, existing.id);
+        const inserted: { id: number }[] = await prisma.$queryRawUnsafe(
+          `INSERT INTO finsync.depreciation_methods ("companyId", name, type, "defaultRate", "defaultUsefulLifeYears")
+           VALUES (${companyId}, '${m.name}', '${m.type}', ${m.defaultRate}, ${m.defaultUsefulLifeYears})
+           RETURNING id`,
+        );
+        methodMap.set(m.name, inserted[0].id);
+        methodCount++;
       }
     }
 
