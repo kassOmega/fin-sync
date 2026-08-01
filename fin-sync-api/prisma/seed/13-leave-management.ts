@@ -131,6 +131,10 @@ export async function seedLeaveManagement(
   prisma: PrismaClient,
   ctx: SeedContext,
 ): Promise<void> {
+  if (!(prisma as any).leaveType) {
+    console.log('⚠️ leaveType model not available — skipping Leave seed');
+    return;
+  }
   console.log('🏖️  Seeding Leave Management...');
 
   const companyKeys = Object.keys(ctx.companies);

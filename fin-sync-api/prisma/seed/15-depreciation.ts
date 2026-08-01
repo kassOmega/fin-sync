@@ -86,6 +86,12 @@ export async function seedDepreciation(
   prisma: PrismaClient,
   ctx: SeedContext,
 ): Promise<void> {
+  if (!(prisma as any).depreciationMethod) {
+    console.log(
+      '⚠️ depreciationMethod model not available — skipping Depreciation seed',
+    );
+    return;
+  }
   console.log('📉 Seeding Depreciation...');
 
   const companyKeys = Object.keys(ctx.companies);

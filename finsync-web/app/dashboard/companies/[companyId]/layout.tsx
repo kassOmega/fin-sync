@@ -30,85 +30,124 @@ export default function CompanyLayout({
     }
   }, [companyId]);
 
-  const navItems = [
+  const navGroups: {
+    label?: string;
+    items: {
+      name: string;
+      href: string;
+      roles: SystemRole[];
+    }[];
+  }[] = [
     {
-      name: "Overview",
-      href: ``,
-      roles: [
-        SystemRole.Owner,
-        SystemRole.Cashier,
-        SystemRole.Sales,
-        SystemRole.Storekeeper,
-        SystemRole.OperatorDriver,
-        SystemRole.ProjectManager,
-        SystemRole.Foreman,
+      items: [
+        {
+          name: "Overview",
+          href: ``,
+          roles: [
+            SystemRole.Owner,
+            SystemRole.Cashier,
+            SystemRole.Sales,
+            SystemRole.Storekeeper,
+            SystemRole.OperatorDriver,
+            SystemRole.ProjectManager,
+            SystemRole.Foreman,
+          ],
+        },
       ],
     },
     {
-      name: "Finance",
-      href: `/finance/incomes`,
-      roles: [SystemRole.Owner, SystemRole.Cashier, SystemRole.Sales],
-    },
-    { name: "Staff", href: `/personnel/staff`, roles: [SystemRole.Owner] },
-    {
-      name: "Employees",
-      href: `/personnel/employees`,
-      roles: [SystemRole.Owner, SystemRole.ProjectManager],
-    },
-    {
-      name: "Projects",
-      href: `/projects`,
-      roles: [SystemRole.Owner, SystemRole.ProjectManager, SystemRole.Foreman],
-    },
-    {
-      name: "Machineries",
-      href: `/machineries`,
-      roles: [
-        SystemRole.Owner,
-        SystemRole.OperatorDriver,
-        SystemRole.ProjectManager,
+      label: "Finance",
+      items: [
+        {
+          name: "Finance",
+          href: `/finance/incomes`,
+          roles: [SystemRole.Owner, SystemRole.Cashier, SystemRole.Sales],
+        },
+        {
+          name: "Accounts",
+          href: `/accounts`,
+          roles: [
+            SystemRole.Owner,
+            SystemRole.Cashier,
+            SystemRole.ProjectManager,
+          ],
+        },
+        {
+          name: "Ledger",
+          href: `/ledger`,
+          roles: [
+            SystemRole.Owner,
+            SystemRole.Cashier,
+            SystemRole.ProjectManager,
+          ],
+        },
+        { name: "Reports", href: `/reports`, roles: [SystemRole.Owner] },
       ],
     },
     {
-      name: "Accounts",
-      href: `/accounts`,
-      roles: [SystemRole.Owner, SystemRole.Cashier, SystemRole.ProjectManager],
-    },
-    {
-      name: "Ledger",
-      href: `/ledger`,
-      roles: [SystemRole.Owner, SystemRole.Cashier, SystemRole.ProjectManager],
-    },
-    {
-      name: "Store",
-      href: `/store`,
-      roles: [SystemRole.Owner, SystemRole.Storekeeper],
-    },
-    {
-      name: "Attendance",
-      href: `/personnel/attendance`,
-      roles: [SystemRole.Owner, SystemRole.ProjectManager],
-    },
-    {
-      name: "Timesheets",
-      href: `/timesheets`,
-      roles: [
-        SystemRole.Owner,
-        SystemRole.ProjectManager,
-        SystemRole.Foreman,
-        SystemRole.OperatorDriver,
+      label: "HR / Personnel",
+      items: [
+        { name: "Staff", href: `/personnel/staff`, roles: [SystemRole.Owner] },
+        {
+          name: "Employees",
+          href: `/personnel/employees`,
+          roles: [SystemRole.Owner, SystemRole.ProjectManager],
+        },
+        {
+          name: "Attendance",
+          href: `/personnel/attendance`,
+          roles: [SystemRole.Owner, SystemRole.ProjectManager],
+        },
+        {
+          name: "Timesheets",
+          href: `/timesheets`,
+          roles: [
+            SystemRole.Owner,
+            SystemRole.ProjectManager,
+            SystemRole.Foreman,
+            SystemRole.OperatorDriver,
+          ],
+        },
+        {
+          name: "Payroll",
+          href: `/personnel/payroll`,
+          roles: [SystemRole.Owner],
+        },
       ],
     },
     {
-      name: "Payroll",
-      href: `/personnel/payroll`,
-      roles: [SystemRole.Owner],
+      label: "Operations",
+      items: [
+        {
+          name: "Projects",
+          href: `/projects`,
+          roles: [
+            SystemRole.Owner,
+            SystemRole.ProjectManager,
+            SystemRole.Foreman,
+          ],
+        },
+        {
+          name: "Machineries",
+          href: `/machineries`,
+          roles: [
+            SystemRole.Owner,
+            SystemRole.OperatorDriver,
+            SystemRole.ProjectManager,
+          ],
+        },
+        {
+          name: "Store",
+          href: `/store`,
+          roles: [SystemRole.Owner, SystemRole.Storekeeper],
+        },
+      ],
     },
-    { name: "Roles", href: `/roles`, roles: [SystemRole.Owner] },
-    { name: "Reports", href: `/reports`, roles: [SystemRole.Owner] },
+    {
+      label: "Admin",
+      items: [{ name: "Roles", href: `/roles`, roles: [SystemRole.Owner] }],
+    },
   ];
-
-  const filteredNavItems = navItems.filter((item) => hasRole(item.roles));
 
   return (
     <div className="flex flex-col h-full -m-4 lg:-m-8 gap-8">
@@ -130,21 +169,46 @@ export default function CompanyLayout({
               )}
             </div>
           </div>
-          <nav className="flex overflow-x-auto px-4 lg:px-8 border-t border-gray-100">
-            {filteredNavItems.map((item) => {
-              const href = `/dashboard/companies/${companyId}${item.href}`;
-              const isActive =
-                item.href === ""
-                  ? pathname === href
-                  : pathname.startsWith(href);
+          <nav className="flex overflow-x-auto px-4 lg:px-8 border-t border-gray-100 items-stretch">
+            {navGroups.map((group) => {
+              // Skip empty groups
+              const groupItems = group.items;
+              if (groupItems.length === 0) return null;
               return (
-                <Link
-                  key={item.name}
-                  href={href}
-                  className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${isActive ? "border-indigo-600 text-indigo-600" : "border-transparent text-gray-500 hover:text-gray-800"}`}
+                <div
+                  key={group.label || "overview"}
+                  className="flex items-stretch"
                 >
-                  {item.name}
-                </Link>
+                  {group.label && (
+                    <span className="px-3 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center border-b-2 border-transparent">
+                      {group.label}
+                    </span>
+                  )}
+                  {groupItems.map((item) => {
+                    if (!hasRole(item.roles)) return null;
+                    const href = `/dashboard/companies/${companyId}${item.href}`;
+                    const isActive =
+                      item.href === ""
+                        ? pathname === href
+                        : pathname.startsWith(href);
+                    return (
+                      <Link
+                        key={item.name}
+                        href={href}
+                        className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap flex items-center ${
+                          isActive
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-gray-500 hover:text-gray-800"
+                        }`}
+                      >
+                        {item.name}
+                      </Link>
+                    );
+                  })}
+                  {group.label && (
+                    <span className="mx-1 my-2 w-px bg-gray-200" />
+                  )}
+                </div>
               );
             })}
           </nav>

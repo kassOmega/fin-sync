@@ -453,6 +453,13 @@ export async function seedChartOfAccounts(
 ): Promise<void> {
   console.log('📊 Seeding Chart of Accounts...');
 
+  // Guard: if the seed client doesn't have the Account model (deploy with stale client),
+  // skip gracefully rather than crash the whole deploy.
+  if (!(prisma as any).account) {
+    console.log('⚠️ Account model not available on client — skipping COA seed');
+    return;
+  }
+
   const companyKeys = Object.keys(ctx.companies);
   const flatAccounts = flattenAccounts(STANDARD_CHART_OF_ACCOUNTS);
 

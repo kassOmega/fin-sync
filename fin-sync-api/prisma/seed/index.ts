@@ -43,6 +43,11 @@ async function clearDatabase(prisma: PrismaClient): Promise<void> {
       '"JournalLine"',
       '"JournalEntry"',
       '"Account"',
+      '"OvertimeEntry"',
+      '"OvertimeRate"',
+      '"PayrollAllowance"',
+      '"PayrollBonus"',
+      '"PayrollWithholding"',
       '"CompanyRolePermission"',
       '"CompanyRole"',
       '"Permission"',
@@ -115,16 +120,33 @@ export async function seedAll(): Promise<void> {
     await seedPersonalFinance(prisma, ctx);
     await seedProjects(prisma, ctx);
     await seedMachinery(prisma, ctx);
+    // Chart of Accounts BEFORE company finance so finance can link to account codes
+    try {
+      await seedChartOfAccounts(prisma, ctx);
+    } catch (e) {
+      console.warn('⚠️ COA seed skipped:', (e as Error).message);
+    }
     await seedCompanyFinance(prisma, ctx);
     await seedEmployees(prisma, ctx);
     await seedStoreInventory(prisma, ctx);
     await seedRetail(prisma, ctx);
     await seedNotifications(prisma, ctx);
     await seedRoles(prisma, ctx);
-    await seedChartOfAccounts(prisma, ctx);
-    await seedLeaveManagement(prisma, ctx);
-    await seedPayrollConfig(prisma, ctx);
-    await seedDepreciation(prisma, ctx);
+    try {
+      await seedLeaveManagement(prisma, ctx);
+    } catch (e) {
+      console.warn('⚠️ Leave seed skipped:', (e as Error).message);
+    }
+    try {
+      await seedPayrollConfig(prisma, ctx);
+    } catch (e) {
+      console.warn('⚠️ Payroll config seed skipped:', (e as Error).message);
+    }
+    try {
+      await seedDepreciation(prisma, ctx);
+    } catch (e) {
+      console.warn('⚠️ Depreciation seed skipped:', (e as Error).message);
+    }
 
     console.log('\n✅ All seeds inserted successfully!\n');
     console.log('📊 SEED SUMMARY:');

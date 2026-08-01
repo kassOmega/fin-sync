@@ -20,6 +20,12 @@ export async function seedPayrollConfig(
   prisma: PrismaClient,
   ctx: SeedContext,
 ): Promise<void> {
+  if (!(prisma as any).taxTable) {
+    console.log(
+      '⚠️ taxTable model not available — skipping Payroll Config seed',
+    );
+    return;
+  }
   console.log('💰 Seeding Payroll Configuration...');
 
   const companyKeys = Object.keys(ctx.companies);
