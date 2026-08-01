@@ -55,10 +55,10 @@ interface MachineReport {
 
 interface UsageLog {
   id: number;
-  machinery_id: number;
-  hours_logged: number;
-  fuel_liters?: number | null;
-  fuel_cost?: number | null;
+  machineryId: number;
+  hoursLogged: number;
+  fuelLiters?: number | null;
+  fuelCost?: number | null;
   date: string;
   machinery?: { id: number; name: string; code?: string; type?: string } | null;
   operator?: { id: number; firstName: string; lastName: string } | null;
@@ -543,7 +543,7 @@ export default function MachineriesPage() {
                           {new Date(log.date).toLocaleString()}
                         </td>
                         <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">
-                          {log.machinery?.name || `#${log.machinery_id}`}
+                          {log.machinery?.name || `#${log.machineryId}`}
                           {log.machinery?.type
                             ? ` (${log.machinery.type})`
                             : ""}
@@ -557,16 +557,16 @@ export default function MachineriesPage() {
                           {log.project?.name || "—"}
                         </td>
                         <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 whitespace-nowrap">
-                          {Number(log.hours_logged).toFixed(2)} hrs
+                          {Number(log.hoursLogged).toFixed(2)} hrs
                         </td>
                         <td className="px-4 py-3 text-sm text-right text-gray-900 whitespace-nowrap">
-                          {log.fuel_liters != null
-                            ? Number(log.fuel_liters).toFixed(2)
+                          {log.fuelLiters != null
+                            ? Number(log.fuelLiters).toFixed(2)
                             : "—"}
                         </td>
                         <td className="px-4 py-3 text-sm text-right text-gray-900 whitespace-nowrap">
-                          {log.fuel_cost != null
-                            ? `$${Number(log.fuel_cost).toFixed(2)}`
+                          {log.fuelCost != null
+                            ? `$${Number(log.fuelCost).toFixed(2)}`
                             : "—"}
                         </td>
                       </tr>

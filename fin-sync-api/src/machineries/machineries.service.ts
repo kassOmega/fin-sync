@@ -95,7 +95,7 @@ export class MachineriesService {
   ) {
     let where = `m."companyId" = ${companyId}`;
     if (filters?.machineryId)
-      where += ` AND ml.machinery_id = ${filters.machineryId}`;
+      where += ` AND ml."machineryId" = ${filters.machineryId}`;
     if (filters?.startDate) where += ` AND ml.date >= '${filters.startDate}'`;
     if (filters?.endDate) where += ` AND ml.date <= '${filters.endDate}'`;
     return this.prisma.$queryRawUnsafe(
@@ -103,9 +103,9 @@ export class MachineriesService {
               json_build_object('id', e.id, 'firstName', e."firstName", 'lastName', e."lastName") AS operator,
               json_build_object('id', p.id, 'name', p.name) AS project
        FROM finsync.machinery_logs ml
-       JOIN finsync.machineries m ON m.id = ml.machinery_id
-       LEFT JOIN finsync.employees e ON e.id = ml.operator_id
-       LEFT JOIN finsync."Project" p ON p.id = ml.project_id
+       JOIN finsync.machineries m ON m.id = ml."machineryId"
+       LEFT JOIN finsync.employees e ON e.id = ml."operatorId"
+       LEFT JOIN finsync."Project" p ON p.id = ml."projectId"
        WHERE ${where}
        ORDER BY ml.date DESC, ml.id DESC`,
     );
@@ -134,7 +134,7 @@ export class MachineriesService {
       `UPDATE finsync.machineries SET "totalHoursRun" = ${newHours}, "updated_at" = NOW() WHERE id = ${machineryId}`,
     );
     const inserted: { id: number }[] = await this.prisma.$queryRawUnsafe(
-      `INSERT INTO finsync.machinery_logs (machinery_id, project_id, operator_id, hours_logged, fuel_liters, fuel_cost, date, "createdAt")
+      `INSERT INTO finsync.machinery_logs ("machineryId", "projectId", "operatorId", "hoursLogged", "fuelLiters", "fuelCost", date, "createdAt")
        VALUES (${machineryId}, ${dto.projectId ?? 'NULL'}, ${dto.operatorId ?? 'NULL'}, ${hours},
                ${dto.fuelLiters ?? 'NULL'}, ${dto.fuelCost ?? 'NULL'}, NOW(), NOW())
        RETURNING id`,
