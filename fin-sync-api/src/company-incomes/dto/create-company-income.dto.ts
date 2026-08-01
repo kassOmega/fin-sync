@@ -28,4 +28,8 @@ export class CreateCompanyIncomeDto {
   @IsInt()
   @IsOptional()
   machineryId?: number;
+
+  @IsInt()
+  @IsOptional()
+  accountId?: number;
 }

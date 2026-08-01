@@ -43,7 +43,9 @@ export class CompanyIncomesService {
               credit: 0,
             },
             {
-              accountCode: '4100',
+              ...(dto.accountId
+                ? { accountId: dto.accountId }
+                : { accountCode: '4100' }),
               description: dto.category,
               debit: 0,
               credit: dto.amount,

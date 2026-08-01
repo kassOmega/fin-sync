@@ -17,6 +17,7 @@ export class PurchasesService {
       supplierId?: number;
       amount: number;
       note?: string;
+      accountId?: number;
       items: {
         itemId?: number;
         name?: string;
@@ -116,7 +117,9 @@ export class PurchasesService {
             date: result.purchase.date,
             lines: [
               {
-                accountCode: '1201',
+                ...(dto.accountId
+                  ? { accountId: dto.accountId }
+                  : { accountCode: '1201' }),
                 description: 'Inventory received',
                 debit: dto.amount,
                 credit: 0,
