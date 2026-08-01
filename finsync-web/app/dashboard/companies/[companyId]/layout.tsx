@@ -8,6 +8,19 @@ import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+interface NavItem {
+  name: string;
+  href: string;
+  roles: SystemRole[];
+}
+
+interface NavGroup {
+  name: string;
+  href: string; // Main category href — points at its first child by default
+  roles: SystemRole[];
+  items: NavItem[];
+}
+
 export default function CompanyLayout({
   children,
 }: {
@@ -16,7 +29,7 @@ export default function CompanyLayout({
   const pathname = usePathname();
   const params = useParams();
   const companyId = params.companyId as string;
-  const { user, hasRole } = useAuthStore();
+  const { hasRole } = useAuthStore();
   const isProjectPage = pathname.includes("/projects/");
   const [company, setCompany] = useState<{
     name: string;
@@ -30,42 +43,53 @@ export default function CompanyLayout({
     }
   }, [companyId]);
 
-  const navGroups: {
-    label?: string;
-    items: {
-      name: string;
-      href: string;
-      roles: SystemRole[];
-    }[];
-  }[] = [
+  const allRoles = [
+    SystemRole.Owner,
+    SystemRole.Cashier,
+    SystemRole.Sales,
+    SystemRole.Storekeeper,
+    SystemRole.OperatorDriver,
+    SystemRole.ProjectManager,
+    SystemRole.Foreman,
+  ];
+
+  const adminRoles = [SystemRole.Owner];
+
+  const navGroups: NavGroup[] = [
     {
-      items: [
-        {
-          name: "Overview",
-          href: ``,
-          roles: [
-            SystemRole.Owner,
-            SystemRole.Cashier,
-            SystemRole.Sales,
-            SystemRole.Storekeeper,
-            SystemRole.OperatorDriver,
-            SystemRole.ProjectManager,
-            SystemRole.Foreman,
-          ],
-        },
-      ],
+      name: "Overview",
+      href: "",
+      roles: allRoles,
+      items: [],
     },
     {
-      label: "Finance",
+      name: "Finance",
+      href: "/finance/incomes",
+      roles: [SystemRole.Owner, SystemRole.Cashier, SystemRole.Sales],
       items: [
         {
-          name: "Finance",
-          href: `/finance/incomes`,
+          name: "Incomes",
+          href: "/finance/incomes",
+          roles: [SystemRole.Owner, SystemRole.Cashier, SystemRole.Sales],
+        },
+        {
+          name: "Expenses",
+          href: "/finance/expenses",
+          roles: [SystemRole.Owner, SystemRole.Cashier],
+        },
+        {
+          name: "Purchases",
+          href: "/finance/purchases",
+          roles: [SystemRole.Owner, SystemRole.Cashier, SystemRole.Storekeeper],
+        },
+        {
+          name: "Sales",
+          href: "/finance/sales",
           roles: [SystemRole.Owner, SystemRole.Cashier, SystemRole.Sales],
         },
         {
           name: "Accounts",
-          href: `/accounts`,
+          href: "/accounts",
           roles: [
             SystemRole.Owner,
             SystemRole.Cashier,
@@ -74,33 +98,39 @@ export default function CompanyLayout({
         },
         {
           name: "Ledger",
-          href: `/ledger`,
+          href: "/ledger",
           roles: [
             SystemRole.Owner,
             SystemRole.Cashier,
             SystemRole.ProjectManager,
           ],
         },
-        { name: "Reports", href: `/reports`, roles: [SystemRole.Owner] },
+        {
+          name: "Reports",
+          href: "/reports",
+          roles: [SystemRole.Owner],
+        },
       ],
     },
     {
-      label: "HR / Personnel",
+      name: "HR / Personnel",
+      href: "/personnel/staff",
+      roles: [SystemRole.Owner],
       items: [
-        { name: "Staff", href: `/personnel/staff`, roles: [SystemRole.Owner] },
+        { name: "Staff", href: "/personnel/staff", roles: adminRoles },
         {
           name: "Employees",
-          href: `/personnel/employees`,
+          href: "/personnel/employees",
           roles: [SystemRole.Owner, SystemRole.ProjectManager],
         },
         {
           name: "Attendance",
-          href: `/personnel/attendance`,
+          href: "/personnel/attendance",
           roles: [SystemRole.Owner, SystemRole.ProjectManager],
         },
         {
           name: "Timesheets",
-          href: `/timesheets`,
+          href: "/timesheets",
           roles: [
             SystemRole.Owner,
             SystemRole.ProjectManager,
@@ -108,19 +138,23 @@ export default function CompanyLayout({
             SystemRole.OperatorDriver,
           ],
         },
-        {
-          name: "Payroll",
-          href: `/personnel/payroll`,
-          roles: [SystemRole.Owner],
-        },
+        { name: "Payroll", href: "/personnel/payroll", roles: adminRoles },
       ],
     },
     {
-      label: "Operations",
+      name: "Operations",
+      href: "/projects",
+      roles: [
+        SystemRole.Owner,
+        SystemRole.ProjectManager,
+        SystemRole.Foreman,
+        SystemRole.OperatorDriver,
+        SystemRole.Storekeeper,
+      ],
       items: [
         {
           name: "Projects",
-          href: `/projects`,
+          href: "/projects",
           roles: [
             SystemRole.Owner,
             SystemRole.ProjectManager,
@@ -129,7 +163,7 @@ export default function CompanyLayout({
         },
         {
           name: "Machineries",
-          href: `/machineries`,
+          href: "/machineries",
           roles: [
             SystemRole.Owner,
             SystemRole.OperatorDriver,
@@ -138,21 +172,64 @@ export default function CompanyLayout({
         },
         {
           name: "Store",
-          href: `/store`,
+          href: "/store",
           roles: [SystemRole.Owner, SystemRole.Storekeeper],
         },
       ],
     },
     {
-      label: "Admin",
-      items: [{ name: "Roles", href: `/roles`, roles: [SystemRole.Owner] }],
+      name: "Admin",
+      href: "/roles",
+      roles: adminRoles,
+      items: [{ name: "Roles", href: "/roles", roles: adminRoles }],
     },
   ];
+
+  // Filter out groups the user can't see
+  const visibleGroups = navGroups.filter(
+    (g) => g.roles.length === 0 || hasRole(g.roles),
+  );
+
+  // Determine which group is active based on current pathname
+  const findActiveGroup = (): NavGroup | null => {
+    for (const group of visibleGroups) {
+      const base = `/dashboard/companies/${companyId}`;
+      if (group.items.length === 0) {
+        if (pathname === base) return group;
+      } else {
+        for (const item of group.items) {
+          if (!hasRole(item.roles)) continue;
+          const href = `${base}${item.href}`;
+          if (pathname === href || pathname.startsWith(`${href}/`)) {
+            return group;
+          }
+        }
+      }
+    }
+    return visibleGroups.length > 0 ? visibleGroups[0] : null;
+  };
+
+  const activeGroup = findActiveGroup();
+
+  // The sub-items to render under the active group (visible per role)
+  const activeSubItems = activeGroup
+    ? activeGroup.items.filter((item) => hasRole(item.roles))
+    : [];
+
+  // Choose the primary navigation href for each group:
+  // first visible child if it has items, otherwise its own href
+  const groupHref = (group: NavGroup): string => {
+    const base = `/dashboard/companies/${companyId}`;
+    if (group.items.length === 0) return base;
+    const firstVisible = group.items.find((item) => hasRole(item.roles));
+    return `${base}${(firstVisible || group).href}`;
+  };
 
   return (
     <div className="flex flex-col h-full -m-4 lg:-m-8 gap-8">
       {!isProjectPage && (
         <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+          {/* Top row: back button + company name */}
           <div className="px-4 lg:px-8 py-4 flex items-center space-x-4">
             <Link
               href="/dashboard/companies"
@@ -169,49 +246,58 @@ export default function CompanyLayout({
               )}
             </div>
           </div>
+
+          {/* Primary navigation — main categories only */}
           <nav className="flex overflow-x-auto px-4 lg:px-8 border-t border-gray-100 items-stretch">
-            {navGroups.map((group) => {
-              // Skip empty groups
-              const groupItems = group.items;
-              if (groupItems.length === 0) return null;
+            {visibleGroups.map((group) => {
+              const href = groupHref(group);
+              const isActive =
+                group === activeGroup ||
+                (group.items.length === 0 && pathname === href);
               return (
-                <div
-                  key={group.label || "overview"}
-                  className="flex items-stretch"
+                <Link
+                  key={group.name}
+                  href={href}
+                  className={`px-5 py-3 text-sm font-semibold border-b-2 whitespace-nowrap flex items-center ${
+                    isActive
+                      ? "border-indigo-600 text-indigo-600 bg-indigo-50/50"
+                      : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                  }`}
                 >
-                  {group.label && (
-                    <span className="px-3 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center border-b-2 border-transparent">
-                      {group.label}
-                    </span>
-                  )}
-                  {groupItems.map((item) => {
-                    if (!hasRole(item.roles)) return null;
-                    const href = `/dashboard/companies/${companyId}${item.href}`;
-                    const isActive =
-                      item.href === ""
-                        ? pathname === href
-                        : pathname.startsWith(href);
-                    return (
-                      <Link
-                        key={item.name}
-                        href={href}
-                        className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap flex items-center ${
-                          isActive
-                            ? "border-indigo-600 text-indigo-600"
-                            : "border-transparent text-gray-500 hover:text-gray-800"
-                        }`}
-                      >
-                        {item.name}
-                      </Link>
-                    );
-                  })}
-                  {group.label && (
-                    <span className="mx-1 my-2 w-px bg-gray-200" />
-                  )}
-                </div>
+                  {group.name}
+                </Link>
               );
             })}
           </nav>
+
+          {/* Secondary navigation — sub-items of the active group */}
+          {activeGroup && activeSubItems.length > 0 && (
+            <nav className="flex items-center px-4 lg:px-8 py-2 bg-gray-50 border-t border-gray-100 overflow-x-auto">
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mr-4 whitespace-nowrap">
+                {activeGroup.name}
+              </span>
+              <div className="flex items-center gap-1">
+                {activeSubItems.map((item) => {
+                  const href = `/dashboard/companies/${companyId}${item.href}`;
+                  const isActive =
+                    pathname === href || pathname.startsWith(`${href}/`);
+                  return (
+                    <Link
+                      key={item.name}
+                      href={href}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+                        isActive
+                          ? "bg-white text-indigo-600 shadow-sm"
+                          : "text-gray-500 hover:text-gray-800 hover:bg-white/60"
+                      }`}
+                    >
+                      {item.name}
+                    </Link>
+                  );
+                })}
+              </div>
+            </nav>
+          )}
         </header>
       )}
       <main
