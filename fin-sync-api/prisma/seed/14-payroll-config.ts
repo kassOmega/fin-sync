@@ -31,18 +31,18 @@ export async function seedPayrollConfig(
 
     // Create tax table via raw SQL (company-linked, works with stale client)
     const existingTax: { id: number }[] = await prisma.$queryRawUnsafe(
-      `SELECT id FROM finsync.tax_tables WHERE "companyId" = ${companyId} AND name = 'Standard 2026' LIMIT 1`,
+      `SELECT id FROM finsync.tax_tables WHERE company_id = ${companyId} AND name = 'Standard 2026' LIMIT 1`,
     );
     if (existingTax.length === 0) {
       const insertedTax: { id: number }[] = await prisma.$queryRawUnsafe(
-        `INSERT INTO finsync.tax_tables ("companyId", name, description, "isActive")
+        `INSERT INTO finsync.tax_tables (company_id, name, description, "isActive")
          VALUES (${companyId}, 'Standard 2026', 'Standard progressive income tax brackets', true)
          RETURNING id`,
       );
       const taxTableId = insertedTax[0].id;
       for (const b of STANDARD_TAX_BRACKETS) {
         await prisma.$executeRawUnsafe(
-          `INSERT INTO finsync.tax_brackets ("taxTableId", "minIncome", "maxIncome", rate, "fixedAmount")
+          `INSERT INTO finsync.tax_brackets (tax_table_id, "minIncome", "maxIncome", rate, "fixedAmount")
            VALUES (${taxTableId}, ${b.minIncome}, ${b.maxIncome ?? 'NULL'}, ${b.rate}, ${b.fixedAmount})`,
         );
       }
@@ -52,11 +52,11 @@ export async function seedPayrollConfig(
     // Create deduction rules via raw SQL
     for (const rule of DEFAULT_DEDUCTIONS) {
       const existing: { id: number }[] = await prisma.$queryRawUnsafe(
-        `SELECT id FROM finsync.payroll_deductions WHERE "companyId" = ${companyId} AND name = '${rule.name}' LIMIT 1`,
+        `SELECT id FROM finsync.payroll_deductions WHERE company_id = ${companyId} AND name = '${rule.name}' LIMIT 1`,
       );
       if (existing.length === 0) {
         await prisma.$executeRawUnsafe(
-          `INSERT INTO finsync.payroll_deductions ("companyId", name, type, value)
+          `INSERT INTO finsync.payroll_deductions (company_id, name, type, value)
            VALUES (${companyId}, '${rule.name}', '${rule.type}', ${rule.value})`,
         );
         deductionCount++;

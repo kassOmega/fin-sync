@@ -145,13 +145,13 @@ export async function seedLeaveManagement(
     const leaveTypeMap = new Map<string, number>();
     for (const lt of DEFAULT_LEAVE_TYPES) {
       const existing: { id: number }[] = await prisma.$queryRawUnsafe(
-        `SELECT id FROM finsync.leave_types WHERE "companyId" = ${companyId} AND name = '${lt.name}' LIMIT 1`,
+        `SELECT id FROM finsync.leave_types WHERE company_id = ${companyId} AND name = '${lt.name}' LIMIT 1`,
       );
       if (existing.length > 0) {
         leaveTypeMap.set(lt.name, existing[0].id);
       } else {
         const inserted: { id: number }[] = await prisma.$queryRawUnsafe(
-          `INSERT INTO finsync.leave_types ("companyId", name, "isPaid", "defaultDaysPerYear", "maxCarryForwardDays", "requiresApproval")
+          `INSERT INTO finsync.leave_types (company_id, name, "isPaid", "defaultDaysPerYear", "maxCarryForwardDays", "requiresApproval")
            VALUES (${companyId}, '${lt.name}', ${lt.isPaid}, ${lt.defaultDaysPerYear},
                    ${lt.maxCarryForwardDays ?? 'NULL'}, ${lt.requiresApproval})
            RETURNING id`,

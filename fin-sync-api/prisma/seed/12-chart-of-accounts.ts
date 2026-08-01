@@ -466,7 +466,7 @@ export async function seedChartOfAccounts(
 
     for (const acc of flatAccounts) {
       const existing: { id: number }[] = await prisma.$queryRawUnsafe(
-        `SELECT id FROM finsync.accounts WHERE "companyId" = ${companyId} AND code = '${acc.code}' LIMIT 1`,
+        `SELECT id FROM finsync.accounts WHERE company_id = ${companyId} AND code = '${acc.code}' LIMIT 1`,
       );
       let accountId: number;
       if (existing.length > 0) {
@@ -476,7 +476,7 @@ export async function seedChartOfAccounts(
           ? `'${acc.category.replace(/'/g, "''")}'`
           : 'NULL';
         const inserted: { id: number }[] = await prisma.$queryRawUnsafe(
-          `INSERT INTO finsync.accounts ("companyId", code, name, type, category, "normalSide", "isActive", "created_at", "updated_at")
+          `INSERT INTO finsync.accounts (company_id, code, name, type, category, "normalSide", "isActive", created_at, updated_at)
            VALUES (${companyId}, '${acc.code}', '${acc.name.replace(/'/g, "''")}',
                    '${acc.type}', ${categorySql},
                    '${acc.normalSide ?? 'DEBIT'}', true, NOW(), NOW())
@@ -494,7 +494,7 @@ export async function seedChartOfAccounts(
         const parentId = createdMap.get(acc.parentCode);
         if (accId && parentId) {
           await prisma.$executeRawUnsafe(
-            `UPDATE finsync.accounts SET "parentId" = ${parentId} WHERE id = ${accId}`,
+            `UPDATE finsync.accounts SET parent_id = ${parentId} WHERE id = ${accId}`,
           );
         }
       }

@@ -99,13 +99,13 @@ export async function seedDepreciation(
     const methodMap = new Map<string, number>();
     for (const m of METHODS) {
       const existing: { id: number }[] = await prisma.$queryRawUnsafe(
-        `SELECT id FROM finsync.depreciation_methods WHERE "companyId" = ${companyId} AND name = '${m.name}' LIMIT 1`,
+        `SELECT id FROM finsync.depreciation_methods WHERE company_id = ${companyId} AND name = '${m.name}' LIMIT 1`,
       );
       if (existing.length > 0) {
         methodMap.set(m.name, existing[0].id);
       } else {
         const inserted: { id: number }[] = await prisma.$queryRawUnsafe(
-          `INSERT INTO finsync.depreciation_methods ("companyId", name, type, "defaultRate", "defaultUsefulLifeYears")
+          `INSERT INTO finsync.depreciation_methods (company_id, name, type, "defaultRate", "defaultUsefulLifeYears")
            VALUES (${companyId}, '${m.name}', '${m.type}', ${m.defaultRate}, ${m.defaultUsefulLifeYears})
            RETURNING id`,
         );
