@@ -65,9 +65,22 @@ export default function SalesPage() {
   const [isCustomerOpen, setIsCustomerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const [accounts, setAccounts] = useState<
+    { id: number; code: string; name: string; type: string }[]
+  >([]);
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [discount, setDiscount] = useState("0");
   const [saleNote, setSaleNote] = useState("");
+  const [saleAccountId, setSaleAccountId] = useState("");
+
+  const fetchAccounts = async () => {
+    try {
+      const res = await api.get(`/companies/${companyId}/accounts`);
+      setAccounts(res.data || []);
+    } catch {
+      /* fallback */
+    }
+  };
   const [saleItems, setSaleItems] = useState<
     {
       itemId?: number;
@@ -90,6 +103,7 @@ export default function SalesPage() {
 
   const fetchData = async () => {
     try {
+      void fetchAccounts();
       const [salesRes, custRes, catRes] = await Promise.all([
         api.get(`/companies/${companyId}/sales`),
         api.get(`/companies/${companyId}/sales/customers/list`),
@@ -200,6 +214,7 @@ export default function SalesPage() {
         amount: finalAmount,
         discount: parseFloat(discount),
         note: saleNote,
+        accountId: saleAccountId ? parseInt(saleAccountId) : undefined,
         items: saleItems.map((si) =>
           si.isNew
             ? {
@@ -222,6 +237,7 @@ export default function SalesPage() {
       setSelectedCustomer("");
       setDiscount("0");
       setSaleNote("");
+      setSaleAccountId("");
       fetchData();
       fetchStoreItems();
     } catch {
@@ -432,6 +448,28 @@ export default function SalesPage() {
                     className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Account (COA) Selector
+                </label>
+                <select
+                  value={saleAccountId}
+                  onChange={(e) => setSaleAccountId(e.target.value)}
+                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white"
+                >
+                  <option value="">Default (Sales Revenue)</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.code} — {a.name} ({a.type})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Maps this sale to the selected Chart of Accounts account for
+                  the journal entry.
+                </p>
               </div>
 
               <div>
