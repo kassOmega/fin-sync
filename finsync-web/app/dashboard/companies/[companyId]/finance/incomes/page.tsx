@@ -108,7 +108,7 @@ export default function CompanyIncomesPage() {
   const handleAddCategory = () => {
     if (!newCatName.trim()) return;
     if (categories.includes(newCatName.trim())) {
-      toast.error("Category already exists");
+      toast.error("Item Category already exists");
       return;
     }
     setCategories([...categories, newCatName.trim()]);
@@ -348,7 +348,7 @@ export default function CompanyIncomesPage() {
                     }
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
                   >
-                    <option value="">Select category</option>
+                    <option value="">Select item category</option>
                     {categories.map((cat) => (
                       <option key={cat} value={cat}>
                         {cat}
@@ -441,12 +441,12 @@ export default function CompanyIncomesPage() {
       {isAddingCategory && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl text-gray-900">
-            <h2 className="text-xl font-bold mb-4">Add Category</h2>
+            <h2 className="text-xl font-bold mb-4">Add Item Category</h2>
             <input
               type="text"
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
-              placeholder="Category name"
+              placeholder="Item category name"
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
             />
             <div className="flex justify-end space-x-2 pt-4">

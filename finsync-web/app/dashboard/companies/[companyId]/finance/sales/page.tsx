@@ -540,7 +540,7 @@ export default function SalesPage() {
                             }
                             className="border border-gray-300 rounded-md p-1.5 text-sm w-full"
                           >
-                            <option value="">Category</option>
+                            <option value="">Item Category</option>
                             {categories.map((cat) => (
                               <option key={cat.id} value={cat.id}>
                                 {cat.name}
@@ -798,7 +798,7 @@ export default function SalesPage() {
       {isCategoryOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl text-gray-900">
-            <h2 className="text-xl font-bold mb-4">Add Category</h2>
+            <h2 className="text-xl font-bold mb-4">Add Item Category</h2>
             <form onSubmit={handleCreateCategory} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
