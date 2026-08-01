@@ -1,6 +1,5 @@
 "use client";
 
-import EmployeeSelector from "@/components/EmployeeSelector";
 import Loading from "@/components/Loading";
 import api from "@/lib/api";
 import { SystemRole } from "@/lib/types";
@@ -66,10 +65,20 @@ export default function MachineriesPage() {
     ownershipType: "OWNED",
   });
 
-  // Operator assignment modal
+  // Operator assignment modal — native dropdown of driver/operator employees
   const [operatorModalOpen, setOperatorModalOpen] = useState(false);
   const [operatorMachine, setOperatorMachine] = useState<Machine | null>(null);
-  const [selectedOperatorIds, setSelectedOperatorIds] = useState<number[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [operatorEmployees, setOperatorEmployees] = useState<
+    {
+      id: number;
+      firstName: string;
+      lastName: string;
+      designation: string;
+      user?: { id: number; name: string; role: string };
+    }[]
+  >([]);
+  const [operatorsLoading, setOperatorsLoading] = useState(false);
 
   // Table filters
   const [searchFilter, setSearchFilter] = useState("");
@@ -199,19 +208,42 @@ export default function MachineriesPage() {
     }
   };
 
-  const handleAssignOperator = async () => {
-    if (!operatorMachine || selectedOperatorIds.length === 0) return;
+  const openOperatorModal = async (machine: Machine) => {
+    setOperatorMachine(machine);
+    setSelectedUserId("");
+    setOperatorModalOpen(true);
+    setOperatorsLoading(true);
     try {
+      const res = await api.get(
+        `/companies/${companyId}/employees?role=${SystemRole.OperatorDriver}`,
+      );
+      setOperatorEmployees(res.data || []);
+    } catch {
+      setOperatorEmployees([]);
+    } finally {
+      setOperatorsLoading(false);
+    }
+  };
+
+  const handleAssignOperator = async () => {
+    if (!operatorMachine || !selectedUserId) return;
+    try {
+      // Backend assignOperator expects a linked User id, not an employee id
+      const emp = operatorEmployees.find(
+        (e) => e.user?.id === Number(selectedUserId),
+      );
       await api.post(
         `/companies/${companyId}/machineries/${operatorMachine.id}/operators`,
         {
-          userId: selectedOperatorIds[0],
+          userId: Number(selectedUserId),
         },
       );
-      toast.success("Operator assigned");
+      toast.success(
+        `Operator assigned: ${emp ? `${emp.firstName} ${emp.lastName}` : ""}`,
+      );
       setOperatorModalOpen(false);
       setOperatorMachine(null);
-      setSelectedOperatorIds([]);
+      setSelectedUserId("");
       fetchMachines();
     } catch {
       toast.error("Failed to assign");
@@ -427,11 +459,7 @@ export default function MachineriesPage() {
                             <Eye className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => {
-                              setOperatorMachine(machine);
-                              setSelectedOperatorIds([]);
-                              setOperatorModalOpen(true);
-                            }}
+                            onClick={() => openOperatorModal(machine)}
                             className="text-blue-500 hover:text-blue-700"
                             title="Assign Operator"
                           >
@@ -500,14 +528,35 @@ export default function MachineriesPage() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto">
-              <EmployeeSelector
-                companyId={parseInt(companyId)}
-                roleFilter={SystemRole.OperatorDriver}
-                selectedIds={selectedOperatorIds}
-                onChange={setSelectedOperatorIds}
-                multiple={false}
-              />
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Operator / Driver
+              </label>
+              <select
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                disabled={operatorsLoading}
+              >
+                <option value="">
+                  {operatorsLoading
+                    ? "Loading operators..."
+                    : "Select an operator or driver..."}
+                </option>
+                {operatorEmployees.map((emp) => (
+                  <option key={emp.id} value={emp.user?.id}>
+                    {emp.firstName} {emp.lastName}
+                    {emp.designation ? ` — ${emp.designation}` : ""} (
+                    {emp.user?.role || "no account"})
+                  </option>
+                ))}
+              </select>
+              {operatorEmployees.length === 0 && !operatorsLoading && (
+                <p className="text-sm text-gray-500 mt-2">
+                  No OperatorDriver-role employees found. Assign the role to an
+                  employee in HR → Employees first.
+                </p>
+              )}
             </div>
             <div className="flex justify-end space-x-2 pt-4 border-t mt-4">
               <button
@@ -518,7 +567,7 @@ export default function MachineriesPage() {
               </button>
               <button
                 onClick={handleAssignOperator}
-                disabled={selectedOperatorIds.length === 0}
+                disabled={!selectedUserId}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 text-sm"
               >
                 Assign

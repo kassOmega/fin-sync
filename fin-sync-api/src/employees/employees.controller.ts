@@ -30,11 +30,13 @@ export class EmployeesController {
     @Query('employmentType') employmentType?: string,
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
+    @Query('role') role?: string,
   ) {
     return this.service.findAll(companyId, {
       ...(employmentType && { employmentType }),
       ...(isActive !== undefined && { isActive }),
       ...(search && { search }),
+      ...(role && { role }),
     });
   }
 

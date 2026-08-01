@@ -10,7 +10,12 @@ export class EmployeesService {
 
   async findAll(
     companyId: number,
-    filters?: { employmentType?: string; isActive?: string; search?: string },
+    filters?: {
+      employmentType?: string;
+      isActive?: string;
+      search?: string;
+      role?: string;
+    },
   ) {
     let where = `e."companyId" = ${companyId}`;
     if (filters?.employmentType) {
@@ -22,6 +27,9 @@ export class EmployeesService {
     if (filters?.search) {
       const s = filters.search.replace(/'/g, "''");
       where += ` AND (e."firstName" ILIKE '%${s}%' OR e."lastName" ILIKE '%${s}%' OR e."employeeCode" ILIKE '%${s}%')`;
+    }
+    if (filters?.role) {
+      where += ` AND u.role = '${filters.role}'`;
     }
 
     const rows: any[] = await this.prisma.$queryRawUnsafe(
