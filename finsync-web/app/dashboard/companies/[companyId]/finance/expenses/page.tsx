@@ -41,6 +41,7 @@ export default function CompanyExpensesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCatName, setNewCatName] = useState("");
+  const [newCatAccountId, setNewCatAccountId] = useState("");
   const [editingExp, setEditingExp] = useState<Expense | null>(null);
   const [viewingExp, setViewingExp] = useState<Expense | null>(null);
   const [accounts, setAccounts] = useState<
@@ -126,16 +127,27 @@ export default function CompanyExpensesPage() {
     return null;
   }
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCatName.trim()) return;
     if (categories.includes(newCatName.trim())) {
       toast.error("Item Category already exists");
       return;
     }
+    // Persist the category → COA account binding (auto-resolves ledger account)
+    try {
+      await api.post(`/companies/${companyId}/accounts/category-bindings`, {
+        category: newCatName.trim(),
+        accountId: newCatAccountId ? parseInt(newCatAccountId) : undefined,
+      });
+      toast.success("Item Category created & linked");
+    } catch {
+      toast.error("Failed to link account — category saved locally");
+    }
     setCategories([...categories, newCatName.trim()]);
     setFormData({ ...formData, category: newCatName.trim() });
     setIsAddingCategory(false);
     setNewCatName("");
+    setNewCatAccountId("");
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -539,6 +551,23 @@ export default function CompanyExpensesPage() {
               placeholder="Item category name"
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
             />
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-gray-700">
+                Link to COA Account (auto-applies to ledger)
+              </label>
+              <select
+                value={newCatAccountId}
+                onChange={(e) => setNewCatAccountId(e.target.value)}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+              >
+                <option value="">Default (Misc Expense)</option>
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.code} — {a.name} ({a.type})
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex justify-end space-x-2 pt-4">
               <button
                 type="button"
