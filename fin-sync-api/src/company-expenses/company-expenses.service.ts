@@ -141,10 +141,45 @@ export class CompanyExpensesService {
       }
     }
 
-    return this.prisma.companyExpense.update({
+    const updated = await this.prisma.companyExpense.update({
       where: { id },
       data: { ...dto, date: dto.date ? new Date(dto.date) : undefined },
     });
+
+    // Accounting sync: void old journal, re-post with new values
+    try {
+      await this.ledger.voidBySource(expense.companyId, 'EXPENSE', id);
+      const category = updated.category;
+      await this.ledger.createAutoEntry(
+        expense.companyId,
+        {
+          sourceType: 'EXPENSE',
+          sourceId: id,
+          description: `Expense: ${category} - ${updated.note || ''}`,
+          date: updated.date,
+          projectId: updated.projectId ?? undefined,
+          lines: [
+            {
+              accountCode: '5230',
+              description: category,
+              debit: updated.amount,
+              credit: 0,
+            },
+            {
+              accountCode: '1001',
+              description: 'Cash/Bank payment',
+              debit: 0,
+              credit: updated.amount,
+            },
+          ],
+        },
+        user.id,
+      );
+    } catch {
+      // Journal sync should not block the main update
+    }
+
+    return updated;
   }
 
   async remove(id: number, user: any) {
@@ -163,6 +198,13 @@ export class CompanyExpensesService {
           'Cashiers can only delete expenses on the day they were created',
         );
       }
+    }
+
+    // Void the linked journal entry (soft-void, never hard-delete)
+    try {
+      await this.ledger.voidBySource(expense.companyId, 'EXPENSE', id);
+    } catch {
+      // Journal sync should not block the deletion
     }
 
     return this.prisma.companyExpense.delete({ where: { id } });

@@ -123,6 +123,24 @@ export class LedgerService {
   /**
    * Void a POSTED entry. Creates a reversing entry.
    */
+  /**
+   * Void (mark as VOIDED) all journal entries for a given source type + source id.
+   * Used when an income/expense/purchase is updated or deleted so the ledger
+   * stays consistent — the entry is marked VOIDED, never hard-deleted.
+   */
+  async voidBySource(companyId: number, sourceType: string, sourceId: number) {
+    const entries = await this.prisma.journalEntry.findMany({
+      where: { companyId, sourceType, sourceId, status: { not: 'VOIDED' } },
+    });
+    for (const entry of entries) {
+      await this.prisma.journalEntry.update({
+        where: { id: entry.id },
+        data: { status: 'VOIDED' },
+      });
+    }
+    return { voided: entries.length };
+  }
+
   async voidEntry(entryId: number, userId: number) {
     const entry = await this.prisma.journalEntry.findUnique({
       where: { id: entryId },

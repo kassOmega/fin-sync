@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -47,6 +49,22 @@ export class PurchasesController {
   @RequirePermissions(PermissionCode.PURCHASES_READ)
   findAll(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.service.findAll(companyId);
+  }
+
+  @Patch(':id')
+  @RequirePermissions(PermissionCode.PURCHASES_WRITE)
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: { amount?: number; note?: string; supplierId?: number },
+    @CurrentUser() user: any,
+  ) {
+    return this.service.update(id, dto, user);
+  }
+
+  @Delete(':id')
+  @RequirePermissions(PermissionCode.PURCHASES_WRITE)
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.service.remove(id);
   }
 
   @Get('suppliers/list')

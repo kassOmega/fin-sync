@@ -95,18 +95,67 @@ export class CompanyIncomesService {
     return incomes.map((i) => i.category);
   }
 
-  async update(id: number, dto: UpdateCompanyIncomeDto) {
+  async update(id: number, dto: UpdateCompanyIncomeDto, userId?: number) {
     const income = await this.prisma.companyIncome.findUnique({
       where: { id },
     });
     if (!income) throw new NotFoundException('Income record not found');
-    return this.prisma.companyIncome.update({
+
+    const updated = await this.prisma.companyIncome.update({
       where: { id },
       data: { ...dto, date: dto.date ? new Date(dto.date) : undefined },
     });
+
+    // Void old journal entry, then re-post with new values (ledger consistency)
+    try {
+      await this.ledger.voidBySource(income.companyId, 'INCOME', id);
+      if (dto.amount !== undefined || dto.category !== undefined || dto.date) {
+        await this.ledger.createAutoEntry(
+          income.companyId,
+          {
+            sourceType: 'INCOME',
+            sourceId: id,
+            description: `Income: ${updated.category} - ${updated.note || ''}`,
+            date: updated.date,
+            projectId: updated.projectId ?? undefined,
+            lines: [
+              {
+                accountCode: '1001',
+                description: 'Cash/Bank received',
+                debit: updated.amount,
+                credit: 0,
+              },
+              {
+                accountCode: '4100',
+                description: updated.category,
+                debit: 0,
+                credit: updated.amount,
+              },
+            ],
+          },
+          userId,
+        );
+      }
+    } catch {
+      // Journal sync should not block the main update
+    }
+
+    return updated;
   }
 
   async remove(id: number) {
+    const income = await this.prisma.companyIncome.findUnique({
+      where: { id },
+    });
+    if (!income) throw new NotFoundException('Income record not found');
+
+    // Void the linked journal entry (soft-void, never hard-delete)
+    try {
+      await this.ledger.voidBySource(income.companyId, 'INCOME', id);
+    } catch {
+      // Journal sync should not block the deletion
+    }
+
     await this.prisma.companyIncome.delete({ where: { id } });
     return { id, deleted: true };
   }

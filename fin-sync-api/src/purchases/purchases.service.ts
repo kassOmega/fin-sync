@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { LedgerService } from '../ledger/ledger.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -137,6 +137,72 @@ export class PurchasesService {
     }
 
     return result.purchase;
+  }
+
+  async update(
+    id: number,
+    dto: { amount?: number; note?: string; supplierId?: number },
+    user: any,
+  ) {
+    const existing = await this.prisma.purchase.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Purchase not found');
+
+    const updated = await this.prisma.purchase.update({
+      where: { id },
+      data: {
+        ...(dto.amount !== undefined && { totalAmount: dto.amount }),
+        ...(dto.note !== undefined && { note: dto.note }),
+        ...(dto.supplierId !== undefined && { supplierId: dto.supplierId }),
+      },
+    });
+
+    // Accounting sync: void old journal, re-post with new amount
+    try {
+      await this.ledger.voidBySource(existing.companyId, 'PURCHASE', id);
+      const amount = dto.amount ?? Number(existing.totalAmount);
+      await this.ledger.createAutoEntry(
+        existing.companyId,
+        {
+          sourceType: 'PURCHASE',
+          sourceId: id,
+          description: `Purchase #${id} - ${updated.note || 'Inventory purchase'}`,
+          date: updated.date,
+          lines: [
+            {
+              accountCode: '1201',
+              description: 'Inventory received',
+              debit: amount,
+              credit: 0,
+            },
+            {
+              accountCode: '1001',
+              description: 'Cash/Bank payment',
+              debit: 0,
+              credit: amount,
+            },
+          ],
+        },
+        user?.id,
+      );
+    } catch {
+      // Journal sync should not block the main update
+    }
+
+    return updated;
+  }
+
+  async remove(id: number) {
+    const existing = await this.prisma.purchase.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Purchase not found');
+
+    // Void the linked journal entry (soft-void, never hard-delete)
+    try {
+      await this.ledger.voidBySource(existing.companyId, 'PURCHASE', id);
+    } catch {
+      // Journal sync should not block the deletion
+    }
+
+    return this.prisma.purchase.delete({ where: { id } });
   }
 
   async findAll(companyId: number) {
