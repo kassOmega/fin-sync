@@ -235,6 +235,7 @@ export class LedgerService {
       lines: Array<{
         accountId?: number;
         accountCode?: string;
+        category?: string;
         description?: string;
         debit: number;
         credit: number;
@@ -244,17 +245,24 @@ export class LedgerService {
   ) {
     const entryNumber = await this.getNextEntryNumber(companyId);
 
-    // Resolve account codes to IDs where needed
+    // Resolve account codes / category bindings to IDs where needed.
+    // Priority when no explicit accountId: category binding first, then code.
     const codeMap = new Map<string, number>();
     for (const line of data.lines) {
-      if (!line.accountId && line.accountCode) {
-        if (!codeMap.has(line.accountCode)) {
-          const acc: any = await this.prisma.account.findFirst({
-            where: { companyId, code: line.accountCode },
-            select: { id: true },
-          });
-          if (acc) codeMap.set(line.accountCode, acc.id);
-        }
+      if (line.accountId) continue;
+      if (line.category && !codeMap.has(`cat:${line.category}`)) {
+        const bound = await this.resolveAccountForCategory(
+          companyId,
+          line.category,
+        );
+        if (bound) codeMap.set(`cat:${line.category}`, bound);
+      }
+      if (line.accountCode && !codeMap.has(line.accountCode)) {
+        const acc: any = await this.prisma.account.findFirst({
+          where: { companyId, code: line.accountCode },
+          select: { id: true },
+        });
+        if (acc) codeMap.set(line.accountCode, acc.id);
       }
     }
 
@@ -274,7 +282,9 @@ export class LedgerService {
           create: data.lines
             .map((line) => {
               const resolvedId =
-                line.accountId || codeMap.get(line.accountCode || '');
+                line.accountId ||
+                codeMap.get(`cat:${line.category || ''}`) ||
+                codeMap.get(line.accountCode || '');
               if (!resolvedId) return null;
               return {
                 accountId: resolvedId,
