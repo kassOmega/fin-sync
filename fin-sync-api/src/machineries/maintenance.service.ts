@@ -52,7 +52,7 @@ export class MaintenanceService {
 
     // Create machinery log
     await this.prisma.$executeRawUnsafe(
-      `INSERT INTO finsync.machinery_logs (machinery_id, hours_logged, operator_id, date, "createdAt")
+      `INSERT INTO finsync.machinery_logs ("machineryId", "hoursLogged", "operatorId", date, created_at)
        VALUES (${machineryId}, ${hours}, ${machine.operatorId ?? 'NULL'}, NOW(), NOW())`,
     );
 

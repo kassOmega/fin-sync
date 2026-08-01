@@ -134,7 +134,7 @@ export class MachineriesService {
       `UPDATE finsync.machineries SET "totalHoursRun" = ${newHours}, "updated_at" = NOW() WHERE id = ${machineryId}`,
     );
     const inserted: { id: number }[] = await this.prisma.$queryRawUnsafe(
-      `INSERT INTO finsync.machinery_logs ("machineryId", "projectId", "operatorId", "hoursLogged", "fuelLiters", "fuelCost", date, "createdAt")
+      `INSERT INTO finsync.machinery_logs ("machineryId", "projectId", "operatorId", "hoursLogged", "fuelLiters", "fuelCost", date, created_at)
        VALUES (${machineryId}, ${dto.projectId ?? 'NULL'}, ${dto.operatorId ?? 'NULL'}, ${hours},
                ${dto.fuelLiters ?? 'NULL'}, ${dto.fuelCost ?? 'NULL'}, NOW(), NOW())
        RETURNING id`,
