@@ -4,7 +4,7 @@ import Loading from "@/components/Loading";
 import api from "@/lib/api";
 import { SystemRole } from "@/lib/types";
 import { useAuthStore } from "@/store/authStore";
-import { Loader2, Truck } from "lucide-react";
+import { Loader2, Pencil, Trash2, Truck } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -60,6 +60,10 @@ export default function PurchasesPage() {
   const [categories, setCategories] = useState<StoreCategory[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [isPurchaseOpen, setIsPurchaseOpen] = useState(false);
+  const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [isSupplierOpen, setIsSupplierOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -219,6 +223,53 @@ export default function PurchasesPage() {
     }
   };
 
+  const handleDeletePurchase = async (id: number) => {
+    if (
+      !confirm("Delete this purchase? The linked journal entry will be voided.")
+    )
+      return;
+    setLoading(true);
+    try {
+      await api.delete(`/companies/${companyId}/purchases/${id}`);
+      toast.success("Purchase deleted");
+      fetchData();
+    } catch {
+      toast.error("Failed to delete purchase");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openEdit = (p: Purchase) => {
+    setEditingPurchase(p);
+    setEditAmount(String(p.totalAmount));
+    setEditNote(p.note || "");
+    setIsEditOpen(true);
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPurchase) return;
+    setLoading(true);
+    try {
+      await api.patch(
+        `/companies/${companyId}/purchases/${editingPurchase.id}`,
+        {
+          amount: parseFloat(editAmount),
+          note: editNote,
+        },
+      );
+      toast.success("Purchase updated");
+      setIsEditOpen(false);
+      setEditingPurchase(null);
+      fetchData();
+    } catch {
+      toast.error("Failed to update purchase");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreateSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -314,6 +365,9 @@ export default function PurchasesPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 By
               </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -340,6 +394,20 @@ export default function PurchasesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {p.user?.name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button
+                      onClick={() => openEdit(p)}
+                      className="text-indigo-600 hover:text-indigo-900 mx-1"
+                    >
+                      <Pencil className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeletePurchase(p.id)}
+                      className="text-red-500 hover:text-red-700 mx-1"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
                   </td>
                 </tr>
               ))
@@ -377,6 +445,66 @@ export default function PurchasesPage() {
           ))}
         </div>
       </div>
+
+      {isEditOpen && editingPurchase && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl text-gray-900">
+            <h2 className="text-xl font-bold mb-4">
+              Edit Purchase #{editingPurchase.id}
+            </h2>
+            <form onSubmit={handleEdit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Amount ($)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={editAmount}
+                  onChange={(e) => setEditAmount(e.target.value)}
+                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Note
+                </label>
+                <input
+                  type="text"
+                  value={editNote}
+                  onChange={(e) => setEditNote(e.target.value)}
+                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900"
+                />
+              </div>
+              <div className="text-xs text-gray-500">
+                Editing this purchase will void the old journal entry and
+                re-post a new one with the updated amount.
+              </div>
+              <div className="flex justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditOpen(false);
+                    setEditingPurchase(null);
+                  }}
+                  className="px-4 py-2 text-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center"
+                >
+                  {loading && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {isPurchaseOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
