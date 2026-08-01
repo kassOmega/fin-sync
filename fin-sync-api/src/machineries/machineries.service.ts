@@ -105,7 +105,7 @@ export class MachineriesService {
        FROM finsync.machinery_logs ml
        JOIN finsync.machineries m ON m.id = ml."machineryId"
        LEFT JOIN finsync.employees e ON e.id = ml."operatorId"
-       LEFT JOIN finsync."Project" p ON p.id = ml."projectId"
+       LEFT JOIN finsync."projects" p ON p.id = ml."projectId"
        WHERE ${where}
        ORDER BY ml.date DESC, ml.id DESC`,
     );
