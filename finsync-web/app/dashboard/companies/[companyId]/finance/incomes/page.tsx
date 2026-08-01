@@ -36,12 +36,25 @@ export default function CompanyIncomesPage() {
   const [newCatName, setNewCatName] = useState("");
   const [editingIncome, setEditingIncome] = useState<Income | null>(null);
   const [viewingIncome, setViewingIncome] = useState<Income | null>(null);
+  const [accounts, setAccounts] = useState<
+    { id: number; code: string; name: string; type: string }[]
+  >([]);
   const [formData, setFormData] = useState({
     amount: "",
     category: "",
     note: "",
     projectId: "",
+    accountId: "",
   });
+
+  const fetchAccounts = async () => {
+    try {
+      const res = await api.get(`/companies/${companyId}/accounts`);
+      setAccounts(res.data || []);
+    } catch {
+      /* fallback */
+    }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -77,7 +90,12 @@ export default function CompanyIncomesPage() {
     }
     const load = async () => {
       setPageLoading(true);
-      await Promise.all([fetchCategories(), fetchIncomes(), fetchProjects()]);
+      await Promise.all([
+        fetchCategories(),
+        fetchIncomes(),
+        fetchProjects(),
+        fetchAccounts(),
+      ]);
       setPageLoading(false);
     };
     load();
@@ -106,6 +124,7 @@ export default function CompanyIncomesPage() {
       category: formData.category,
       note: formData.note,
       projectId: formData.projectId ? parseInt(formData.projectId) : null,
+      accountId: formData.accountId ? parseInt(formData.accountId) : undefined,
     };
 
     try {
@@ -121,7 +140,13 @@ export default function CompanyIncomesPage() {
       }
       setIsModalOpen(false);
       setEditingIncome(null);
-      setFormData({ amount: "", category: "", note: "", projectId: "" });
+      setFormData({
+        amount: "",
+        category: "",
+        note: "",
+        projectId: "",
+        accountId: "",
+      });
       fetchIncomes();
       fetchCategories();
     } catch {
@@ -219,6 +244,7 @@ export default function CompanyIncomesPage() {
                           category: inc.category,
                           note: inc.note || "",
                           projectId: inc.projectId ? String(inc.projectId) : "",
+                          accountId: "",
                         });
                         setIsModalOpen(true);
                       }}
@@ -356,6 +382,29 @@ export default function CompanyIncomesPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Account (COA) Selector
+                </label>
+                <select
+                  value={formData.accountId}
+                  onChange={(e) =>
+                    setFormData({ ...formData, accountId: e.target.value })
+                  }
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                >
+                  <option value="">Default (Service Income)</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.code} — {a.name} ({a.type})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Maps this income to the selected Chart of Accounts account for
+                  the journal entry.
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
