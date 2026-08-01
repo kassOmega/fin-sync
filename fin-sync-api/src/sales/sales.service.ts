@@ -107,7 +107,9 @@ export class SalesService {
                 credit: 0,
               },
               {
-                accountCode: '4001',
+                ...(dto.accountId
+                  ? { accountId: dto.accountId }
+                  : { accountCode: '4001' }),
                 description: 'Sales Revenue',
                 debit: 0,
                 credit: dto.amount,

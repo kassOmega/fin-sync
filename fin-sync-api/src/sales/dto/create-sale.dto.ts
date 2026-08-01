@@ -56,6 +56,10 @@ export class CreateSaleDto {
   @IsOptional()
   note?: string;
 
+  @IsNumber()
+  @IsOptional()
+  accountId?: number;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => SaleItemDto)
