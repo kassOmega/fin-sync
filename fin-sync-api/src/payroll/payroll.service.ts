@@ -15,6 +15,27 @@ export class PayrollService {
     private deductions: DeductionsService,
   ) {}
 
+  /**
+   * Resolve the Chart-of-Accounts account ids used by the payroll workflow
+   * from the company's own COA (configurable — falls back to classic codes).
+   * Looks up the actual ids so payroll honors admin-configured accounts.
+   */
+  private async getPayrollAccountIds(companyId: number) {
+    const rows: { id: number; code: string }[] =
+      await this.prisma.$queryRawUnsafe(
+        `SELECT id, code FROM finsync.accounts
+         WHERE company_id = ${companyId}
+           AND code IN ('5101','2200','1001')`,
+      );
+    const byCode = new Map<string, number>();
+    for (const r of rows) byCode.set(r.code, r.id);
+    return {
+      wageExpenseId: byCode.get('5101') ?? null, // Salaries & Wages
+      salariesPayableId: byCode.get('2200') ?? null, // Salaries Payable
+      cashId: byCode.get('1001') ?? null, // Cash/Bank
+    };
+  }
+
   async findAll(
     companyId: number,
     filters?: {
