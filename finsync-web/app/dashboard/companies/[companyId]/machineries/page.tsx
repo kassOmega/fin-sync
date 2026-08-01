@@ -450,7 +450,7 @@ export default function MachineriesPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right text-sm whitespace-nowrap">
-                        <div className="flex items-center justify-end space-x-1">
+                        <div className="flex items-center justify-end gap-3 md:gap-2">
                           <button
                             onClick={() => handleViewDetails(machine)}
                             className="text-gray-400 hover:text-gray-600"

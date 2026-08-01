@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
@@ -98,6 +99,41 @@ export class MachineriesController {
     @CurrentUser('id') userId: number,
   ) {
     return this.maintenanceService.logHours(id, dto.hours, userId);
+  }
+
+  // --- Machinery usage timesheet (equipment log) ---
+
+  @Get('logs')
+  @RequirePermissions(PermissionCode.MACHINERY_READ)
+  getLogs(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Query('machineryId') machineryId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.service.findLogs(companyId, {
+      machineryId: machineryId ? parseInt(machineryId) : undefined,
+      startDate,
+      endDate,
+    });
+  }
+
+  @Post('logs')
+  @RequirePermissions(PermissionCode.MACHINERY_WRITE)
+  logUsage(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Body()
+    dto: {
+      machineryId: number;
+      hours?: number;
+      fuelLiters?: number;
+      fuelCost?: number;
+      projectId?: number;
+      operatorId?: number;
+      note?: string;
+    },
+  ) {
+    return this.service.logUsage(companyId, dto.machineryId, dto);
   }
 
   // --- Complete maintenance ---
