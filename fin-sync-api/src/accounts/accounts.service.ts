@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -166,6 +167,123 @@ export class AccountsService {
     }
 
     return this.prisma.account.delete({ where: { id } });
+  }
+
+  /**
+   * Category → COA bindings. Each binding is an Account row whose
+   * `category` column holds the category name. Used to auto-resolve the
+   * general-ledger account when a transaction selects that category.
+   */
+  async getCategoryBindings(companyId: number) {
+    return this.prisma.account.findMany({
+      where: {
+        companyId,
+        category: { not: null },
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        type: true,
+        normalSide: true,
+        category: true,
+        isActive: true,
+      },
+      orderBy: { category: 'asc' },
+    });
+  }
+
+  async upsertCategoryBinding(
+    companyId: number,
+    dto: {
+      category: string;
+      accountId?: number;
+      code?: string;
+      accountName?: string;
+      type?: string;
+      normalSide?: string;
+    },
+  ) {
+    const category = (dto.category || '').trim();
+    if (!category) {
+      throw new BadRequestException('Category is required');
+    }
+
+    // Template account (if the user picked an existing COA account)
+    let template: {
+      code: string;
+      name: string;
+      type: string;
+      normalSide: string;
+    } | null = null;
+    if (dto.accountId) {
+      template = await this.prisma.account.findFirst({
+        where: { id: dto.accountId, companyId },
+        select: { code: true, name: true, type: true, normalSide: true },
+      });
+      if (!template) {
+        throw new NotFoundException('Account not found for this company');
+      }
+    }
+
+    const existing = await this.prisma.account.findFirst({
+      where: { companyId, category },
+    });
+    if (existing) {
+      // Update the binding row to reflect the latest selection
+      return this.prisma.account.update({
+        where: { id: existing.id },
+        data: {
+          ...(dto.code?.trim()
+            ? { code: dto.code.trim() }
+            : template
+              ? { code: template.code }
+              : {}),
+          name:
+            dto.accountName?.trim() || (template ? template.name : category),
+          type: (dto.type || (template ? template.type : 'EXPENSE')) as any,
+          normalSide: (dto.normalSide ||
+            (template ? template.normalSide : 'DEBIT')) as any,
+          isActive: true,
+        },
+      });
+    }
+
+    const fallbackCode = template
+      ? `${template.code}-${category
+          .replace(/[^A-Za-z0-9]+/g, '')
+          .toUpperCase()
+          .slice(0, 8)}`
+      : await this.genCategoryCode(companyId, category);
+
+    const code = dto.code ? dto.code.trim() : fallbackCode;
+    return this.prisma.account.create({
+      data: {
+        companyId,
+        code,
+        name: dto.accountName?.trim() || (template ? template.name : category),
+        category,
+        type: (dto.type || (template ? template.type : 'EXPENSE')) as any,
+        normalSide: (dto.normalSide ||
+          (template ? template.normalSide : 'DEBIT')) as any,
+        isActive: true,
+      },
+    });
+  }
+
+  private async genCategoryCode(companyId: number, category: string) {
+    const base = `CAT-${category
+      .replace(/[^A-Za-z0-9]+/g, '')
+      .toUpperCase()
+      .slice(0, 8)}`;
+    let code = base;
+    let i = 1;
+    while (
+      await this.prisma.account.findFirst({ where: { companyId, code } })
+    ) {
+      code = `${base}-${i++}`;
+    }
+    return code;
   }
 
   async getTree(companyId: number) {

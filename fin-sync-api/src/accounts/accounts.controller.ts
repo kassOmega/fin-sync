@@ -53,6 +53,29 @@ export class AccountsController {
     return this.service.getAccountTypes(companyId);
   }
 
+  @Get('category-bindings')
+  @RequirePermissions(PermissionCode.ACCOUNTS_READ)
+  getCategoryBindings(@Param('companyId', ParseIntPipe) companyId: number) {
+    return this.service.getCategoryBindings(companyId);
+  }
+
+  @Post('category-bindings')
+  @RequirePermissions(PermissionCode.ACCOUNTS_WRITE)
+  upsertCategoryBinding(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Body()
+    dto: {
+      category: string;
+      accountId?: number;
+      code?: string;
+      accountName?: string;
+      type?: string;
+      normalSide?: string;
+    },
+  ) {
+    return this.service.upsertCategoryBinding(companyId, dto);
+  }
+
   @Get('tree')
   @RequirePermissions(PermissionCode.ACCOUNTS_READ)
   getTree(@Param('companyId', ParseIntPipe) companyId: number) {
