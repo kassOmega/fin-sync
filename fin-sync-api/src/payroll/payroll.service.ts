@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { LedgerService } from '../ledger/ledger.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { DeductionsService } from './deductions.service';
@@ -375,6 +379,74 @@ export class PayrollService {
     }
 
     return { approved: true, id: payrollId, expenseCreated: amount > 0 };
+  }
+
+  /**
+   * Mark a payroll as PAID:
+   *  - Sets status = 'PAID'
+   *  - Ensures a CompanyExpense is registered for the run
+   *  - Posts the settlement journal entry: Debit 2200 Salaries Payable / Credit 1001 Cash
+   */
+  async markPaid(payrollId: number) {
+    const rows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT * FROM finsync.payrolls WHERE id = ${payrollId}`,
+    );
+    if (!rows.length) throw new NotFoundException('Payroll not found');
+    const p = rows[0];
+    if (p.status !== 'APPROVED') {
+      throw new BadRequestException(
+        'Only APPROVED payrolls can be marked PAID',
+      );
+    }
+
+    const amount = parseFloat(String(p.totalAmount || 0));
+
+    // 1. Mark as PAID
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE finsync.payrolls SET status = 'PAID', "updated_at" = NOW() WHERE id = ${payrollId}`,
+    );
+
+    // 2. Ensure a CompanyExpense record exists (auto-register when status → PAID)
+    if (amount > 0) {
+      const expCheck: { id: number }[] = await this.prisma.$queryRawUnsafe(
+        `SELECT id FROM finsync."CompanyExpense" WHERE payroll_expense_id = ${payrollId} LIMIT 1`,
+      );
+      if (expCheck.length === 0) {
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO finsync."CompanyExpense" (company_id, registered_by, amount, category, date, note, project_id, payroll_expense_id, "createdAt", is_recurring, recurring_frequency)
+           VALUES (${p.companyId}, ${p.companyId}, ${amount}, 'Payroll', NOW(), 'Payroll (PAID): ${p.title}', ${p.projectId ?? 'NULL'}, ${payrollId}, NOW(), false, NULL)`,
+        );
+      }
+
+      // 3. Settlement journal entry: reverse payable → cash out
+      try {
+        await this.ledger.createAutoEntry(p.companyId, {
+          sourceType: 'PAYROLL',
+          sourceId: payrollId,
+          description: `Payroll PAID: ${p.title}`,
+          date: new Date(),
+          projectId: p.projectId ?? undefined,
+          lines: [
+            {
+              accountCode: '2200',
+              description: 'Settle Salaries Payable',
+              debit: amount,
+              credit: 0,
+            },
+            {
+              accountCode: '1001',
+              description: 'Cash/Bank payment',
+              debit: 0,
+              credit: amount,
+            },
+          ],
+        });
+      } catch {
+        // Ledger sync must not block the PAID transition
+      }
+    }
+
+    return { paid: true, id: payrollId, amount };
   }
 
   async getItems(payrollId: number) {

@@ -53,6 +53,12 @@ export class PayrollController {
     return this.service.approve(id);
   }
 
+  @Patch(':id/paid')
+  @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
+  markPaid(@Param('id', ParseIntPipe) id: number) {
+    return this.service.markPaid(id);
+  }
+
   @Get(':id/items')
   @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
   getItems(@Param('id', ParseIntPipe) id: number) {
