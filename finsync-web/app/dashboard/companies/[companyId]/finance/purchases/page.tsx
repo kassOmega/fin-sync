@@ -68,8 +68,21 @@ export default function PurchasesPage() {
   const [isSupplierOpen, setIsSupplierOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const [accounts, setAccounts] = useState<
+    { id: number; code: string; name: string; type: string }[]
+  >([]);
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [purchaseNote, setPurchaseNote] = useState("");
+  const [purchaseAccountId, setPurchaseAccountId] = useState("");
+
+  const fetchAccounts = async () => {
+    try {
+      const res = await api.get(`/companies/${companyId}/accounts`);
+      setAccounts(res.data || []);
+    } catch {
+      /* fallback */
+    }
+  };
   const [purchaseItems, setPurchaseItems] = useState<
     {
       itemId?: number;
@@ -124,7 +137,7 @@ export default function PurchasesPage() {
     }
     const load = async () => {
       setPageLoading(true);
-      await Promise.all([fetchData(), fetchStoreItems()]);
+      await Promise.all([fetchData(), fetchStoreItems(), fetchAccounts()]);
       setPageLoading(false);
     };
     load();
@@ -193,6 +206,7 @@ export default function PurchasesPage() {
         supplierId: selectedSupplier ? parseInt(selectedSupplier) : null,
         amount: totalAmount,
         note: purchaseNote,
+        accountId: purchaseAccountId ? parseInt(purchaseAccountId) : undefined,
         items: purchaseItems.map((pi) =>
           pi.isNew
             ? {
@@ -214,6 +228,7 @@ export default function PurchasesPage() {
       setPurchaseItems([]);
       setSelectedSupplier("");
       setPurchaseNote("");
+      setPurchaseAccountId("");
       fetchData();
       fetchStoreItems();
     } catch {
@@ -527,6 +542,28 @@ export default function PurchasesPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Account (COA) Selector
+                </label>
+                <select
+                  value={purchaseAccountId}
+                  onChange={(e) => setPurchaseAccountId(e.target.value)}
+                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white"
+                >
+                  <option value="">Default (Inventory)</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.code} — {a.name} ({a.type})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Maps this purchase to the selected Chart of Accounts account
+                  for the journal entry.
+                </p>
               </div>
 
               <div>
