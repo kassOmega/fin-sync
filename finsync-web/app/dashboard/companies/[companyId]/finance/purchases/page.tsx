@@ -100,6 +100,7 @@ export default function PurchasesPage() {
   const [supPhone, setSupPhone] = useState("");
   const [supEmail, setSupEmail] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryAccountId, setNewCategoryAccountId] = useState("");
 
   const fetchData = async () => {
     try {
@@ -317,9 +318,21 @@ export default function PurchasesPage() {
         { name: newCategoryName.trim() },
       );
       setCategories([...categories, res.data]);
-      toast.success("Category added");
+      // Persist the category → COA account binding (auto-applies to ledger)
+      try {
+        await api.post(`/companies/${companyId}/accounts/category-bindings`, {
+          category: newCategoryName.trim(),
+          accountId: newCategoryAccountId
+            ? parseInt(newCategoryAccountId)
+            : undefined,
+        });
+        toast.success("Item Category added & linked");
+      } catch {
+        toast.success("Category added (no account linked)");
+      }
       setIsCategoryOpen(false);
       setNewCategoryName("");
+      setNewCategoryAccountId("");
     } catch {
       toast.error("Failed to add category");
     } finally {
@@ -901,6 +914,23 @@ export default function PurchasesPage() {
                   className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white"
                   placeholder="e.g., Electronics, Food..."
                 />
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Link to COA Account (auto-applies to ledger)
+                  </label>
+                  <select
+                    value={newCategoryAccountId}
+                    onChange={(e) => setNewCategoryAccountId(e.target.value)}
+                    className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white"
+                  >
+                    <option value="">Default (Inventory)</option>
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.code} — {a.name} ({a.type})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="flex justify-end space-x-2 pt-2">
                 <button
