@@ -49,8 +49,12 @@ export class CompanyExpensesService {
       );
     }
 
-    // Auto-create journal entry: Debit Expense account, Credit Cash/Bank
+    // Auto-create journal entry: Debit Expense account, Credit Cash/Bank.
+    // If no manual account was selected, auto-resolve the category→COA binding.
     try {
+      const mappedAccountId =
+        dto.accountId ||
+        (await this.ledger.resolveAccountForCategory(companyId, finalCategory));
       await this.ledger.createAutoEntry(
         companyId,
         {
@@ -61,8 +65,8 @@ export class CompanyExpensesService {
           projectId: dto.projectId ?? undefined,
           lines: [
             {
-              ...(dto.accountId
-                ? { accountId: dto.accountId }
+              ...(mappedAccountId
+                ? { accountId: mappedAccountId }
                 : { accountCode: '5230' }),
               description: finalCategory,
               debit: dto.amount,

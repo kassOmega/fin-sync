@@ -45,7 +45,19 @@ export class CompanyIncomesService {
             {
               ...(dto.accountId
                 ? { accountId: dto.accountId }
-                : { accountCode: '4100' }),
+                : {
+                    accountId:
+                      (await this.ledger.resolveAccountForCategory(
+                        companyId,
+                        dto.category,
+                      )) || undefined,
+                    ...((await this.ledger.resolveAccountForCategory(
+                      companyId,
+                      dto.category,
+                    ))
+                      ? {}
+                      : { accountCode: '4100' }),
+                  }),
               description: dto.category,
               debit: 0,
               credit: dto.amount,

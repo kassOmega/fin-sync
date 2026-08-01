@@ -22,6 +22,26 @@ export class LedgerService {
   }
 
   /**
+   * Category → COA auto-resolution: find the Account row bound to a
+   * category name via the account.category column. Returns the account id
+   * or null when no binding exists. Used by income/expense services so a
+   * transaction's selected category automatically resolves its ledger
+   * account while the manual COA selector remains the override.
+   */
+  async resolveAccountForCategory(
+    companyId: number,
+    category: string,
+  ): Promise<number | null> {
+    if (!category) return null;
+    const rows: { id: number }[] = await this.prisma.$queryRawUnsafe(
+      `SELECT id FROM finsync.accounts
+       WHERE "companyId" = ${companyId} AND category = '${String(category).replace(/'/g, "''")}'
+       LIMIT 1`,
+    );
+    return rows[0]?.id ?? null;
+  }
+
+  /**
    * Create a manual journal entry (DRAFT status). Validates debit=credit balance.
    */
   async createManualEntry(
