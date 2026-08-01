@@ -65,6 +65,9 @@ export default function EmployeesPage() {
     userId: "",
     role: "" as string,
   });
+  const [empTypeFilter, setEmpTypeFilter] = useState("");
+  const [activeFilter, setActiveFilter] = useState("");
+  const [searchFilter, setSearchFilter] = useState("");
 
   const fetchAll = async () => {
     try {
@@ -72,7 +75,15 @@ export default function EmployeesPage() {
       const projects: { id: number; name: string }[] = res.data || [];
       setAvailableProjects(projects);
 
-      const empRes = await api.get(`/companies/${companyId}/employees`);
+      const params = new URLSearchParams();
+      if (empTypeFilter) params.append("employmentType", empTypeFilter);
+      if (activeFilter !== "") params.append("isActive", activeFilter);
+      if (searchFilter) params.append("search", searchFilter);
+      const qs = params.toString();
+
+      const empRes = await api.get(
+        `/companies/${companyId}/employees${qs ? `?${qs}` : ""}`,
+      );
       // Merge with project assignments for each employee
       const emps: Employee[] = empRes.data || [];
       // Fetch project memberships per employee (batch would be better but fine for now)
@@ -105,7 +116,7 @@ export default function EmployeesPage() {
       return;
     }
     fetchAll();
-  }, [companyId]);
+  }, [companyId, empTypeFilter, activeFilter, searchFilter]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -216,17 +227,45 @@ export default function EmployeesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-800">Employees</h1>
-        <button
-          onClick={() => {
-            setEditing(null);
-            setModalOpen(true);
-          }}
-          className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-        >
-          <UserPlus className="h-5 w-5 mr-1" /> Add Employee
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            placeholder="Search name/code..."
+            className="px-3 py-2 text-sm border border-gray-300 rounded-md w-48"
+          />
+          <select
+            value={empTypeFilter}
+            onChange={(e) => setEmpTypeFilter(e.target.value)}
+            className="px-3 py-2 text-sm border border-gray-300 rounded-md"
+          >
+            <option value="">All Types</option>
+            <option value="FULL_TIME">Full-Time</option>
+            <option value="PART_TIME">Part-Time</option>
+            <option value="CONTRACT">Contract</option>
+            <option value="DAILY_LABORER">Daily Laborer</option>
+          </select>
+          <select
+            value={activeFilter}
+            onChange={(e) => setActiveFilter(e.target.value)}
+            className="px-3 py-2 text-sm border border-gray-300 rounded-md"
+          >
+            <option value="">All Status</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+          <button
+            onClick={() => {
+              setEditing(null);
+              setModalOpen(true);
+            }}
+            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+          >
+            <UserPlus className="h-5 w-5 mr-1" /> Add Employee
+          </button>
+        </div>
       </div>
 
       <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
@@ -346,7 +385,9 @@ export default function EmployeesPage() {
                         <button
                           onClick={() => {
                             setSelectedEmployee(e);
-                            const ids = (e.projectMemberships || []).map((pm: any) => pm.projectId || pm.id);
+                            const ids = (e.projectMemberships || []).map(
+                              (pm: any) => pm.projectId || pm.id,
+                            );
                             setSelectedProjectIds(ids);
                             setProjectModalOpen(true);
                           }}

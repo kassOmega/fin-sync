@@ -11,4 +11,12 @@ export class StoreTransactionDto {
   @IsInt()
   @IsOptional()
   issuedToUserId?: number;
+
+  @IsInt()
+  @IsOptional()
+  issuedById?: number;
+
+  @IsInt()
+  @IsOptional()
+  projectId?: number;
 }

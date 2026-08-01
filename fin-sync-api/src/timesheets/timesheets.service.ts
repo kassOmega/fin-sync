@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -8,7 +12,7 @@ export class TimesheetsService {
   async findByDate(companyId: number, date: string, projectId?: number) {
     const pf = projectId ? `AND t."projectId" = ${projectId}` : '';
     return this.prisma.$queryRawUnsafe(
-      `SELECT t.*, json_build_object('id', e.id, 'firstName', e."firstName", 'lastName', e."lastName") AS employee
+      `SELECT t.*, json_build_object('id', e.id, 'firstName', e."firstName", 'lastName', e."lastName", 'employmentType', e."employmentType") AS employee
        FROM finsync.timesheets t
        JOIN finsync.employees e ON e.id = t."employeeId"
        WHERE t."companyId" = ${companyId} AND t.date = '${date}' ${pf}
@@ -17,6 +21,18 @@ export class TimesheetsService {
   }
 
   async create(companyId: number, dto: any) {
+    // Only non-permanent employees (hourly/daily workers) use timesheets.
+    // Permanent (FULL_TIME) employees are tracked via Attendance only.
+    const empRows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT "employmentType" FROM finsync.employees WHERE id = ${dto.employeeId} AND "companyId" = ${companyId}`,
+    );
+    if (!empRows.length) throw new NotFoundException('Employee not found');
+    if (empRows[0].employmentType === 'FULL_TIME') {
+      throw new BadRequestException(
+        'Permanent (FULL_TIME) employees are tracked via attendance only — timesheets are for hourly/daily workers.',
+      );
+    }
+
     const pid = dto.projectId ?? 'NULL';
     const mid = dto.machineryId ?? 'NULL';
     const desc = dto.description ? `'${dto.description}'` : 'NULL';

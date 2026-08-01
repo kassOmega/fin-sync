@@ -27,6 +27,7 @@ interface Employee {
   firstName: string;
   lastName: string;
   employeeCode: string;
+  employmentType?: string;
 }
 
 export default function TimesheetsPage() {
@@ -55,7 +56,11 @@ export default function TimesheetsPage() {
         api.get(`/companies/${companyId}/employees`),
       ]);
       setEntries(tsRes.data);
-      setEmployees(empRes.data);
+      // Only non-permanent employees (hourly/daily workers) use timesheets.
+      // Permanent (FULL_TIME) employees are tracked via attendance only.
+      setEmployees(
+        empRes.data.filter((e: Employee) => e.employmentType !== "FULL_TIME"),
+      );
     } catch {
       toast.error("Failed to load");
     } finally {
@@ -185,7 +190,9 @@ export default function TimesheetsPage() {
                   <td className="px-4 py-3 text-sm text-gray-900">
                     {Number(t.regularHours) + Number(t.overtimeHours)}h
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{statusBadge(t.status)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {statusBadge(t.status)}
+                  </td>
                   <td className="px-4 py-3 text-right text-sm space-x-1">
                     {t.status === "DRAFT" && (
                       <button

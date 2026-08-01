@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { LedgerModule } from '../ledger/ledger.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { DeductionsService } from './deductions.service';
 import {
   PayrollController,
   ProjectPayrollController,
@@ -7,8 +9,8 @@ import {
 import { PayrollService } from './payroll.service';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, LedgerModule],
   controllers: [PayrollController, ProjectPayrollController],
-  providers: [PayrollService],
+  providers: [PayrollService, DeductionsService],
 })
 export class PayrollModule {}

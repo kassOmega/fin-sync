@@ -1,25 +1,49 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { LedgerService } from '../ledger/ledger.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { DeductionsService } from './deductions.service';
 
 @Injectable()
 export class PayrollService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private ledger: LedgerService,
+    private deductions: DeductionsService,
+  ) {}
 
-  async findAll(companyId: number, projectId?: number) {
-    const pf = projectId ? `AND p."projectId" = ${projectId}` : '';
+  async findAll(
+    companyId: number,
+    filters?: {
+      projectId?: number;
+      status?: string;
+      startDate?: string;
+      endDate?: string;
+    },
+  ) {
+    const pf = filters?.projectId
+      ? `AND p."projectId" = ${filters.projectId}`
+      : '';
+    const sf = filters?.status ? `AND p.status = '${filters.status}'` : '';
+    const sdf = filters?.startDate
+      ? `AND p."startDate" >= '${filters.startDate}'`
+      : '';
+    const edf = filters?.endDate
+      ? `AND p."endDate" <= '${filters.endDate}'`
+      : '';
     return this.prisma.$queryRawUnsafe(
       `SELECT p.* FROM finsync.payrolls p
-       WHERE p."companyId" = ${companyId} ${pf}
+       WHERE p."companyId" = ${companyId} ${pf} ${sf} ${sdf} ${edf}
        ORDER BY p."created_at" DESC`,
     );
   }
 
   async generate(companyId: number, dto: any) {
     const pid = dto.projectId ?? 'NULL';
+    const sourceType = dto.sourceType || 'ALL'; // ATTENDANCE | TIMESHEETS | ALL
 
     await this.prisma.$executeRawUnsafe(
-      `INSERT INTO finsync.payrolls ("companyId", "projectId", title, "startDate", "endDate", status, "created_at", "updated_at")
-       VALUES (${companyId}, ${pid}, '${dto.title}', '${dto.startDate}', '${dto.endDate}', 'DRAFT', NOW(), NOW())`,
+      `INSERT INTO finsync.payrolls ("companyId", "projectId", title, "sourceType", "startDate", "endDate", status, "created_at", "updated_at")
+       VALUES (${companyId}, ${pid}, '${dto.title}', '${sourceType}', '${dto.startDate}', '${dto.endDate}', 'DRAFT', NOW(), NOW())`,
     );
 
     const rows: any[] = await this.prisma.$queryRawUnsafe(
@@ -27,17 +51,221 @@ export class PayrollService {
     );
     const payroll = rows[0];
 
-    // Auto-calculate from approved timesheets
-    const pf = dto.projectId ? `AND t."projectId" = ${dto.projectId}` : '';
-    const timesheets: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT t."employeeId", SUM(t."regularHours") as total_regular, SUM(t."overtimeHours") as total_overtime
-       FROM finsync.timesheets t
-       WHERE t."companyId" = ${companyId} AND t.status = 'APPROVED'
-         AND t.date >= '${dto.startDate}' AND t.date <= '${dto.endDate}' ${pf}
-       GROUP BY t."employeeId"`,
-    );
-
     let totalAmount = 0;
+    let itemsGenerated = 0;
+
+    // ── 1. Attendance-based pay for FULL_TIME employees (skip if sourceType = TIMESHEETS) ──
+    const fullTimeEmployees: any[] =
+      sourceType === 'TIMESHEETS'
+        ? []
+        : await this.prisma.$queryRawUnsafe(
+            `SELECT * FROM finsync.employees
+             WHERE "companyId" = ${companyId} AND "employmentType" = 'FULL_TIME' AND "isActive" = true`,
+          );
+
+    for (const e of fullTimeEmployees) {
+      // Count PRESENT attendance days within the payroll date range
+      const attRows: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT COUNT(*) as present_days
+         FROM finsync.attendances
+         WHERE "employeeId" = ${e.id}
+           AND "companyId" = ${companyId}
+           AND status = 'PRESENT'
+           AND date >= '${dto.startDate}'
+           AND date <= '${dto.endDate}'`,
+      );
+      const presentDays = parseInt(attRows[0]?.present_days || '0', 10);
+      if (presentDays <= 0) continue;
+
+      // Base pay = dailyRate × presentDays (fallback: baseSalary / 22 per day)
+      let dailyRate = parseFloat(String(e.dailyRate || 0));
+      if (!dailyRate && e.baseSalary) {
+        dailyRate = parseFloat(String(e.baseSalary)) / 22;
+      }
+      const basePay = dailyRate * presentDays;
+      const overtimePay = 0; // Full-time OT comes from OvertimeEntry table
+
+      // ── Consolidated Overtime Earnings (approved OvertimeEntry in period) ──
+      const otRows: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT COALESCE(SUM(amount), 0) as total_ot
+         FROM finsync.overtime_entries
+         WHERE "employeeId" = ${e.id}
+           AND "companyId" = ${companyId}
+           AND status = 'APPROVED'
+           AND date >= '${dto.startDate}'
+           AND date <= '${dto.endDate}'`,
+      );
+      const overtimeEarnings = parseFloat(otRows[0]?.total_ot || '0');
+
+      // ── Active Allowances in period (effectiveDate <= end, expiryDate >= start, isActive) ──
+      const allowanceRows: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT COALESCE(SUM(CASE WHEN "isTaxable" = true THEN amount ELSE 0 END), 0) as taxable_amt,
+                COALESCE(SUM(CASE WHEN "isTaxable" = false THEN amount ELSE 0 END), 0) as non_taxable_amt
+         FROM finsync.payroll_allowances
+         WHERE "employeeId" = ${e.id}
+           AND "companyId" = ${companyId}
+           AND "isActive" = true
+           AND "effectiveDate" <= '${dto.endDate}'
+           AND ("expiryDate" IS NULL OR "expiryDate" >= '${dto.startDate}')`,
+      );
+      const taxableAllowances = parseFloat(
+        allowanceRows[0]?.taxable_amt || '0',
+      );
+      const nonTaxableAllowances = parseFloat(
+        allowanceRows[0]?.non_taxable_amt || '0',
+      );
+      const allowanceTotal = taxableAllowances + nonTaxableAllowances;
+
+      // ── Active Bonuses in period ──
+      const bonusRows: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT COALESCE(SUM(amount), 0) as total_bonus
+         FROM finsync.payroll_bonuses
+         WHERE "employeeId" = ${e.id}
+           AND "companyId" = ${companyId}
+           AND "isActive" = true
+           AND "effectiveDate" <= '${dto.endDate}'
+           AND ("expiryDate" IS NULL OR "expiryDate" >= '${dto.startDate}')`,
+      );
+      const bonusTotal = parseFloat(bonusRows[0]?.total_bonus || '0');
+
+      const grossPay = basePay + overtimeEarnings + allowanceTotal + bonusTotal;
+
+      // Compute deductions — taxable income excludes non-taxable allowances
+      const deductionResult = await this.deductions.computeDeductions(
+        companyId,
+        e.id,
+        grossPay - nonTaxableAllowances,
+        dto.startDate,
+        dto.endDate,
+      );
+      const taxAmount = deductionResult.taxAmount;
+
+      // ── Active Withholdings in period (per-employee + company-global) ──
+      // FIXED → amount as-is; PERCENTAGE → grossPay × (amount/100)
+      const withRows: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT COALESCE(SUM(
+           CASE WHEN "calcType" = 'PERCENTAGE' THEN (${grossPay} * amount / 100.0)
+                ELSE amount END
+         ), 0) as total_withholding
+         FROM finsync.payroll_withholdings
+         WHERE "companyId" = ${companyId}
+           AND "isActive" = true
+           AND ("employeeId" = ${e.id} OR "isGlobal" = true)
+           AND "effectiveDate" <= '${dto.endDate}'
+           AND ("expiryDate" IS NULL OR "expiryDate" >= '${dto.startDate}')`,
+      );
+      const withholdingTotal = parseFloat(
+        withRows[0]?.total_withholding || '0',
+      );
+
+      const totalDeductions =
+        deductionResult.totalDeductions + withholdingTotal;
+      const netPay = Math.max(0, grossPay - totalDeductions);
+
+      // Insert payroll item with full breakdown
+      await this.prisma.$executeRawUnsafe(
+        `INSERT INTO finsync.payroll_items ("payrollId", "employeeId", "basePay", "overtimeEarnings", "overtimePay", "allowanceTotal", "bonusTotal", "grossPay", "totalDeductions", "withholdingTotal", "netPay", "unpaidLeaveDays", "unpaidLeaveDeduction", "taxAmount")
+         VALUES (${payroll.id}, ${e.id}, ${basePay}, ${overtimeEarnings}, ${overtimePay}, ${allowanceTotal}, ${bonusTotal}, ${grossPay}, ${totalDeductions}, ${withholdingTotal}, ${netPay}, ${deductionResult.unpaidLeaveDays}, ${deductionResult.unpaidLeaveDeduction}, ${taxAmount})`,
+      );
+
+      // Get the payroll item ID
+      const itemRows: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT id FROM finsync.payroll_items WHERE "payrollId" = ${payroll.id} AND "employeeId" = ${e.id} ORDER BY id DESC LIMIT 1`,
+      );
+
+      // Link approved overtime entries to this payroll item
+      if (itemRows.length) {
+        await this.prisma.$executeRawUnsafe(
+          `UPDATE finsync.overtime_entries SET "payrollItemId" = ${itemRows[0].id}
+           WHERE "employeeId" = ${e.id} AND "companyId" = ${companyId}
+             AND status = 'APPROVED'
+             AND date >= '${dto.startDate}' AND date <= '${dto.endDate}'`,
+        );
+      }
+
+      // Link active allowances to this payroll item
+      if (itemRows.length && allowanceTotal > 0) {
+        await this.prisma.$executeRawUnsafe(
+          `UPDATE finsync.payroll_allowances SET "payrollItemId" = ${itemRows[0].id}
+           WHERE "employeeId" = ${e.id} AND "companyId" = ${companyId}
+             AND "isActive" = true AND "payrollItemId" IS NULL
+             AND "effectiveDate" <= '${dto.endDate}'
+             AND ("expiryDate" IS NULL OR "expiryDate" >= '${dto.startDate}')`,
+        );
+      }
+
+      // Link active bonuses to this payroll item
+      if (itemRows.length && bonusTotal > 0) {
+        await this.prisma.$executeRawUnsafe(
+          `UPDATE finsync.payroll_bonuses SET "payrollItemId" = ${itemRows[0].id}
+           WHERE "employeeId" = ${e.id} AND "companyId" = ${companyId}
+             AND "isActive" = true AND "payrollItemId" IS NULL
+             AND "effectiveDate" <= '${dto.endDate}'
+             AND ("expiryDate" IS NULL OR "expiryDate" >= '${dto.startDate}')`,
+        );
+      }
+
+      // Link active withholdings to this payroll item (per-employee + company-global)
+      if (itemRows.length && withholdingTotal > 0) {
+        await this.prisma.$executeRawUnsafe(
+          `UPDATE finsync.payroll_withholdings SET "payrollItemId" = ${itemRows[0].id}
+           WHERE "companyId" = ${companyId}
+             AND ("employeeId" = ${e.id} OR "isGlobal" = true)
+             AND "isActive" = true AND "payrollItemId" IS NULL
+             AND "effectiveDate" <= '${dto.endDate}'
+             AND ("expiryDate" IS NULL OR "expiryDate" >= '${dto.startDate}')`,
+        );
+      }
+
+      // Insert deduction breakdown (regular rules + withholdings for audit)
+      if (itemRows.length) {
+        for (const d of deductionResult.deductions) {
+          await this.prisma.$executeRawUnsafe(
+            `INSERT INTO finsync.payroll_item_deductions ("payrollItemId", name, amount, type)
+             VALUES (${itemRows[0].id}, '${d.name.replace(/'/g, "''")}', ${d.amount}, '${d.type}')`,
+          );
+        }
+        if (withholdingTotal > 0) {
+          const withDetail: any[] = await this.prisma.$queryRawUnsafe(
+            `SELECT wt.name, wt.type, wt.amount, wt.reason FROM finsync.payroll_withholdings wt
+             WHERE wt."companyId" = ${companyId}
+               AND (wt."employeeId" = ${e.id} OR wt."isGlobal" = true)
+               AND wt."isActive" = true
+               AND wt."effectiveDate" <= '${dto.endDate}'
+               AND (wt."expiryDate" IS NULL OR wt."expiryDate" >= '${dto.startDate}')`,
+          );
+          for (const w of withDetail) {
+            const amount =
+              w.calcType === 'PERCENTAGE'
+                ? (grossPay * parseFloat(String(w.amount))) / 100
+                : parseFloat(String(w.amount));
+            const label = `${w.name || w.type}${w.reason ? `: ${String(w.reason).replace(/'/g, "''")}` : ''}`;
+            await this.prisma.$executeRawUnsafe(
+              `INSERT INTO finsync.payroll_item_deductions ("payrollItemId", name, amount, type)
+               VALUES (${itemRows[0].id}, '${String(label).replace(/'/g, "''")}', ${amount}, 'WITHHOLDING')`,
+            );
+          }
+        }
+      }
+
+      totalAmount += netPay;
+      itemsGenerated++;
+    }
+
+    // ── 2. Hourly/daily workers from APPROVED timesheets (skip if sourceType = ATTENDANCE) ──
+    const pf = dto.projectId ? `AND t."projectId" = ${dto.projectId}` : '';
+    const timesheets: any[] =
+      sourceType === 'ATTENDANCE'
+        ? []
+        : await this.prisma.$queryRawUnsafe(
+            `SELECT t."employeeId", SUM(t."regularHours") as total_regular, SUM(t."overtimeHours") as total_overtime
+             FROM finsync.timesheets t
+             JOIN finsync.employees e ON e.id = t."employeeId"
+             WHERE t."companyId" = ${companyId} AND t.status = 'APPROVED'
+               AND e."employmentType" != 'FULL_TIME'
+               AND t.date >= '${dto.startDate}' AND t.date <= '${dto.endDate}' ${pf}
+             GROUP BY t."employeeId"`,
+          );
 
     for (const ts of timesheets) {
       const emp: any[] = await this.prisma.$queryRawUnsafe(
@@ -51,12 +279,37 @@ export class PayrollService {
       const rate = parseFloat(String(e.hourlyRate || 0));
       const basePay = reg * rate;
       const overtimePay = ot * rate * 1.5;
-      const netPay = basePay + overtimePay;
+      const overtimeEarnings = ot * rate * 1.5;
+      const grossPay = basePay + overtimePay;
+
+      const deductionResult = await this.deductions.computeDeductions(
+        companyId,
+        ts.employeeId,
+        grossPay,
+        dto.startDate,
+        dto.endDate,
+      );
+
+      const netPay = Math.max(0, grossPay - deductionResult.totalDeductions);
 
       await this.prisma.$executeRawUnsafe(
-        `INSERT INTO finsync.payroll_items ("payrollId", "employeeId", "basePay", "overtimePay", deductions, "netPay")
-         VALUES (${payroll.id}, ${ts.employeeId}, ${basePay}, ${overtimePay}, 0, ${netPay})`,
+        `INSERT INTO finsync.payroll_items ("payrollId", "employeeId", "basePay", "overtimeEarnings", "overtimePay", "grossPay", "totalDeductions", "netPay", "unpaidLeaveDays", "unpaidLeaveDeduction", "taxAmount")
+         VALUES (${payroll.id}, ${ts.employeeId}, ${basePay}, ${overtimeEarnings}, ${overtimePay}, ${grossPay}, ${deductionResult.totalDeductions}, ${netPay}, ${deductionResult.unpaidLeaveDays}, ${deductionResult.unpaidLeaveDeduction}, ${deductionResult.taxAmount})`,
       );
+
+      const itemRows: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT id FROM finsync.payroll_items WHERE "payrollId" = ${payroll.id} AND "employeeId" = ${ts.employeeId} ORDER BY id DESC LIMIT 1`,
+      );
+
+      if (itemRows.length && deductionResult.deductions.length > 0) {
+        for (const d of deductionResult.deductions) {
+          await this.prisma.$executeRawUnsafe(
+            `INSERT INTO finsync.payroll_item_deductions ("payrollItemId", name, amount, type)
+             VALUES (${itemRows[0].id}, '${d.name.replace(/'/g, "''")}', ${d.amount}, '${d.type}')`,
+          );
+        }
+      }
+
       totalAmount += netPay;
     }
 
@@ -64,7 +317,9 @@ export class PayrollService {
       `UPDATE finsync.payrolls SET "totalAmount" = ${totalAmount} WHERE id = ${payroll.id}`,
     );
 
-    return { ...payroll, totalAmount, itemsGenerated: timesheets.length };
+    const totalItems = itemsGenerated + timesheets.length;
+
+    return { ...payroll, totalAmount, itemsGenerated: totalItems };
   }
 
   async approve(payrollId: number) {
@@ -78,7 +333,6 @@ export class PayrollService {
       `UPDATE finsync.payrolls SET status = 'APPROVED', "updated_at" = NOW() WHERE id = ${payrollId}`,
     );
 
-    // Auto-create CompanyExpense
     const amount = parseFloat(String(p.totalAmount || 0));
     if (amount > 0) {
       await this.prisma.$executeRawUnsafe(
@@ -94,6 +348,30 @@ export class PayrollService {
           `UPDATE finsync.payrolls SET "expenseId" = ${expRows[0].id} WHERE id = ${payrollId}`,
         );
       }
+
+      try {
+        await this.ledger.createAutoEntry(p.companyId, {
+          sourceType: 'PAYROLL',
+          sourceId: payrollId,
+          description: `Payroll: ${p.title}`,
+          date: new Date(),
+          projectId: p.projectId ?? undefined,
+          lines: [
+            {
+              accountCode: '5101',
+              description: 'Salaries & Wages',
+              debit: amount,
+              credit: 0,
+            },
+            {
+              accountCode: '2200',
+              description: 'Salaries Payable',
+              debit: 0,
+              credit: amount,
+            },
+          ],
+        });
+      } catch {}
     }
 
     return { approved: true, id: payrollId, expenseCreated: amount > 0 };
@@ -106,5 +384,63 @@ export class PayrollService {
        JOIN finsync.employees e ON e.id = pi."employeeId"
        WHERE pi."payrollId" = ${payrollId}`,
     );
+  }
+
+  // ─── Payslip ──────────────────────────────────────────────
+
+  async getPayslip(payrollId: number, itemId: number) {
+    const itemRows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT pi.*, json_build_object(
+        'id', e.id, 'firstName', e."firstName", 'lastName', e."lastName",
+        'employeeCode', e."employeeCode", 'designation', e.designation
+      ) AS employee
+       FROM finsync.payroll_items pi
+       JOIN finsync.employees e ON e.id = pi."employeeId"
+       WHERE pi.id = ${itemId} AND pi."payrollId" = ${payrollId}`,
+    );
+    if (!itemRows.length) throw new NotFoundException('Payroll item not found');
+    const item = itemRows[0];
+
+    const payrollRows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT p.*, json_build_object('name', c.name, 'currency', c.currency) AS company
+       FROM finsync.payrolls p
+       JOIN finsync."Company" c ON c.id = p."companyId"
+       WHERE p.id = ${payrollId}`,
+    );
+
+    const deductions: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT * FROM finsync.payroll_item_deductions WHERE "payrollItemId" = ${itemId}`,
+    );
+
+    return {
+      employee: item.employee,
+      payroll: {
+        title: payrollRows[0]?.title,
+        startDate: payrollRows[0]?.startDate,
+        endDate: payrollRows[0]?.endDate,
+        status: payrollRows[0]?.status,
+      },
+      earnings: {
+        basePay: parseFloat(item.basePay || 0),
+        overtimeEarnings: parseFloat(item.overtimeEarnings || 0),
+        overtimePay: parseFloat(item.overtimePay || 0),
+        allowanceTotal: parseFloat(item.allowanceTotal || 0),
+        bonusTotal: parseFloat(item.bonusTotal || 0),
+        grossPay: parseFloat(item.grossPay || 0),
+      },
+      deductions: deductions.map((d: any) => ({
+        name: d.name,
+        amount: parseFloat(d.amount || 0),
+        type: d.type,
+      })),
+      summary: {
+        totalDeductions: parseFloat(item.totalDeductions || 0),
+        withholdingTotal: parseFloat(item.withholdingTotal || 0),
+        netPay: parseFloat(item.netPay || 0),
+        unpaidLeaveDays: parseFloat(item.unpaidLeaveDays || 0),
+        taxAmount: parseFloat(item.taxAmount || 0),
+      },
+      company: payrollRows[0]?.company || {},
+    };
   }
 }

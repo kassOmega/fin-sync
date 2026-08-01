@@ -26,11 +26,16 @@ export class PayrollController {
   findAll(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Query('projectId') projectId?: string,
+    @Query('status') status?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
-    return this.service.findAll(
-      companyId,
-      projectId ? parseInt(projectId) : undefined,
-    );
+    return this.service.findAll(companyId, {
+      ...(projectId && { projectId: parseInt(projectId) }),
+      ...(status && { status }),
+      ...(startDate && { startDate }),
+      ...(endDate && { endDate }),
+    });
   }
 
   @Post('generate')
@@ -53,6 +58,15 @@ export class PayrollController {
   getItems(@Param('id', ParseIntPipe) id: number) {
     return this.service.getItems(id);
   }
+
+  @Get(':payrollId/items/:itemId/payslip')
+  @RequirePermissions(PermissionCode.PAYSLIP_VIEW)
+  getPayslip(
+    @Param('payrollId', ParseIntPipe) payrollId: number,
+    @Param('itemId', ParseIntPipe) itemId: number,
+  ) {
+    return this.service.getPayslip(payrollId, itemId);
+  }
 }
 
 @Controller('companies/:companyId/projects/:projectId/payroll')
@@ -66,7 +80,7 @@ export class ProjectPayrollController {
     @Param('companyId', ParseIntPipe) companyId: number,
     @Param('projectId', ParseIntPipe) projectId: number,
   ) {
-    return this.service.findAll(companyId, projectId);
+    return this.service.findAll(companyId, { projectId });
   }
 
   @Post('generate')

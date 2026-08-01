@@ -43,40 +43,45 @@ export class StoreRequestsController {
   @RequirePermissions(PermissionCode.STORE_REQUEST_CREATE)
   createRequest(
     @CurrentUser() user: any,
-    @Body() body: { companyId: number; itemId: number; quantity: number },
+    @Body()
+    body: {
+      companyId: number;
+      itemId: number;
+      quantity: number;
+      projectId?: number;
+    },
   ) {
     return this.workflowService.createRequest(
       body.companyId,
       user.id,
       body.itemId,
       body.quantity,
+      body.projectId,
     );
   }
 
-  // Owner: approve a request
+  // Owner: approve a request (permission-guard enforced)
   @Patch(':id/approve')
   @RequirePermissions(PermissionCode.STORE_REQUEST_APPROVE)
-  approveRequest(
-    @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() user: any,
-  ) {
-    return this.workflowService.approveRequest(id, user);
+  approveRequest(@Param('id', ParseIntPipe) id: number) {
+    return this.workflowService.approveRequest(id);
   }
 
-  // Owner: reject a request
+  // Owner: reject a request (permission-guard enforced)
   @Patch(':id/reject')
   @RequirePermissions(PermissionCode.STORE_REQUEST_APPROVE)
-  rejectRequest(
-    @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() user: any,
-  ) {
-    return this.workflowService.rejectRequest(id, user);
+  rejectRequest(@Param('id', ParseIntPipe) id: number) {
+    return this.workflowService.rejectRequest(id);
   }
 
-  // Storekeeper/Owner: issue an approved request
+  // Storekeeper/Owner: issue an approved request (partial or full)
   @Patch(':id/issue')
   @RequirePermissions(PermissionCode.STORE_REQUEST_ISSUE)
-  issueItem(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
-    return this.workflowService.issueItem(id, user);
+  issueItem(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+    @Body() body?: { quantity?: number },
+  ) {
+    return this.workflowService.issueItem(id, user, body?.quantity);
   }
 }

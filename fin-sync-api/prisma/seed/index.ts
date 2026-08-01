@@ -12,6 +12,10 @@ import { seedStoreInventory } from './08-store-inventory';
 import { seedRetail } from './09-retail';
 import { seedNotifications } from './10-notifications';
 import { seedRoles } from './11-roles';
+import { seedChartOfAccounts } from './12-chart-of-accounts';
+import { seedLeaveManagement } from './13-leave-management';
+import { seedPayrollConfig } from './14-payroll-config';
+import { seedDepreciation } from './15-depreciation';
 import { createContext, disconnect, getPrisma } from './utils';
 
 async function clearDatabase(prisma: PrismaClient): Promise<void> {
@@ -27,6 +31,18 @@ async function clearDatabase(prisma: PrismaClient): Promise<void> {
   const client = await pool.connect();
   try {
     const tables = [
+      '"DepreciationSchedule"',
+      '"DepreciationMethod"',
+      '"PayrollItemDeduction"',
+      '"PayrollDeduction"',
+      '"TaxBracket"',
+      '"TaxTable"',
+      '"LeaveRequest"',
+      '"LeaveBalance"',
+      '"LeaveType"',
+      '"JournalLine"',
+      '"JournalEntry"',
+      '"Account"',
       '"CompanyRolePermission"',
       '"CompanyRole"',
       '"Permission"',
@@ -105,6 +121,10 @@ export async function seedAll(): Promise<void> {
     await seedRetail(prisma, ctx);
     await seedNotifications(prisma, ctx);
     await seedRoles(prisma, ctx);
+    await seedChartOfAccounts(prisma, ctx);
+    await seedLeaveManagement(prisma, ctx);
+    await seedPayrollConfig(prisma, ctx);
+    await seedDepreciation(prisma, ctx);
 
     console.log('\n✅ All seeds inserted successfully!\n');
     console.log('📊 SEED SUMMARY:');

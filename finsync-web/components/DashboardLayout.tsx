@@ -6,13 +6,17 @@ import { useAuthStore } from "@/store/authStore";
 import { useLangStore } from "@/store/langStore";
 import {
   Bell,
+  BookOpen,
   Building2,
+  CalendarDays,
   ClipboardList,
   Globe,
   LayoutDashboard,
   LogOut,
   Menu,
   Package,
+  ReceiptText,
+  Store,
   Wallet,
   Wrench,
   X,
@@ -97,6 +101,51 @@ export default function DashboardLayout({
       icon: Package,
       roles: [SystemRole.ProjectManager, SystemRole.Foreman],
     },
+    ...(activeCompanyId
+      ? [
+          {
+            name: "Accounting",
+            href: `/dashboard/companies/${activeCompanyId}/accounts`,
+            icon: BookOpen,
+            roles: [
+              SystemRole.Owner,
+              SystemRole.Cashier,
+              SystemRole.ProjectManager,
+            ],
+          },
+          {
+            name: "Leave",
+            href: `/dashboard/companies/${activeCompanyId}/personnel/leaves`,
+            icon: CalendarDays,
+            roles: [
+              SystemRole.Owner,
+              SystemRole.Cashier,
+              SystemRole.Sales,
+              SystemRole.Storekeeper,
+              SystemRole.OperatorDriver,
+              SystemRole.ProjectManager,
+              SystemRole.Foreman,
+            ],
+          },
+          {
+            name: "Payroll",
+            href: `/dashboard/companies/${activeCompanyId}/personnel/payroll`,
+            icon: ReceiptText,
+            roles: [SystemRole.Owner, SystemRole.Cashier],
+          },
+          {
+            name: "Store",
+            href: `/dashboard/companies/${activeCompanyId}/store`,
+            icon: Store,
+            roles: [
+              SystemRole.Owner,
+              SystemRole.Storekeeper,
+              SystemRole.Sales,
+              SystemRole.ProjectManager,
+            ],
+          },
+        ]
+      : []),
     {
       name: t("nav.machinery"),
       href: activeCompanyId

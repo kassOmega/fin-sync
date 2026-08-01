@@ -1,18 +1,22 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { LedgerService } from '../ledger/ledger.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCompanyIncomeDto } from './dto/create-company-income.dto';
 import { UpdateCompanyIncomeDto } from './dto/update-company-income.dto';
 
 @Injectable()
 export class CompanyIncomesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private ledger: LedgerService,
+  ) {}
 
   async create(
     companyId: number,
     dto: CreateCompanyIncomeDto,
     registeredById: number,
   ) {
-    return this.prisma.companyIncome.create({
+    const income = await this.prisma.companyIncome.create({
       data: {
         ...dto,
         companyId,
@@ -20,6 +24,39 @@ export class CompanyIncomesService {
         registeredBy: registeredById,
       },
     });
+
+    // Auto-create journal entry: Debit Bank, Credit Income
+    try {
+      await this.ledger.createAutoEntry(
+        companyId,
+        {
+          sourceType: 'INCOME',
+          sourceId: income.id,
+          description: `Income: ${dto.category} - ${dto.note || ''}`,
+          date: income.date,
+          projectId: dto.projectId ?? undefined,
+          lines: [
+            {
+              accountCode: '1001',
+              description: 'Cash/Bank received',
+              debit: dto.amount,
+              credit: 0,
+            },
+            {
+              accountCode: '4100',
+              description: dto.category,
+              debit: 0,
+              credit: dto.amount,
+            },
+          ],
+        },
+        registeredById,
+      );
+    } catch {
+      // Journal entry creation should not block the main transaction
+    }
+
+    return income;
   }
 
   async getCategories(companyId: number) {

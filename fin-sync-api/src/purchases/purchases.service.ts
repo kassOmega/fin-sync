@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { LedgerService } from '../ledger/ledger.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -7,6 +8,7 @@ export class PurchasesService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private ledger: LedgerService,
   ) {}
 
   async create(
@@ -27,7 +29,7 @@ export class PurchasesService {
     },
     registeredById: number,
   ) {
-    return this.prisma.$transaction(async (prisma) => {
+    const result = await this.prisma.$transaction(async (prisma) => {
       const purchase = await prisma.purchase.create({
         data: {
           companyId,
@@ -90,7 +92,7 @@ export class PurchasesService {
         registeredById,
       );
 
-      return prisma.purchase.findUnique({
+      const fullPurchase = await prisma.purchase.findUnique({
         where: { id: purchase.id },
         include: {
           supplier: true,
@@ -98,7 +100,43 @@ export class PurchasesService {
           items: { include: { storeItem: true } },
         },
       });
+
+      return { purchase: fullPurchase };
     });
+
+    // Auto-create journal entry: Debit Inventory, Credit Cash/Payable
+    if (result.purchase) {
+      try {
+        await this.ledger.createAutoEntry(
+          companyId,
+          {
+            sourceType: 'PURCHASE',
+            sourceId: result.purchase.id,
+            description: `Purchase #${result.purchase.id} - ${dto.note || 'Inventory purchase'}`,
+            date: result.purchase.date,
+            lines: [
+              {
+                accountCode: '1201',
+                description: 'Inventory received',
+                debit: dto.amount,
+                credit: 0,
+              },
+              {
+                accountCode: '1001',
+                description: 'Cash/Bank payment',
+                debit: 0,
+                credit: dto.amount,
+              },
+            ],
+          },
+          registeredById,
+        );
+      } catch {
+        // Journal entry creation should not block the main transaction
+      }
+    }
+
+    return result.purchase;
   }
 
   async findAll(companyId: number) {

@@ -1,3 +1,4 @@
+import { SystemRole } from '@prisma/client';
 import {
   IsBoolean,
   IsDateString,
@@ -58,6 +59,16 @@ export class CreateEmployeeDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  // Role trigger — when provided, auto-creates staff User + CompanyMember
+  @IsEnum(SystemRole)
+  @IsOptional()
+  role?: SystemRole;
+
+  // Optional password when auto-creating staff
+  @IsString()
+  @IsOptional()
+  password?: string;
 
   @IsDateString()
   @IsOptional()

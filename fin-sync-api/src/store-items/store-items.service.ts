@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { StoreTxType } from '@prisma/client';
+import { LedgerService } from '../ledger/ledger.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateStoreItemDto } from './dto/create-store-item.dto';
@@ -15,6 +16,7 @@ export class StoreItemsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private ledger: LedgerService,
   ) {}
 
   async create(companyId: number, dto: CreateStoreItemDto) {
@@ -101,28 +103,81 @@ export class StoreItemsService {
     }
 
     return this.prisma.$transaction(async (prisma) => {
+      // Fetch full item for cost data
+      const fullItem = await prisma.storeItem.findUnique({
+        where: { id: request.itemId },
+      });
+      if (!fullItem) throw new NotFoundException('Item not found');
+
       // Restore stock
       await prisma.storeItem.update({
         where: { id: request.itemId },
         data: { quantity: { increment: request.quantity } },
       });
 
-      // Log the return transaction
-      await prisma.storeTransaction.create({
+      // Log the return transaction with ledger linkage
+      const tx = await prisma.storeTransaction.create({
         data: {
           itemId: request.itemId,
           companyId,
           type: 'RETURN',
           quantity: request.quantity,
           issuedToUserId: request.userId,
+          issuedById: user.id,
+          unitCost: fullItem.costPrice || 0,
+          totalCost: (fullItem.costPrice || 0) * request.quantity,
+          note: `Returned from request #${request.id}`,
         },
       });
 
       // Mark request as returned
-      return prisma.storeRequest.update({
+      const updated = await prisma.storeRequest.update({
         where: { id: requestId },
         data: { status: 'RETURNED' },
       });
+
+      // Post reversal journal entry: Debit Inventory, Credit Equipment
+      const totalCost = (fullItem.costPrice || 0) * request.quantity;
+      if (totalCost > 0) {
+        try {
+          const entry = await this.ledger.createAutoEntry(
+            companyId,
+            {
+              sourceType: 'STORE_RETURN',
+              sourceId: requestId,
+              description: `Store return: ${fullItem.name} (${request.quantity} ${fullItem.unit})`,
+              date: new Date(),
+              projectId: request.projectId ?? undefined,
+              lines: [
+                {
+                  accountCode: '1201',
+                  description: 'Inventory - Raw Materials',
+                  debit: totalCost,
+                  credit: 0,
+                },
+                {
+                  accountCode: '1510',
+                  description: 'Machinery & Equipment',
+                  debit: 0,
+                  credit: totalCost,
+                },
+              ],
+            },
+            user.id,
+          );
+
+          if (entry?.id) {
+            await prisma.storeTransaction.update({
+              where: { id: tx.id },
+              data: { ledgerEntryId: entry.id },
+            });
+          }
+        } catch {
+          // Journal should not block the return
+        }
+      }
+
+      return updated;
     });
   }
 
@@ -137,13 +192,17 @@ export class StoreItemsService {
     if (!item) throw new NotFoundException('Item not found in this company');
 
     return this.prisma.$transaction(async (prisma) => {
-      await prisma.storeTransaction.create({
+      const tx = await prisma.storeTransaction.create({
         data: {
           itemId,
           companyId,
           type: dto.type,
           quantity: dto.quantity,
           issuedToUserId: dto.issuedToUserId,
+          issuedById: dto.issuedById,
+          unitCost: item.costPrice || 0,
+          totalCost: (item.costPrice || 0) * dto.quantity,
+          projectId: dto.projectId,
         },
       });
 
@@ -163,6 +222,57 @@ export class StoreItemsService {
         where: { id: itemId },
         data: { quantity: newQuantity },
       });
+
+      // Post journal entry for ISSUE/RESTOCK/RETURN
+      const totalCost = (item.costPrice || 0) * dto.quantity;
+      if (totalCost > 0) {
+        try {
+          let debitCode = '5001'; // COGS for ISSUE
+          let creditCode = '1201';
+          if (dto.type === StoreTxType.RESTOCK) {
+            debitCode = '1201'; // Inventory in
+            creditCode = '1001'; // Cash out
+          } else if (dto.type === StoreTxType.RETURN) {
+            debitCode = '1201'; // Inventory back
+            creditCode = '1510'; // Equipment out
+          }
+
+          const entry = await this.ledger.createAutoEntry(
+            companyId,
+            {
+              sourceType: `STORE_${dto.type}`,
+              sourceId: itemId,
+              description: `Store ${dto.type.toLowerCase()}: ${item.name} (${dto.quantity} ${item.unit})`,
+              date: new Date(),
+              projectId: dto.projectId,
+              lines: [
+                {
+                  accountCode: debitCode,
+                  description: item.name,
+                  debit: totalCost,
+                  credit: 0,
+                },
+                {
+                  accountCode: creditCode,
+                  description: item.name,
+                  debit: 0,
+                  credit: totalCost,
+                },
+              ],
+            },
+            dto.issuedById,
+          );
+
+          if (entry?.id) {
+            await prisma.storeTransaction.update({
+              where: { id: tx.id },
+              data: { ledgerEntryId: entry.id },
+            });
+          }
+        } catch {
+          // Journal should not block the stock transaction
+        }
+      }
 
       // Check low stock after transaction
       if (

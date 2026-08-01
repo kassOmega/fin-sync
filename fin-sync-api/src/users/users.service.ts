@@ -242,8 +242,9 @@ export class UsersService {
       });
 
       // If role changed, update all CompanyMember links for companies this owner controls
+      let ownedCompanyIds: number[] = [];
       if (dto.role) {
-        const ownedCompanyIds = userToUpdate.companyMemberships
+        ownedCompanyIds = userToUpdate.companyMemberships
           .filter((m) => m.company.ownerId === ownerId)
           .map((m) => m.companyId);
 
@@ -256,6 +257,26 @@ export class UsersService {
             data: { role: dto.role },
           });
         }
+      }
+
+      // ── Staff → Employee sync ──
+      // If this user has a linked Employee record, update it too.
+      const linkedEmployee = await prisma.employee.findFirst({
+        where: { userId },
+      });
+      if (linkedEmployee) {
+        await prisma.employee.update({
+          where: { id: linkedEmployee.id },
+          data: {
+            ...(dto.name && {
+              firstName: dto.name.split(' ')[0],
+              lastName: dto.name.split(' ').slice(1).join(' ') || dto.name,
+            }),
+            ...(dto.email !== undefined && { email: dto.email }),
+            ...(dto.phone !== undefined && { phone: dto.phone }),
+            ...(dto.role && { designation: dto.role }),
+          },
+        });
       }
 
       return updatedUser;

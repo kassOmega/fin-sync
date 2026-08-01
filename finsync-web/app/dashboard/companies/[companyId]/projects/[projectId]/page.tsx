@@ -3,7 +3,16 @@
 import Loading from "@/components/Loading";
 
 import api from "@/lib/api";
-import { Pencil, Save, X } from "lucide-react";
+import { projectsService } from "@/lib/services/projects";
+import type { CompanyExpense, StoreRequest } from "@/lib/services/types";
+import {
+  ArrowDownCircle,
+  Package,
+  Pencil,
+  Save,
+  Wrench,
+  X,
+} from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -31,6 +40,8 @@ const STATUS_STYLES: Record<string, string> = {
   CANCELLED: "bg-red-100 text-red-700",
 };
 
+type TabType = "overview" | "material" | "financials" | "equipment";
+
 export default function ProjectOverviewPage() {
   const params = useParams();
   const companyId = params.companyId as string;
@@ -39,6 +50,15 @@ export default function ProjectOverviewPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
+  const [tab, setTab] = useState<TabType>("overview");
+  const [expenses, setExpenses] = useState<CompanyExpense[]>([]);
+  const [materialRequests, setMaterialRequests] = useState<StoreRequest[]>([]);
+  const [machineries, setMachineries] = useState<any[]>([]);
+  const [financialSummary, setFinancialSummary] = useState<{
+    totalIncome: number;
+    totalExpense: number;
+    profit: number;
+  } | null>(null);
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -60,12 +80,37 @@ export default function ProjectOverviewPage() {
     }
   };
 
+  const fetchProjectData = async () => {
+    if (!companyId || !projectId) return;
+    try {
+      const [expData, materialData, machData, finData] = await Promise.all([
+        projectsService.getExpenses(Number(companyId), Number(projectId)),
+        projectsService.getMaterialRequests(
+          Number(companyId),
+          Number(projectId),
+        ),
+        projectsService.getMachineries(Number(companyId), Number(projectId)),
+        projectsService.getFinancialSummary(
+          Number(companyId),
+          Number(projectId),
+        ),
+      ]);
+      setExpenses(expData);
+      setMaterialRequests(materialData);
+      setMachineries(machData);
+      setFinancialSummary(finData);
+    } catch {
+      // Silent — some endpoints may not exist in all environments
+    }
+  };
+
   useEffect(() => {
     if (!companyId || !projectId) {
       router.push("/dashboard/companies");
       return;
     }
     fetchProject();
+    fetchProjectData();
   }, [companyId, projectId]);
 
   const openEdit = () => {
@@ -110,6 +155,9 @@ export default function ProjectOverviewPage() {
       <div className="text-center py-20 text-gray-500">Project not found.</div>
     );
 
+  const money = (n: number) =>
+    `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -144,69 +192,264 @@ export default function ProjectOverviewPage() {
         )}
       </div>
 
-      {/* Progress */}
-      <div className="bg-white p-5 rounded-lg shadow-sm border">
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="text-sm font-semibold text-gray-500">Progress</h3>
-          <span className="text-sm font-bold text-gray-900">
-            {project.progress}%
-          </span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-3">
-          <div
-            className="bg-indigo-600 h-3 rounded-full transition-all"
-            style={{ width: `${project.progress}%` }}
-          />
-        </div>
+      {/* Tabs */}
+      <div className="flex gap-2 bg-gray-100 rounded-lg p-1 max-w-fit">
+        {(
+          [
+            ["overview", "Overview"],
+            ["material", "Material Requests"],
+            ["financials", "Financials"],
+            ["equipment", "Equipment"],
+          ] as [TabType, string][]
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`px-4 py-2 rounded-md text-sm font-medium ${
+              tab === key
+                ? "bg-white shadow-sm text-gray-900"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      {/* Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-lg shadow-sm border">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            Timeline
-          </h3>
-          <p className="text-sm mt-1 text-gray-900">
-            {project.startDate
-              ? new Date(project.startDate).toLocaleDateString()
-              : "—"}{" "}
-            →{" "}
-            {project.endDate
-              ? new Date(project.endDate).toLocaleDateString()
-              : "—"}
-          </p>
+      {tab === "overview" && (
+        <>
+          {/* Progress */}
+          <div className="bg-white p-5 rounded-lg shadow-sm border">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-sm font-semibold text-gray-500">Progress</h3>
+              <span className="text-sm font-bold text-gray-900">
+                {project.progress}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3">
+              <div
+                className="bg-indigo-600 h-3 rounded-full transition-all"
+                style={{ width: `${project.progress}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Metrics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-lg shadow-sm border">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Timeline
+              </h3>
+              <p className="text-sm mt-1 text-gray-900">
+                {project.startDate
+                  ? new Date(project.startDate).toLocaleDateString()
+                  : "—"}{" "}
+                →{" "}
+                {project.endDate
+                  ? new Date(project.endDate).toLocaleDateString()
+                  : "—"}
+              </p>
+            </div>
+            <div className="bg-white p-5 rounded-lg shadow-sm border">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Manager
+              </h3>
+              <p className="text-sm mt-1 text-gray-900 font-medium">
+                {project.manager
+                  ? `${project.manager.firstName} ${project.manager.lastName}`
+                  : "Unassigned"}
+              </p>
+            </div>
+            <div className="bg-white p-5 rounded-lg shadow-sm border">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Budget
+              </h3>
+              <p className="text-sm mt-1 text-gray-900 font-bold">
+                {project.budget != null
+                  ? `$${Number(project.budget).toLocaleString()}`
+                  : "—"}
+              </p>
+            </div>
+            <div className="bg-white p-5 rounded-lg shadow-sm border">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Created
+              </h3>
+              <p className="text-sm mt-1 text-gray-900">
+                {project.createdAt
+                  ? new Date(project.createdAt).toLocaleDateString()
+                  : "—"}
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+
+      {tab === "material" && (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+            <Package className="h-5 w-5 text-gray-500" />
+            <h3 className="font-semibold text-gray-900">Material Requests</h3>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-gray-500 text-xs uppercase border-b">
+                <th className="text-left px-4 py-2">Item</th>
+                <th className="text-right px-4 py-2">Qty</th>
+                <th className="text-right px-4 py-2">Issued</th>
+                <th className="text-left px-4 py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {materialRequests.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-8 text-center text-gray-500">
+                    No material requests for this project.
+                  </td>
+                </tr>
+              )}
+              {materialRequests.map((req) => (
+                <tr key={req.id} className="border-b border-gray-100">
+                  <td className="px-4 py-2 font-medium text-gray-800">
+                    {req.item?.name}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    {req.quantity} {req.item?.unit}
+                  </td>
+                  <td className="px-4 py-2 text-right text-gray-600">
+                    {req.issuedQuantity}
+                  </td>
+                  <td className="px-4 py-2">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                      {req.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <div className="bg-white p-5 rounded-lg shadow-sm border">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            Manager
-          </h3>
-          <p className="text-sm mt-1 text-gray-900 font-medium">
-            {project.manager
-              ? `${project.manager.firstName} ${project.manager.lastName}`
-              : "Unassigned"}
-          </p>
+      )}
+
+      {tab === "financials" && (
+        <div className="space-y-4">
+          {financialSummary && (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-white p-5 rounded-lg shadow-sm border">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase">
+                  Income
+                </h3>
+                <p className="text-xl font-bold text-green-700">
+                  {money(financialSummary.totalIncome)}
+                </p>
+              </div>
+              <div className="bg-white p-5 rounded-lg shadow-sm border">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase">
+                  Expenses
+                </h3>
+                <p className="text-xl font-bold text-red-700">
+                  {money(financialSummary.totalExpense)}
+                </p>
+              </div>
+              <div className="bg-white p-5 rounded-lg shadow-sm border">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase">
+                  Profit
+                </h3>
+                <p
+                  className={`text-xl font-bold ${
+                    financialSummary.profit >= 0
+                      ? "text-green-700"
+                      : "text-red-700"
+                  }`}
+                >
+                  {money(financialSummary.profit)}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+              <ArrowDownCircle className="h-5 w-5 text-gray-500" />
+              <h3 className="font-semibold text-gray-900">Project Expenses</h3>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-gray-500 text-xs uppercase border-b">
+                  <th className="text-left px-4 py-2">Category</th>
+                  <th className="text-left px-4 py-2">Date</th>
+                  <th className="text-left px-4 py-2">Note</th>
+                  <th className="text-right px-4 py-2">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expenses.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-gray-500">
+                      No expenses recorded for this project.
+                    </td>
+                  </tr>
+                )}
+                {expenses.map((exp) => (
+                  <tr key={exp.id} className="border-b border-gray-100">
+                    <td className="px-4 py-2 font-medium text-gray-800">
+                      {exp.category}
+                    </td>
+                    <td className="px-4 py-2 text-gray-600">
+                      {new Date(exp.date).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-2 text-gray-500">{exp.note}</td>
+                    <td className="px-4 py-2 text-right font-medium text-red-700">
+                      {money(exp.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div className="bg-white p-5 rounded-lg shadow-sm border">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            Budget
-          </h3>
-          <p className="text-sm mt-1 text-gray-900 font-bold">
-            {project.budget != null
-              ? `$${Number(project.budget).toLocaleString()}`
-              : "—"}
-          </p>
+      )}
+
+      {tab === "equipment" && (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+            <Wrench className="h-5 w-5 text-gray-500" />
+            <h3 className="font-semibold text-gray-900">Equipment Allocated</h3>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-gray-500 text-xs uppercase border-b">
+                <th className="text-left px-4 py-2">Name</th>
+                <th className="text-left px-4 py-2">Code</th>
+                <th className="text-left px-4 py-2">Status</th>
+                <th className="text-right px-4 py-2">Hours Run</th>
+              </tr>
+            </thead>
+            <tbody>
+              {machineries.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-8 text-center text-gray-500">
+                    No equipment allocated to this project.
+                  </td>
+                </tr>
+              )}
+              {machineries.map((m: any) => (
+                <tr key={m.id} className="border-b border-gray-100">
+                  <td className="px-4 py-2 font-medium text-gray-800">
+                    {m.name}
+                  </td>
+                  <td className="px-4 py-2 font-mono text-gray-500">
+                    {m.code}
+                  </td>
+                  <td className="px-4 py-2 text-gray-600">{m.status}</td>
+                  <td className="px-4 py-2 text-right">
+                    {Number(m.totalHoursRun).toLocaleString()} hrs
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <div className="bg-white p-5 rounded-lg shadow-sm border">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            Created
-          </h3>
-          <p className="text-sm mt-1 text-gray-900">
-            {project.createdAt
-              ? new Date(project.createdAt).toLocaleDateString()
-              : "—"}
-          </p>
-        </div>
-      </div>
+      )}
 
       {/* Edit Modal */}
       {editOpen && (

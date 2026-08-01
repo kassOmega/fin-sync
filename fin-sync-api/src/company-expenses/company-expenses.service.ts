@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { SystemRole } from '@prisma/client';
 import { guessCategory } from '../common/utils/category-guesser';
+import { LedgerService } from '../ledger/ledger.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCompanyExpenseDto } from './dto/create-company-expense.dto';
@@ -15,6 +16,7 @@ export class CompanyExpensesService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private ledger: LedgerService,
   ) {}
 
   async create(
@@ -45,6 +47,37 @@ export class CompanyExpensesService {
         `A ${finalCategory} expense of $${dto.amount} was recorded.`,
         registeredById,
       );
+    }
+
+    // Auto-create journal entry: Debit Expense account, Credit Cash/Bank
+    try {
+      await this.ledger.createAutoEntry(
+        companyId,
+        {
+          sourceType: 'EXPENSE',
+          sourceId: expense.id,
+          description: `Expense: ${finalCategory} - ${dto.note || ''}`,
+          date: expense.date,
+          projectId: dto.projectId ?? undefined,
+          lines: [
+            {
+              accountCode: '5230',
+              description: finalCategory,
+              debit: dto.amount,
+              credit: 0,
+            },
+            {
+              accountCode: '1001',
+              description: 'Cash/Bank payment',
+              debit: 0,
+              credit: dto.amount,
+            },
+          ],
+        },
+        registeredById,
+      );
+    } catch {
+      // Journal entry creation should not block the main transaction
     }
 
     return expense;

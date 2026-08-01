@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
@@ -24,8 +25,17 @@ export class EmployeesController {
 
   @Get()
   @RequirePermissions(PermissionCode.EMPLOYEES_MANAGE)
-  findAll(@Param('companyId', ParseIntPipe) companyId: number) {
-    return this.service.findAll(companyId);
+  findAll(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Query('employmentType') employmentType?: string,
+    @Query('isActive') isActive?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.service.findAll(companyId, {
+      ...(employmentType && { employmentType }),
+      ...(isActive !== undefined && { isActive }),
+      ...(search && { search }),
+    });
   }
 
   @Get(':id')

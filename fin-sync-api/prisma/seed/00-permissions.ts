@@ -136,6 +136,76 @@ const SYSTEM_PERMISSIONS = [
     name: 'Export Reports (CSV/PDF)',
     module: 'Reports',
   },
+
+  // Chart of Accounts
+  {
+    code: 'ACCOUNTS_READ',
+    name: 'View Chart of Accounts',
+    module: 'Accounting',
+  },
+  {
+    code: 'ACCOUNTS_WRITE',
+    name: 'Create & Edit Accounts',
+    module: 'Accounting',
+  },
+
+  // General Ledger
+  {
+    code: 'LEDGER_READ',
+    name: 'View General Ledger Entries',
+    module: 'Accounting',
+  },
+  {
+    code: 'LEDGER_POST',
+    name: 'Create & Post Journal Entries',
+    module: 'Accounting',
+  },
+
+  // Leave Management
+  {
+    code: 'LEAVE_TYPE_MANAGE',
+    name: 'Manage Leave Types',
+    module: 'HR',
+  },
+  {
+    code: 'LEAVE_REQUEST_CREATE',
+    name: 'Submit Leave Requests',
+    module: 'HR',
+  },
+  {
+    code: 'LEAVE_REQUEST_APPROVE',
+    name: 'Approve or Reject Leave Requests',
+    module: 'HR',
+  },
+  {
+    code: 'LEAVE_BALANCE_VIEW',
+    name: 'View Leave Balances',
+    module: 'HR',
+  },
+
+  // Tax & Payroll
+  {
+    code: 'TAX_TABLE_MANAGE',
+    name: 'Manage Tax Tables & Brackets',
+    module: 'HR',
+  },
+  {
+    code: 'PAYSLIP_VIEW',
+    name: 'View Employee Payslips',
+    module: 'HR',
+  },
+
+  // Asset Depreciation
+  {
+    code: 'DEPRECIATION_MANAGE',
+    name: 'Manage Depreciation Methods & Schedules',
+    module: 'Accounting',
+  },
+  {
+    code: 'DEPRECIATION_VIEW',
+    name: 'View Depreciation Schedules & Reports',
+    module: 'Accounting',
+  },
 ];
 
 export async function seedPermissions(prisma: PrismaClient): Promise<void> {

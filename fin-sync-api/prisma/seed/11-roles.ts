@@ -37,6 +37,9 @@ const BUILTIN_ROLES: { name: string; permissions: string[] }[] = [
       'SALES_WRITE',
       'STORE_READ',
       'STORE_REQUEST_CREATE',
+      'ACCOUNTS_READ',
+      'LEDGER_READ',
+      'LEDGER_POST',
     ],
   },
   {
@@ -64,6 +67,11 @@ const BUILTIN_ROLES: { name: string; permissions: string[] }[] = [
       'EMPLOYEES_MANAGE',
       'STORE_REQUEST_CREATE',
       'REPORTS_VIEW',
+      'ACCOUNTS_READ',
+      'LEDGER_READ',
+      'LEAVE_TYPE_MANAGE',
+      'LEAVE_REQUEST_APPROVE',
+      'LEAVE_BALANCE_VIEW',
     ],
   },
   {
