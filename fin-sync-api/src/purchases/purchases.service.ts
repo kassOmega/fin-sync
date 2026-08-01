@@ -18,6 +18,7 @@ export class PurchasesService {
       amount: number;
       note?: string;
       accountId?: number;
+      category?: string;
       items: {
         itemId?: number;
         name?: string;
@@ -120,7 +121,8 @@ export class PurchasesService {
                 ...(dto.accountId
                   ? { accountId: dto.accountId }
                   : { accountCode: '1201' }),
-                description: 'Inventory received',
+                ...(dto.category ? { category: dto.category } : {}),
+                description: `Inventory received${dto.category ? ` (${dto.category})` : ''}`,
                 debit: dto.amount,
                 credit: 0,
               },
