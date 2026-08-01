@@ -61,7 +61,9 @@ export class CompanyExpensesService {
           projectId: dto.projectId ?? undefined,
           lines: [
             {
-              accountCode: '5230',
+              ...(dto.accountId
+                ? { accountId: dto.accountId }
+                : { accountCode: '5230' }),
               description: finalCategory,
               debit: dto.amount,
               credit: 0,

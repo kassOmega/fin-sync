@@ -28,4 +28,8 @@ export class CreateCompanyExpenseDto {
   @IsInt()
   @IsOptional()
   machineryId?: number;
+
+  @IsInt()
+  @IsOptional()
+  accountId?: number;
 }
