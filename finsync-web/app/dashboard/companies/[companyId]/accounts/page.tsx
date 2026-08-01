@@ -1,5 +1,6 @@
 "use client";
 
+import api from "@/lib/api";
 import { accountsService } from "@/lib/services/accounts";
 import type { Account } from "@/lib/services/types";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -15,8 +16,6 @@ const TYPE_COLORS: Record<string, string> = {
   EXPENSE: "text-orange-600 bg-orange-50",
 };
 
-const ACCOUNT_TYPES = ["ASSET", "LIABILITY", "EQUITY", "INCOME", "EXPENSE"];
-
 export default function AccountsPage() {
   const params = useParams<{ companyId: string }>();
   const companyId = Number(params.companyId);
@@ -28,6 +27,18 @@ export default function AccountsPage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [accountTypes, setAccountTypes] = useState<string[]>([]);
+
+  const fetchAccountTypes = async () => {
+    try {
+      const res = await api.get(`/companies/${companyId}/accounts/types`);
+      setAccountTypes(
+        res.data?.types?.map((t: { value: string }) => t.value) || [],
+      );
+    } catch {
+      /* fallback to empty */
+    }
+  };
 
   const fetchAccounts = async () => {
     const data = await accountsService.list(companyId, {
@@ -41,6 +52,7 @@ export default function AccountsPage() {
   useEffect(() => {
     if (companyId) {
       setLoading(true);
+      void fetchAccountTypes();
       accountsService
         .list(companyId, {
           ...(typeFilter && { type: typeFilter }),
@@ -153,7 +165,7 @@ export default function AccountsPage() {
             className="px-3 py-2 text-sm border border-gray-300 rounded-md"
           >
             <option value="">All Types</option>
-            {ACCOUNT_TYPES.map((t) => (
+            {accountTypes.map((t) => (
               <option key={t} value={t}>
                 {t}
               </option>
@@ -204,6 +216,7 @@ export default function AccountsPage() {
         <AccountFormModal
           companyId={companyId}
           accounts={accounts}
+          accountTypes={accountTypes}
           editing={editing}
           onClose={() => {
             setModalOpen(false);
@@ -219,12 +232,14 @@ export default function AccountsPage() {
 function AccountFormModal({
   companyId,
   accounts,
+  accountTypes,
   editing,
   onClose,
   onSave,
 }: {
   companyId: number;
   accounts: Account[];
+  accountTypes: string[];
   editing: Account | null;
   onClose: () => void;
   onSave: (payload: any) => Promise<void>;
@@ -298,7 +313,7 @@ function AccountFormModal({
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
               >
-                {ACCOUNT_TYPES.map((t) => (
+                {accountTypes.map((t) => (
                   <option key={t} value={t}>
                     {t}
                   </option>
