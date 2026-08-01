@@ -43,6 +43,9 @@ export default function CompanyExpensesPage() {
   const [newCatName, setNewCatName] = useState("");
   const [editingExp, setEditingExp] = useState<Expense | null>(null);
   const [viewingExp, setViewingExp] = useState<Expense | null>(null);
+  const [accounts, setAccounts] = useState<
+    { id: number; code: string; name: string; type: string }[]
+  >([]);
   const [formData, setFormData] = useState({
     amount: "",
     category: "",
@@ -50,9 +53,19 @@ export default function CompanyExpensesPage() {
     projectId: "",
     unitId: "",
     unit: "",
+    accountId: "",
     isRecurring: false,
     recurringFrequency: "MONTHLY",
   });
+
+  const fetchAccounts = async () => {
+    try {
+      const res = await api.get(`/companies/${companyId}/accounts`);
+      setAccounts(res.data || []);
+    } catch {
+      /* fallback */
+    }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -102,6 +115,7 @@ export default function CompanyExpensesPage() {
         fetchExpenses(),
         fetchProjects(),
         fetchUnits(),
+        fetchAccounts(),
       ]);
       setPageLoading(false);
     };
@@ -136,6 +150,7 @@ export default function CompanyExpensesPage() {
       recurringFrequency: formData.isRecurring
         ? formData.recurringFrequency
         : null,
+      accountId: formData.accountId ? parseInt(formData.accountId) : undefined,
     };
 
     try {
@@ -263,6 +278,7 @@ export default function CompanyExpensesPage() {
                           projectId: exp.projectId ? String(exp.projectId) : "",
                           unitId: "",
                           unit: exp.unit || "",
+                          accountId: "",
                           isRecurring: false,
                           recurringFrequency: "MONTHLY",
                         });
@@ -423,6 +439,29 @@ export default function CompanyExpensesPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Account (COA) Selector
+                </label>
+                <select
+                  value={formData.accountId}
+                  onChange={(e) =>
+                    setFormData({ ...formData, accountId: e.target.value })
+                  }
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
+                >
+                  <option value="">Default (Misc Expense)</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.code} — {a.name} ({a.type})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Maps this expense to the selected Chart of Accounts account
+                  for the journal entry.
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
