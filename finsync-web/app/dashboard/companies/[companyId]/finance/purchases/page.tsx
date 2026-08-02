@@ -558,28 +558,6 @@ export default function PurchasesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Account (COA) Selector
-                </label>
-                <select
-                  value={purchaseAccountId}
-                  onChange={(e) => setPurchaseAccountId(e.target.value)}
-                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white"
-                >
-                  <option value="">Default (Inventory)</option>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.code} — {a.name} ({a.type})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-400 mt-1">
-                  Maps this purchase to the selected Chart of Accounts account
-                  for the journal entry.
-                </p>
-              </div>
-
-              <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm font-medium text-gray-700">
                     Items

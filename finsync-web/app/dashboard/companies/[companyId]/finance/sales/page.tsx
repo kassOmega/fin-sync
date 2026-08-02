@@ -464,28 +464,6 @@ export default function SalesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Account (COA) Selector
-                </label>
-                <select
-                  value={saleAccountId}
-                  onChange={(e) => setSaleAccountId(e.target.value)}
-                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white"
-                >
-                  <option value="">Default (Sales Revenue)</option>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.code} — {a.name} ({a.type})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-400 mt-1">
-                  Maps this sale to the selected Chart of Accounts account for
-                  the journal entry.
-                </p>
-              </div>
-
-              <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm font-medium text-gray-700">
                     Items

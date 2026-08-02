@@ -175,6 +175,11 @@ export default function CompanyLayout({
           href: "/store",
           roles: [SystemRole.Owner, SystemRole.Storekeeper],
         },
+        {
+          name: "Depreciation",
+          href: "/depreciations",
+          roles: [SystemRole.Owner],
+        },
       ],
     },
     {

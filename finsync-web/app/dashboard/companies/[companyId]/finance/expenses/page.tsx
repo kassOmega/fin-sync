@@ -454,29 +454,6 @@ export default function CompanyExpensesPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Account (COA) Selector
-                </label>
-                <select
-                  value={formData.accountId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, accountId: e.target.value })
-                  }
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white text-gray-900"
-                >
-                  <option value="">Default (Misc Expense)</option>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.code} — {a.name} ({a.type})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-400 mt-1">
-                  Maps this expense to the selected Chart of Accounts account
-                  for the journal entry.
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
                   Note
                 </label>
                 <textarea
