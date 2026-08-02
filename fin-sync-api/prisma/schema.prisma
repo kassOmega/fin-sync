@@ -144,34 +144,35 @@ model Company {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
-  ownerId             Int                  @map("owner_id")
-  owner               User                 @relation("CompanyOwner", fields: [ownerId], references: [id])
-  members             CompanyMember[]
-  incomes             CompanyIncome[]
-  expenses            CompanyExpense[]
-  employees           Employee[]
-  machineries         Machinery[]
-  storeItems          StoreItem[]
-  projects            Project[]
-  storeTransactions   StoreTransaction[]
-  storeRequests       StoreRequest[]
-  sales               Sale[]
-  purchases           Purchase[]
-  customers           Customer[]
-  suppliers           Supplier[]
-  storeCategories     StoreCategory[]
-  companyRoles        CompanyRole[]
-  attendances         Attendance[]
-  timesheets          Timesheet[]
-  payrolls            Payroll[]
-  accounts            Account[]
-  journalEntries      JournalEntry[]
-  leaveTypes          LeaveType[]
-  leaveRequests       LeaveRequest[]
-  taxTables           TaxTable[]
-  payrollDeductions   PayrollDeduction[]
-  depreciationMethods DepreciationMethod[]
-  overtimeRates       OvertimeRate[]
+  ownerId               Int                           @map("owner_id")
+  owner                 User                          @relation("CompanyOwner", fields: [ownerId], references: [id])
+  members               CompanyMember[]
+  incomes               CompanyIncome[]
+  expenses              CompanyExpense[]
+  employees             Employee[]
+  machineries           Machinery[]
+  storeItems            StoreItem[]
+  projects              Project[]
+  storeTransactions     StoreTransaction[]
+  storeRequests         StoreRequest[]
+  sales                 Sale[]
+  purchases             Purchase[]
+  customers             Customer[]
+  suppliers             Supplier[]
+  storeCategories       StoreCategory[]
+  companyRoles          CompanyRole[]
+  attendances           Attendance[]
+  timesheets            Timesheet[]
+  payrolls              Payroll[]
+  accounts              Account[]
+  journalEntries        JournalEntry[]
+  leaveTypes            LeaveType[]
+  leaveRequests         LeaveRequest[]
+  taxTables             TaxTable[]
+  payrollDeductions     PayrollDeduction[]
+  depreciationMethods   DepreciationMethod[]
+  overtimeRates         OvertimeRate[]
+  payrollConfigVersions CompanyPayrollConfigVersion[]
 
   @@schema("finsync")
 }
@@ -1327,5 +1328,44 @@ model Notification {
 
   user User @relation(fields: [userId], references: [id])
 
+  @@schema("finsync")
+}
+
+// ==========================================
+// 15. COMPANY PAYROLL CONFIG (VERSIONED)
+// ==========================================
+
+/**
+ * Versioned company payroll rules (tax brackets, pension, allowances,
+ * overtime multiplier, default frequency).
+ * A company's bracket set is NEVER edited in place — a new version is created
+ * with its own `effectiveFrom`; the previous version gets `supersededAt`.
+ * Payroll generation resolves the version effective for the run's date, so
+ * past runs never break or recalculate when rules change mid-year.
+ */
+model CompanyPayrollConfigVersion {
+  id        Int     @id @default(autoincrement())
+  companyId Int     @map("company_id")
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  effectiveFrom DateTime  @map("effective_from")
+  supersededAt  DateTime? @map("superseded_at")
+
+  // Ethiopian Proclamation 1395/2025 default brackets, JSON array:
+  // [{ "upTo": 2000, "rate": 0, "deduct": 0 }, ...]
+  taxBrackets Json @default("[{\"upTo\":2000,\"rate\":0,\"deduct\":0},{\"upTo\":4000,\"rate\":0.15,\"deduct\":300},{\"upTo\":14000,\"rate\":0.20,\"deduct\":500},{\"upTo\":20000,\"rate\":0.25,\"deduct\":1200},{\"upTo\":30000,\"rate\":0.30,\"deduct\":2200},{\"upTo\":40000,\"rate\":0.35,\"deduct\":4050},{\"upTo\":null,\"rate\":0.35,\"deduct\":2050}]")
+
+  employeePensionRate     Decimal @default(7) @db.Decimal(5, 2)
+  employerPensionRate     Decimal @default(11) @db.Decimal(5, 2)
+  standardAllowanceAmount Decimal @default(0) @db.Decimal(12, 2)
+  otMultiplier            Decimal @default(1.5) @db.Decimal(4, 2)
+  defaultPayFrequency     String  @default("MONTHLY") // MONTHLY | DAILY | HOURLY
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  createdById Int?     @map("created_by_id")
+
+  @@unique([companyId, effectiveFrom])
+  @@index([companyId])
+  @@map("company_payroll_config_versions")
   @@schema("finsync")
 }
