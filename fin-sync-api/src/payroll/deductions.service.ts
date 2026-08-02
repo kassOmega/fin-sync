@@ -188,7 +188,7 @@ export class DeductionsService {
    * Resolve the company payroll config version effective for today
    * (raw SQL — the versioned config's tax_brackets JSON is the source of truth).
    */
-  private async getEffectiveConfig(companyId: number) {
+  async getEffectiveConfig(companyId: number) {
     const rows: any[] = await this.prisma.$queryRawUnsafe(
       `SELECT * FROM finsync.company_payroll_config_versions
        WHERE company_id = ${companyId}
@@ -198,6 +198,84 @@ export class DeductionsService {
        LIMIT 1`,
     );
     return rows[0] ?? null;
+  }
+
+  /**
+   * Ethiopian shortcut tax: tax = income × rate − deduct where `income` falls
+   * inside the bracket. Public so payroll + employee registration share it.
+   */
+  computeEthiopianTaxPublic(
+    income: number,
+    brackets: Array<{ upTo: number | null; rate: number; deduct: number }>,
+  ): number {
+    let tax = 0;
+    for (let i = 0; i < brackets.length; i++) {
+      const b = brackets[i];
+      const upTo = b.upTo ?? Infinity;
+      if (income <= upTo) {
+        tax = income * b.rate - b.deduct;
+        break;
+      }
+    }
+    if (tax < 0) tax = 0;
+    return Math.round(tax * 100) / 100;
+  }
+
+  /**
+   * Gross → Net (MONTHLY): net = gross − pension(gross × p%) − tax(gross).
+   * Uses the company's active versioned config; defaults to 7% pension +
+   * Proclamation 1395/2025 when none exists.
+   */
+  async grossToNetMonthly(companyId: number, gross: number): Promise<number> {
+    const config = await this.getEffectiveConfig(companyId);
+    const brackets =
+      config?.tax_brackets &&
+      (typeof config.tax_brackets === 'string'
+        ? JSON.parse(config.tax_brackets)
+        : config.tax_brackets
+      )?.length
+        ? typeof config.tax_brackets === 'string'
+          ? JSON.parse(config.tax_brackets)
+          : config.tax_brackets
+        : [
+            { upTo: 2000, rate: 0.0, deduct: 0 },
+            { upTo: 4000, rate: 0.15, deduct: 300 },
+            { upTo: 14000, rate: 0.2, deduct: 500 },
+            { upTo: 20000, rate: 0.25, deduct: 1200 },
+            { upTo: 30000, rate: 0.3, deduct: 2200 },
+            { upTo: 40000, rate: 0.35, deduct: 4050 },
+            { upTo: null, rate: 0.35, deduct: 2050 },
+          ];
+    const pensionRate = parseFloat(String(config?.employee_pension_rate ?? 7));
+    const pension = Math.round(gross * (pensionRate / 100) * 100) / 100;
+    const tax = this.computeEthiopianTaxPublic(gross, brackets);
+    const net = gross - pension - tax;
+    return Math.round(Math.max(0, net) * 100) / 100;
+  }
+
+  /**
+   * Net → Gross (MONTHLY): binary-search the gross that nets to `targetNet`
+   * under the same dynamic tax + pension rules.
+   */
+  async netToGrossMonthly(
+    companyId: number,
+    targetNet: number,
+  ): Promise<number> {
+    let lo = targetNet;
+    let hi = targetNet * 2 + 5000;
+    let gross = targetNet;
+    for (let i = 0; i < 60; i++) {
+      const mid = (lo + hi) / 2;
+      const net = await this.grossToNetMonthly(companyId, mid);
+      if (Math.abs(net - targetNet) < 0.01) {
+        gross = mid;
+        break;
+      }
+      if (net < targetNet) lo = mid;
+      else hi = mid;
+      gross = mid;
+    }
+    return Math.round(gross * 100) / 100;
   }
 
   /**

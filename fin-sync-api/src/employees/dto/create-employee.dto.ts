@@ -44,6 +44,17 @@ export class CreateEmployeeDto {
   @IsOptional()
   baseSalary?: number;
 
+  /** Net (take-home) MONTHLY — when provided WITHOUT baseSalary, the system
+   *  back-calculates the gross using the company's active tax/pension rules. */
+  @IsNumber()
+  @IsOptional()
+  netSalary?: number;
+
+  /** Pay frequency: MONTHLY (default) | WEEKLY | DAILY */
+  @IsString()
+  @IsOptional()
+  payFrequency?: string;
+
   @IsNumber()
   @IsOptional()
   hourlyRate?: number;

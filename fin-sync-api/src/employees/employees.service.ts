@@ -129,6 +129,9 @@ export class EmployeesService {
         }
       }
 
+      // Gross ⇄ Net resolution (dynamic tax + pension from active config)
+      const salary = await this.resolveSalary(companyId, dto);
+
       // Create the employee
       const created = await prisma.employee.create({
         data: {
@@ -140,9 +143,10 @@ export class EmployeesService {
           phone: dto.phone,
           designation: dto.designation || dto.role || 'Employee',
           employmentType: dto.employmentType || 'FULL_TIME',
-          baseSalary: dto.baseSalary,
-          hourlyRate: dto.hourlyRate,
-          dailyRate: dto.dailyRate,
+          payFrequency: dto.payFrequency || 'MONTHLY',
+          baseSalary: salary.baseSalary,
+          hourlyRate: salary.hourlyRate,
+          dailyRate: salary.dailyRate,
           isActive: dto.isActive ?? true,
           joinedDate: dto.joinedDate ? new Date(dto.joinedDate) : new Date(),
           userId,
@@ -151,6 +155,134 @@ export class EmployeesService {
 
       return this.findOneAfterCreate(created.id);
     });
+  }
+
+  /**
+   * Net ↔ Gross (MONTHLY) using the company's ACTIVE versioned payroll config
+   * (Ethiopian shortcut tax + employee pension). Mirrors DeductionsService.
+   */
+  private async getActiveConfigRow(companyId: number) {
+    const rows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT * FROM finsync.company_payroll_config_versions
+       WHERE company_id = ${companyId}
+         AND effective_from <= NOW()
+         AND (superseded_at IS NULL OR superseded_at > NOW())
+       ORDER BY effective_from DESC
+       LIMIT 1`,
+    );
+    return rows[0] ?? null;
+  }
+
+  private ethiopianTax(
+    income: number,
+    brackets: Array<{ upTo: number | null; rate: number; deduct: number }>,
+  ): number {
+    let tax = 0;
+    for (const b of brackets) {
+      const upTo = b.upTo ?? Infinity;
+      if (income <= upTo) {
+        tax = income * b.rate - b.deduct;
+        break;
+      }
+    }
+    if (tax < 0) tax = 0;
+    return Math.round(tax * 100) / 100;
+  }
+
+  private async grossToNetMonthly(companyId: number, gross: number) {
+    const config = await this.getActiveConfigRow(companyId);
+    const brackets =
+      config?.tax_brackets && config.tax_brackets.length
+        ? typeof config.tax_brackets === 'string'
+          ? JSON.parse(config.tax_brackets)
+          : config.tax_brackets
+        : [
+            { upTo: 2000, rate: 0.0, deduct: 0 },
+            { upTo: 4000, rate: 0.15, deduct: 300 },
+            { upTo: 14000, rate: 0.2, deduct: 500 },
+            { upTo: 20000, rate: 0.25, deduct: 1200 },
+            { upTo: 30000, rate: 0.3, deduct: 2200 },
+            { upTo: 40000, rate: 0.35, deduct: 4050 },
+            { upTo: null, rate: 0.35, deduct: 2050 },
+          ];
+    const pensionRate = parseFloat(String(config?.employee_pension_rate ?? 7));
+    const pension = Math.round(gross * (pensionRate / 100) * 100) / 100;
+    const tax = this.ethiopianTax(gross, brackets);
+    return Math.round(Math.max(0, gross - pension - tax) * 100) / 100;
+  }
+
+  /**
+   * Net → Gross (MONTHLY): binary-search the gross that nets to `targetNet`
+   * using the company's active dynamic tax + pension rules.
+   */
+  private async netToGrossMonthly(
+    companyId: number,
+    targetNet: number,
+  ): Promise<number> {
+    let lo = targetNet;
+    let hi = targetNet * 2 + 5000;
+    let gross = targetNet;
+    for (let i = 0; i < 60; i++) {
+      const mid = (lo + hi) / 2;
+      const net = await this.grossToNetMonthly(companyId, mid);
+      if (Math.abs(net - targetNet) < 0.01) {
+        gross = mid;
+        break;
+      }
+      if (net < targetNet) lo = mid;
+      else hi = mid;
+      gross = mid;
+    }
+    return Math.round(gross * 100) / 100;
+  }
+
+  /**
+   * Resolve the salary fields from the DTO:
+   * - If gross (baseSalary) provided → keep it, derive daily/hourly
+   * - If netSalary provided AND no gross → back-calc gross via dynamic rules,
+   *   then derive daily/hourly from the resolved gross
+   * - If only dailyRate/hourlyRate provided → derive monthly gross by convention
+   */
+  private async resolveSalary(
+    companyId: number,
+    dto: Partial<CreateEmployeeDto>,
+  ): Promise<{
+    baseSalary?: number;
+    dailyRate?: number;
+    hourlyRate?: number;
+  }> {
+    const explicitGross = dto.baseSalary
+      ? parseFloat(String(dto.baseSalary))
+      : undefined;
+    const explicitNet = dto.netSalary
+      ? parseFloat(String(dto.netSalary))
+      : undefined;
+
+    let gross = explicitGross;
+    if (!gross && explicitNet) {
+      gross = await this.netToGrossMonthly(companyId, explicitNet);
+    }
+    if (!gross && dto.dailyRate) {
+      gross = parseFloat(String(dto.dailyRate)) * 22;
+    }
+    if (!gross && dto.hourlyRate) {
+      gross = parseFloat(String(dto.hourlyRate)) * 22 * 8;
+    }
+
+    const dailyRate = dto.dailyRate
+      ? parseFloat(String(dto.dailyRate))
+      : gross
+        ? Math.round((gross / 22) * 100) / 100
+        : undefined;
+    const hourlyRate = gross
+      ? Math.round((gross / (22 * 8)) * 100) / 100
+      : undefined;
+
+    return {
+      ...(gross !== undefined && { baseSalary: gross }),
+      ...(dailyRate !== undefined && { dailyRate }),
+      ...(hourlyRate !== undefined && { hourlyRate }),
+    };
   }
 
   // Internal helper to fetch the created employee with linked user info
@@ -239,8 +371,30 @@ export class EmployeesService {
       }
 
       // Existing employee → build update payload
-      // Compute employee field updates
+      // Gross ⇄ Net resolution on update (when netSalary/payFrequency provided)
+      const salary = await this.resolveSalary(existing.companyId, dto);
+
       const empSets: string[] = ['"updated_at" = NOW()'];
+      if (dto.payFrequency)
+        empSets.push(`"payFrequency" = '${dto.payFrequency}'`);
+      if (dto.baseSalary !== undefined)
+        empSets.push(
+          `"baseSalary" = ${salary.baseSalary ?? dto.baseSalary ?? 'NULL'}`,
+        );
+      if (dto.dailyRate !== undefined)
+        empSets.push(
+          `"dailyRate" = ${salary.dailyRate ?? dto.dailyRate ?? 'NULL'}`,
+        );
+      if (dto.hourlyRate !== undefined)
+        empSets.push(
+          `"hourlyRate" = ${salary.hourlyRate ?? dto.hourlyRate ?? 'NULL'}`,
+        );
+      if (dto.netSalary !== undefined)
+        empSets.push(`"baseSalary" = ${salary.baseSalary ?? 'NULL'}`);
+      if (dto.netSalary !== undefined)
+        empSets.push(`"dailyRate" = ${salary.dailyRate ?? 'NULL'}`);
+      if (dto.netSalary !== undefined)
+        empSets.push(`"hourlyRate" = ${salary.hourlyRate ?? 'NULL'}`);
       if (dto.employeeCode)
         empSets.push(`"employeeCode" = '${dto.employeeCode}'`);
       if (dto.firstName) empSets.push(`"firstName" = '${dto.firstName}'`);
@@ -252,12 +406,6 @@ export class EmployeesService {
       if (dto.designation) empSets.push(`designation = '${dto.designation}'`);
       if (dto.employmentType)
         empSets.push(`"employmentType" = '${dto.employmentType}'`);
-      if (dto.baseSalary !== undefined)
-        empSets.push(`"baseSalary" = ${dto.baseSalary ?? 'NULL'}`);
-      if (dto.hourlyRate !== undefined)
-        empSets.push(`"hourlyRate" = ${dto.hourlyRate ?? 'NULL'}`);
-      if (dto.dailyRate !== undefined)
-        empSets.push(`"dailyRate" = ${dto.dailyRate ?? 'NULL'}`);
       if (dto.isActive !== undefined)
         empSets.push(`"isActive" = ${dto.isActive}`);
       if (dto.joinedDate) empSets.push(`"joinedDate" = '${dto.joinedDate}'`);
