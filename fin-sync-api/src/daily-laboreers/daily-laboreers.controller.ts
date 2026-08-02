@@ -40,7 +40,7 @@ export class DailyLaborersController {
   }
 
   @Get()
-  @RequirePermissions(PermissionCode.EMPLOYEES_READ)
+  @RequirePermissions(PermissionCode.EMPLOYEES_MANAGE)
   findAll(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.service.findAll(companyId);
   }
@@ -91,7 +91,7 @@ export class DailyLaborersController {
   }
 
   @Get('timesheets')
-  @RequirePermissions(PermissionCode.EMPLOYEES_READ)
+  @RequirePermissions(PermissionCode.EMPLOYEES_MANAGE)
   listTimesheets(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Query('startDate') startDate?: string,
@@ -101,7 +101,7 @@ export class DailyLaborersController {
   }
 
   @Get(':id/timesheets')
-  @RequirePermissions(PermissionCode.EMPLOYEES_READ)
+  @RequirePermissions(PermissionCode.EMPLOYEES_MANAGE)
   timesheetsByLaborer(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Param('id', ParseIntPipe) id: number,
