@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { PermissionCode } from '../common/constants/permission-codes';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permission.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
@@ -57,6 +58,55 @@ export class PayrollController {
   @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
   markPaid(@Param('id', ParseIntPipe) id: number) {
     return this.service.markPaid(id);
+  }
+
+  @Get('config/history')
+  @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
+  getConfigHistory(@Param('companyId', ParseIntPipe) companyId: number) {
+    return this.service.getPayrollConfigHistory(companyId);
+  }
+
+  @Get('config')
+  @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
+  getConfig(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Query('asOf') asOf?: string,
+  ) {
+    return this.service.getEffectivePayrollConfig(
+      companyId,
+      asOf ? new Date(asOf) : undefined,
+    );
+  }
+
+  @Post('config')
+  @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
+  createConfig(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Body()
+    dto: {
+      effectiveFrom: string;
+      taxBrackets: Array<{ upTo: number | null; rate: number; deduct: number }>;
+      employeePensionRate: number;
+      employerPensionRate: number;
+      standardAllowanceAmount: number;
+      otMultiplier: number;
+      defaultPayFrequency: string;
+    },
+    @CurrentUser('id') userId: number,
+  ) {
+    return this.service.createPayrollConfigVersion(
+      companyId,
+      {
+        effectiveFrom: new Date(dto.effectiveFrom),
+        taxBrackets: dto.taxBrackets,
+        employeePensionRate: dto.employeePensionRate,
+        employerPensionRate: dto.employerPensionRate,
+        standardAllowanceAmount: dto.standardAllowanceAmount,
+        otMultiplier: dto.otMultiplier,
+        defaultPayFrequency: dto.defaultPayFrequency,
+      },
+      userId,
+    );
   }
 
   @Get('audit')

@@ -63,6 +63,98 @@ export class PayrollService {
   }
 
   /**
+   * Return the payroll config version effective for a given date.
+   * Versioned: past runs always resolve the brackets that were active in their
+   * own period, so mid-year rule changes never break historical payroll.
+   */
+  async getEffectivePayrollConfig(companyId: number, asOf?: Date) {
+    const date = asOf ?? new Date();
+    const rows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT * FROM finsync.company_payroll_config_versions
+       WHERE company_id = ${companyId}
+         AND effective_from <= ${date.toISOString()}
+         AND (superseded_at IS NULL OR superseded_at > ${date.toISOString()})
+       ORDER BY effective_from DESC
+       LIMIT 1`,
+    );
+    if (rows.length > 0) return rows[0];
+    // No version yet → create the Ethiopian Proclamation 1395/2025 default
+    return this.createPayrollConfigVersion(
+      companyId,
+      {
+        effectiveFrom: date,
+        taxBrackets: [
+          { upTo: 2000, rate: 0.0, deduct: 0 },
+          { upTo: 4000, rate: 0.15, deduct: 300 },
+          { upTo: 12000, rate: 0.2, deduct: 500 },
+          { upTo: 20000, rate: 0.25, deduct: 1700 },
+          { upTo: 30000, rate: 0.3, deduct: 2900 },
+          { upTo: 40000, rate: 0.35, deduct: 4950 },
+          { upTo: null, rate: 0.35, deduct: 2950 },
+        ],
+        employeePensionRate: 7,
+        employerPensionRate: 11,
+        standardAllowanceAmount: 0,
+        otMultiplier: 1.5,
+        defaultPayFrequency: 'MONTHLY',
+      },
+      undefined,
+    );
+  }
+
+  async createPayrollConfigVersion(
+    companyId: number,
+    dto: {
+      effectiveFrom: Date;
+      taxBrackets: Array<{ upTo: number | null; rate: number; deduct: number }>;
+      employeePensionRate: number;
+      employerPensionRate: number;
+      standardAllowanceAmount: number;
+      otMultiplier: number;
+      defaultPayFrequency: string;
+    },
+    createdById?: number,
+  ) {
+    const eff = `${dto.effectiveFrom.toISOString()}`
+      .replace('T', ' ')
+      .slice(0, 19);
+
+    // Supersede any currently-active version (audit trail: never edited in place)
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE finsync.company_payroll_config_versions
+       SET superseded_at = ${eff}
+       WHERE company_id = ${companyId}
+         AND superseded_at IS NULL
+         AND effective_from <= ${eff}`,
+    );
+
+    const inserted: { id: number }[] = await this.prisma.$queryRawUnsafe(
+      `INSERT INTO finsync.company_payroll_config_versions
+         (company_id, effective_from, tax_brackets, employee_pension_rate, employer_pension_rate,
+          standard_allowance_amount, ot_multiplier, default_pay_frequency, created_at, created_by_id)
+       VALUES (${companyId}, ${eff},
+         '${JSON.stringify(dto.taxBrackets).replace(/'/g, "''")}',
+         ${dto.employeePensionRate}, ${dto.employerPensionRate},
+         ${dto.standardAllowanceAmount}, ${dto.otMultiplier}, '${dto.defaultPayFrequency}',
+         NOW(), ${createdById ?? 'NULL'})
+       RETURNING id`,
+    );
+
+    const row: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT * FROM finsync.company_payroll_config_versions WHERE id = ${inserted[0].id}`,
+    );
+    return row[0];
+  }
+
+  async getPayrollConfigHistory(companyId: number) {
+    return this.prisma.$queryRawUnsafe(
+      `SELECT * FROM finsync.company_payroll_config_versions
+       WHERE company_id = ${companyId}
+       ORDER BY effective_from DESC`,
+    );
+  }
+
+  /**
    * Strict duplicate protection: reject payroll generation when the requested
    * period overlaps ANY existing (non-voided) payroll for this company —
    * whether created from a company or project workspace. Payrolls are
