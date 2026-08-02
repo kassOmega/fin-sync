@@ -18,8 +18,9 @@ import type {
 } from "@/lib/services/types";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 
-type TabType = "runs" | "overtime" | "compensation" | "audit";
+type TabType = "runs" | "overtime" | "compensation" | "audit" | "settings";
 
 interface AuditRow {
   id: number;
@@ -99,6 +100,72 @@ export default function PayrollPage() {
       setRegistryRows([]);
     } finally {
       setRegistryLoading(false);
+    }
+  };
+
+  // Payroll Settings — versioned tax/pension config
+  const [config, setConfig] = useState<Record<string, any> | null>(null);
+  const [bracketDraft, setBracketDraft] = useState<
+    Array<{ upTo: string; rate: string; deduct: string }>
+  >([]);
+  const [pensionDraft, setPensionDraft] = useState("7");
+  const [employerPensionDraft, setEmployerPensionDraft] = useState("11");
+  const [otDraft, setOtDraft] = useState("1.5");
+  const [effectiveFromDraft, setEffectiveFromDraft] = useState(
+    new Date().toISOString().split("T")[0],
+  );
+
+  const loadSettings = async () => {
+    try {
+      const res = await api.get(`/companies/${companyId}/payroll/config`);
+      const c = res.data;
+      setConfig(c);
+      const brackets =
+        typeof c?.tax_brackets === "string"
+          ? JSON.parse(c.tax_brackets)
+          : c?.tax_brackets || [];
+      setBracketDraft(
+        brackets.map((b: any) => ({
+          upTo: b.upTo === null ? "" : String(b.upTo),
+          rate: String(b.rate),
+          deduct: String(b.deduct),
+        })),
+      );
+      setPensionDraft(String(c?.employee_pension_rate ?? 7));
+      setEmployerPensionDraft(String(c?.employer_pension_rate ?? 11));
+      setOtDraft(String(c?.ot_multiplier ?? 1.5));
+      setEffectiveFromDraft(
+        c?.effective_from
+          ? String(c.effective_from).split("T")[0]
+          : new Date().toISOString().split("T")[0],
+      );
+    } catch {
+      setConfig(null);
+    }
+  };
+
+  const saveSettings = async () => {
+    const parsed = bracketDraft.map((b) => ({
+      upTo: b.upTo === "" ? null : parseFloat(b.upTo),
+      rate: parseFloat(b.rate) || 0,
+      deduct: parseFloat(b.deduct) || 0,
+    }));
+    try {
+      const res = await api.post(`/companies/${companyId}/payroll/config`, {
+        effectiveFrom: effectiveFromDraft,
+        taxBrackets: parsed,
+        employeePensionRate: parseFloat(pensionDraft) || 7,
+        employerPensionRate: parseFloat(employerPensionDraft) || 11,
+        standardAllowanceAmount: 0,
+        otMultiplier: parseFloat(otDraft) || 1.5,
+        defaultPayFrequency: "MONTHLY",
+      });
+      setConfig(res.data);
+      toast.success(
+        "Payroll config version created (effective " + effectiveFromDraft + ")",
+      );
+    } catch {
+      toast.error("Failed to save payroll config");
     }
   };
 
@@ -213,6 +280,7 @@ export default function PayrollPage() {
             ["overtime", "Overtime"],
             ["compensation", "Compensation"],
             ["audit", "Audit & Registry"],
+            ["settings", "Settings"],
           ] as [TabType, string][]
         ).map(([key, label]) => (
           <button
@@ -222,6 +290,9 @@ export default function PayrollPage() {
               if (key === "audit") {
                 loadAudit();
                 loadRegistry();
+              }
+              if (key === "settings") {
+                loadSettings();
               }
             }}
             className={`px-4 py-2 rounded-md text-sm font-medium ${tab === key ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
@@ -500,6 +571,178 @@ export default function PayrollPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === "settings" && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-gray-900">
+                  Payroll Settings — Tax & Pension
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Editing creates a NEW version effective from the selected
+                  date. Past payroll runs keep their historical brackets.
+                </p>
+              </div>
+              {config?.id && (
+                <span className="text-xs text-gray-500">
+                  Current version #{config.id} (effective{" "}
+                  {config.effective_from
+                    ? new Date(config.effective_from).toLocaleDateString()
+                    : "—"}
+                  )
+                </span>
+              )}
+            </div>
+            <div className="p-4 space-y-4">
+              {/* Bracket editor */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Tax Brackets (Ethiopian shortcut: income × rate − deduct)
+                </label>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-gray-500 text-xs uppercase border-b">
+                      <th className="text-left px-2 py-1">Up To (ETB)</th>
+                      <th className="text-left px-2 py-1">Rate (%)</th>
+                      <th className="text-left px-2 py-1">Deduct</th>
+                      <th className="w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bracketDraft.map((b, i) => (
+                      <tr key={i} className="border-b border-gray-50">
+                        <td className="px-2 py-1">
+                          <input
+                            type="text"
+                            placeholder="∞ (blank)"
+                            value={b.upTo}
+                            onChange={(e) => {
+                              const next = [...bracketDraft];
+                              next[i] = { ...next[i], upTo: e.target.value };
+                              setBracketDraft(next);
+                            }}
+                            className="w-24 px-2 py-1 border border-gray-300 rounded"
+                          />
+                        </td>
+                        <td className="px-2 py-1">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={b.rate}
+                            onChange={(e) => {
+                              const next = [...bracketDraft];
+                              next[i] = { ...next[i], rate: e.target.value };
+                              setBracketDraft(next);
+                            }}
+                            className="w-24 px-2 py-1 border border-gray-300 rounded"
+                          />
+                        </td>
+                        <td className="px-2 py-1">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={b.deduct}
+                            onChange={(e) => {
+                              const next = [...bracketDraft];
+                              next[i] = { ...next[i], deduct: e.target.value };
+                              setBracketDraft(next);
+                            }}
+                            className="w-24 px-2 py-1 border border-gray-300 rounded"
+                          />
+                        </td>
+                        <td className="px-2 py-1 text-right">
+                          <button
+                            onClick={() =>
+                              setBracketDraft(
+                                bracketDraft.filter((_, j) => j !== i),
+                              )
+                            }
+                            className="text-xs text-red-500 hover:text-red-700"
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button
+                  onClick={() =>
+                    setBracketDraft([
+                      ...bracketDraft,
+                      { upTo: "", rate: "", deduct: "" },
+                    ])
+                  }
+                  className="mt-2 text-xs text-indigo-600 hover:text-indigo-800"
+                >
+                  + Add bracket
+                </button>
+              </div>
+
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Employee Pension (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={pensionDraft}
+                    onChange={(e) => setPensionDraft(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Employer Pension (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={employerPensionDraft}
+                    onChange={(e) => setEmployerPensionDraft(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    OT Multiplier
+                  </label>
+                  <input
+                    type="number"
+                    step="0.25"
+                    value={otDraft}
+                    onChange={(e) => setOtDraft(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Effective From
+                  </label>
+                  <input
+                    type="date"
+                    value={effectiveFromDraft}
+                    onChange={(e) => setEffectiveFromDraft(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  onClick={saveSettings}
+                  className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700"
+                >
+                  Save as New Version
+                </button>
+              </div>
             </div>
           </div>
         </div>
