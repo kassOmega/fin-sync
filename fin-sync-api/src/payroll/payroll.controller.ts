@@ -59,6 +59,24 @@ export class PayrollController {
     return this.service.markPaid(id);
   }
 
+  @Get('audit')
+  @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
+  getAudit(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Query('projectId') projectId?: string,
+  ) {
+    return this.service.getPayrollAudit(
+      companyId,
+      projectId ? parseInt(projectId) : undefined,
+    );
+  }
+
+  @Get('registry')
+  @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
+  getRegistry(@Param('companyId', ParseIntPipe) companyId: number) {
+    return this.service.getCompensationRegistry(companyId);
+  }
+
   @Get(':id/items')
   @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
   getItems(@Param('id', ParseIntPipe) id: number) {

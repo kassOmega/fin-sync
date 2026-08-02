@@ -62,7 +62,41 @@ export class PayrollService {
     );
   }
 
+  /**
+   * Strict duplicate protection: reject payroll generation when the requested
+   * period overlaps ANY existing (non-voided) payroll for this company —
+   * whether created from a company or project workspace. Payrolls are
+   * company-centralized, so this prevents an employee from being paid twice
+   * for the same dates via overlapping runs at any scope.
+   */
+  private async assertNoOverlap(
+    companyId: number,
+    startDate: string,
+    endDate: string,
+    excludeId?: number,
+  ) {
+    const overlap: { cnt: string }[] = await this.prisma.$queryRawUnsafe(
+      `SELECT COUNT(*) AS cnt
+       FROM finsync.payrolls
+       WHERE "companyId" = ${companyId}
+         AND status <> 'VOIDED'
+         AND "startDate" <= '${endDate}'
+         AND "endDate" >= '${startDate}'
+         AND id <> ${excludeId ?? 0}`,
+    );
+    const count = parseInt(overlap[0]?.cnt || '0', 10);
+    if (count > 0) {
+      throw new BadRequestException(
+        `Payroll overlap detected: a payroll already covers this date range (${startDate} → ${endDate}) for this company. ` +
+          `Regenerating would double-pay employees. Void or delete the overlapping payroll first.`,
+      );
+    }
+  }
+
   async generate(companyId: number, dto: any) {
+    // Reject overlapping payroll runs before doing any work
+    await this.assertNoOverlap(companyId, dto.startDate, dto.endDate);
+
     const pid = dto.projectId ?? 'NULL';
     const sourceType = dto.sourceType || 'ALL'; // ATTENDANCE | TIMESHEETS | ALL
 
@@ -478,6 +512,83 @@ export class PayrollService {
     }
 
     return { paid: true, id: payrollId, amount };
+  }
+
+  /**
+   * Unified compensation registry: one row per employee across ALL
+   * non-voided payrolls for the company (any project scope). This is the
+   * cross-referencing check for duplicate-fee prevention — base salary,
+   * overtime, allowances, bonuses are summed so administrators can verify
+   * an employee has not been paid twice for overlapping periods.
+   */
+  async getCompensationRegistry(companyId: number) {
+    const rows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT
+        e.id AS "employeeId",
+        e."firstName",
+        e."lastName",
+        e."employeeCode",
+        COUNT(DISTINCT pi."payrollId") AS "payrollCount",
+        COALESCE(SUM(pi."basePay"), 0) AS "totalBase",
+        COALESCE(SUM(pi."overtimeEarnings"), 0) AS "totalOvertime",
+        COALESCE(SUM(pi."allowanceTotal"), 0) AS "totalAllowances",
+        COALESCE(SUM(pi."bonusTotal"), 0) AS "totalBonuses",
+        COALESCE(SUM(pi."grossPay"), 0) AS "totalGross",
+        COALESCE(SUM(pi."totalDeductions"), 0) AS "totalDeductions",
+        COALESCE(SUM(pi."netPay"), 0) AS "totalNet"
+       FROM finsync.payroll_items pi
+       JOIN finsync.employees e ON e.id = pi."employeeId"
+       JOIN finsync.payrolls p ON p.id = pi."payrollId"
+       WHERE p."companyId" = ${companyId} AND p.status <> 'VOIDED'
+       GROUP BY e.id, e."firstName", e."lastName", e."employeeCode"
+       ORDER BY e."lastName", e."firstName"`,
+    );
+    return rows.map((r) => ({
+      employeeId: r.employeeId,
+      firstName: r.firstName,
+      lastName: r.lastName,
+      employeeCode: r.employeeCode,
+      payrollCount: parseInt(r.payrollCount || '0', 10),
+      totalBase: parseFloat(r.totalBase || 0),
+      totalOvertime: parseFloat(r.totalOvertime || 0),
+      totalAllowances: parseFloat(r.totalAllowances || 0),
+      totalBonuses: parseFloat(r.totalBonuses || 0),
+      totalGross: parseFloat(r.totalGross || 0),
+      totalDeductions: parseFloat(r.totalDeductions || 0),
+      totalNet: parseFloat(r.totalNet || 0),
+    }));
+  }
+
+  /**
+   * Audit cross-reference between project financial logs and the central
+   * company ledger. Each payroll row shows its project scope, the linked
+   * company expense (payroll_expense_id) and journal source so admins can
+   * verify allocation without double-dipping.
+   */
+  async getPayrollAudit(companyId: number, projectId?: number) {
+    const pf = projectId ? `AND p."projectId" = ${projectId}` : '';
+    return this.prisma.$queryRawUnsafe(
+      `SELECT
+        p.id,
+        p.title,
+        p."startDate",
+        p."endDate",
+        p.status,
+        p."projectId",
+        prj.name AS "projectName",
+        p."expenseId",
+        ce.amount AS "expenseAmount",
+        ce.note AS "expenseNote",
+        CASE WHEN j.id IS NULL THEN 'NO_JOURNAL' ELSE 'POSTED' END AS "ledgerStatus",
+        j."entryNumber" AS "journalEntry",
+        j."sourceType" AS "journalSource"
+       FROM finsync.payrolls p
+       LEFT JOIN finsync."projects" prj ON prj.id = p."projectId"
+       LEFT JOIN finsync."CompanyExpense" ce ON ce.payroll_expense_id = p.id
+       LEFT JOIN finsync.journal_entries j ON j."sourceType" = 'PAYROLL' AND j."sourceId" = p.id
+       WHERE p."companyId" = ${companyId} AND p.status <> 'VOIDED' ${pf}
+       ORDER BY p."startDate" DESC, p.id DESC`,
+    );
   }
 
   async getItems(payrollId: number) {
