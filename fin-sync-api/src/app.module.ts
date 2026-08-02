@@ -16,6 +16,7 @@ import { CompaniesModule } from './companies/companies.module';
 import { CompanyExpensesModule } from './company-expenses/company-expenses.module';
 import { CompanyIncomesModule } from './company-incomes/company-incomes.module';
 import { CompensationModule } from './compensation/compensation.module';
+import { DailyLaborersModule } from './daily-laboreers/daily-laboreers.module';
 import { DepreciationsModule } from './depreciations/depreciations.module';
 import { EmployeesModule } from './employees/employees.module';
 import { LeavesModule } from './leaves/leaves.module';
@@ -49,6 +50,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     UsersModule,
     CompensationModule,
+    DailyLaborersModule,
     CompaniesModule,
     BudgetsModule,
     SavingsModule,

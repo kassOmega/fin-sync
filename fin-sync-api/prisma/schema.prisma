@@ -144,35 +144,37 @@ model Company {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
-  ownerId               Int                           @map("owner_id")
-  owner                 User                          @relation("CompanyOwner", fields: [ownerId], references: [id])
-  members               CompanyMember[]
-  incomes               CompanyIncome[]
-  expenses              CompanyExpense[]
-  employees             Employee[]
-  machineries           Machinery[]
-  storeItems            StoreItem[]
-  projects              Project[]
-  storeTransactions     StoreTransaction[]
-  storeRequests         StoreRequest[]
-  sales                 Sale[]
-  purchases             Purchase[]
-  customers             Customer[]
-  suppliers             Supplier[]
-  storeCategories       StoreCategory[]
-  companyRoles          CompanyRole[]
-  attendances           Attendance[]
-  timesheets            Timesheet[]
-  payrolls              Payroll[]
-  accounts              Account[]
-  journalEntries        JournalEntry[]
-  leaveTypes            LeaveType[]
-  leaveRequests         LeaveRequest[]
-  taxTables             TaxTable[]
-  payrollDeductions     PayrollDeduction[]
-  depreciationMethods   DepreciationMethod[]
-  overtimeRates         OvertimeRate[]
-  payrollConfigVersions CompanyPayrollConfigVersion[]
+  ownerId                Int                           @map("owner_id")
+  owner                  User                          @relation("CompanyOwner", fields: [ownerId], references: [id])
+  members                CompanyMember[]
+  incomes                CompanyIncome[]
+  expenses               CompanyExpense[]
+  employees              Employee[]
+  machineries            Machinery[]
+  storeItems             StoreItem[]
+  projects               Project[]
+  storeTransactions      StoreTransaction[]
+  storeRequests          StoreRequest[]
+  sales                  Sale[]
+  purchases              Purchase[]
+  customers              Customer[]
+  suppliers              Supplier[]
+  storeCategories        StoreCategory[]
+  companyRoles           CompanyRole[]
+  attendances            Attendance[]
+  timesheets             Timesheet[]
+  payrolls               Payroll[]
+  accounts               Account[]
+  journalEntries         JournalEntry[]
+  leaveTypes             LeaveType[]
+  leaveRequests          LeaveRequest[]
+  taxTables              TaxTable[]
+  payrollDeductions      PayrollDeduction[]
+  depreciationMethods    DepreciationMethod[]
+  overtimeRates          OvertimeRate[]
+  payrollConfigVersions  CompanyPayrollConfigVersion[]
+  dailyLaborers          DailyLaborer[]
+  dailyLaborerTimesheets DailyLaborerTimesheet[]
 
   @@schema("finsync")
 }
@@ -426,6 +428,55 @@ model Employee {
   @@unique([companyId, employeeCode])
   @@index([companyId])
   @@map("employees")
+  @@schema("finsync")
+}
+
+// ==========================================
+// 5b. DAILY LABORERS (Dedicated Registry — separated from standard staff)
+// ==========================================
+
+model DailyLaborer {
+  id        Int     @id @default(autoincrement())
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  laborerCode String
+  firstName   String
+  lastName    String
+  phone       String?
+  dailyRate   Decimal  @db.Decimal(10, 2)
+  isActive    Boolean  @default(true)
+  joinedDate  DateTime @default(now())
+
+  timesheets DailyLaborerTimesheet[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([companyId, laborerCode])
+  @@index([companyId])
+  @@map("daily_laborers")
+  @@schema("finsync")
+}
+
+model DailyLaborerTimesheet {
+  id        Int          @id @default(autoincrement())
+  companyId Int
+  company   Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  laborerId Int
+  laborer   DailyLaborer @relation(fields: [laborerId], references: [id], onDelete: Cascade)
+
+  date     DateTime @db.Date
+  hours    Decimal  @default(8) @db.Decimal(5, 2)
+  breakDay Boolean  @default(false) // rest/break day — not payable
+  note     String?
+  status   String   @default("APPROVED") // APPROVED | PENDING
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([laborerId, date])
+  @@index([companyId, date])
+  @@map("daily_laborer_timesheets")
   @@schema("finsync")
 }
 
