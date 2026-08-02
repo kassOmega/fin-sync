@@ -1,5 +1,6 @@
 "use client";
 
+import api from "@/lib/api";
 import type {
   PayrollAllowance,
   PayrollBonus,
@@ -18,7 +19,38 @@ import type {
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-type TabType = "runs" | "overtime" | "compensation";
+type TabType = "runs" | "overtime" | "compensation" | "audit";
+
+interface AuditRow {
+  id: number;
+  title: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  projectId: number | null;
+  projectName: string | null;
+  expenseId: number | null;
+  expenseAmount: number | null;
+  expenseNote: string | null;
+  ledgerStatus: string;
+  journalEntry: string | null;
+  journalSource: string | null;
+}
+
+interface RegistryRow {
+  employeeId: number;
+  firstName: string;
+  lastName: string;
+  employeeCode: string;
+  payrollCount: number;
+  totalBase: number;
+  totalOvertime: number;
+  totalAllowances: number;
+  totalBonuses: number;
+  totalGross: number;
+  totalDeductions: number;
+  totalNet: number;
+}
 
 export default function PayrollPage() {
   const params = useParams<{ companyId: string }>();
@@ -38,6 +70,37 @@ export default function PayrollPage() {
   const [allowances, setAllowances] = useState<PayrollAllowance[]>([]);
   const [bonuses, setBonuses] = useState<PayrollBonus[]>([]);
   const [withholdings, setWithholdings] = useState<PayrollWithholding[]>([]);
+
+  // Audit & Registry
+  const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
+  const [registryRows, setRegistryRows] = useState<RegistryRow[]>([]);
+  const [auditProjectFilter, setAuditProjectFilter] = useState("");
+  const [registryLoading, setRegistryLoading] = useState(false);
+
+  const loadAudit = async () => {
+    try {
+      const res = await api.get(
+        `/companies/${companyId}/payroll/audit${
+          auditProjectFilter ? `?projectId=${auditProjectFilter}` : ""
+        }`,
+      );
+      setAuditRows(res.data || []);
+    } catch {
+      setAuditRows([]);
+    }
+  };
+
+  const loadRegistry = async () => {
+    setRegistryLoading(true);
+    try {
+      const res = await api.get(`/companies/${companyId}/payroll/registry`);
+      setRegistryRows(res.data || []);
+    } catch {
+      setRegistryRows([]);
+    } finally {
+      setRegistryLoading(false);
+    }
+  };
 
   // Payroll Runs filters
   const [payrollStatus, setPayrollStatus] = useState("");
@@ -149,11 +212,18 @@ export default function PayrollPage() {
             ["runs", "Payroll Runs"],
             ["overtime", "Overtime"],
             ["compensation", "Compensation"],
+            ["audit", "Audit & Registry"],
           ] as [TabType, string][]
         ).map(([key, label]) => (
           <button
             key={key}
-            onClick={() => setTab(key)}
+            onClick={() => {
+              setTab(key);
+              if (key === "audit") {
+                loadAudit();
+                loadRegistry();
+              }
+            }}
             className={`px-4 py-2 rounded-md text-sm font-medium ${tab === key ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
           >
             {label}
@@ -223,6 +293,216 @@ export default function PayrollPage() {
           setWithholdings={setWithholdings}
           money={money}
         />
+      )}
+      {tab === "audit" && (
+        <div className="space-y-6">
+          {/* Compensation Registry — duplicate-payment cross-check */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+              <h3 className="font-semibold text-gray-900">
+                Compensation Registry
+              </h3>
+              <p className="text-xs text-gray-500">
+                Per-employee totals across ALL non-voided payroll runs (any
+                project scope) — verify no double-dipping.
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-gray-500 text-xs uppercase border-b">
+                    <th className="text-left px-4 py-2">Employee</th>
+                    <th className="text-right px-4 py-2">Runs</th>
+                    <th className="text-right px-4 py-2">Base</th>
+                    <th className="text-right px-4 py-2">OT</th>
+                    <th className="text-right px-4 py-2">Allow.</th>
+                    <th className="text-right px-4 py-2">Bonus</th>
+                    <th className="text-right px-4 py-2">Gross</th>
+                    <th className="text-right px-4 py-2">Deduct.</th>
+                    <th className="text-right px-4 py-2">Net</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {registryLoading ? (
+                    <tr>
+                      <td
+                        colSpan={9}
+                        className="px-4 py-6 text-center text-gray-500"
+                      >
+                        Loading registry...
+                      </td>
+                    </tr>
+                  ) : registryRows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={9}
+                        className="px-4 py-6 text-center text-gray-500"
+                      >
+                        No payroll items recorded yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    registryRows.map((r) => (
+                      <tr
+                        key={r.employeeId}
+                        className="border-b border-gray-100"
+                      >
+                        <td className="px-4 py-2 font-medium text-gray-800">
+                          {r.firstName} {r.lastName}{" "}
+                          <span className="text-gray-400 font-normal">
+                            ({r.employeeCode})
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-right text-gray-900">
+                          {r.payrollCount}
+                        </td>
+                        <td className="px-4 py-2 text-right text-gray-900">
+                          {money(r.totalBase)}
+                        </td>
+                        <td className="px-4 py-2 text-right text-gray-900">
+                          {money(r.totalOvertime)}
+                        </td>
+                        <td className="px-4 py-2 text-right text-gray-900">
+                          {money(r.totalAllowances)}
+                        </td>
+                        <td className="px-4 py-2 text-right text-gray-900">
+                          {money(r.totalBonuses)}
+                        </td>
+                        <td className="px-4 py-2 text-right font-medium text-gray-900">
+                          {money(r.totalGross)}
+                        </td>
+                        <td className="px-4 py-2 text-right text-red-600">
+                          {money(r.totalDeductions)}
+                        </td>
+                        <td className="px-4 py-2 text-right font-bold text-green-700">
+                          {money(r.totalNet)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Payroll Audit — project ↔ expense ↔ ledger cross-reference */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h3 className="font-semibold text-gray-900">Payroll Audit</h3>
+                <p className="text-xs text-gray-500">
+                  Cross-references each run to its project scope, linked company
+                  expense, and ledger journal.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  placeholder="Project ID filter"
+                  value={auditProjectFilter}
+                  onChange={(e) => setAuditProjectFilter(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") loadAudit();
+                  }}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md w-40"
+                />
+                <button
+                  onClick={loadAudit}
+                  className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-700"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-gray-500 text-xs uppercase border-b">
+                    <th className="text-left px-4 py-2">Run</th>
+                    <th className="text-left px-4 py-2">Period</th>
+                    <th className="text-left px-4 py-2">Status</th>
+                    <th className="text-left px-4 py-2">Project</th>
+                    <th className="text-left px-4 py-2">Expense</th>
+                    <th className="text-left px-4 py-2">Ledger</th>
+                    <th className="text-left px-4 py-2">Journal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditRows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-4 py-6 text-center text-gray-500"
+                      >
+                        No payroll runs to audit.
+                      </td>
+                    </tr>
+                  ) : (
+                    auditRows.map((a) => (
+                      <tr key={a.id} className="border-b border-gray-100">
+                        <td className="px-4 py-2 font-medium text-gray-800">
+                          {a.title}
+                        </td>
+                        <td className="px-4 py-2 text-gray-900 whitespace-nowrap">
+                          {new Date(a.startDate).toLocaleDateString()} →{" "}
+                          {new Date(a.endDate).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-2">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              a.status === "PAID"
+                                ? "bg-green-100 text-green-700"
+                                : a.status === "APPROVED"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-yellow-100 text-yellow-700"
+                            }`}
+                          >
+                            {a.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-gray-900">
+                          {a.projectName || (
+                            <span className="text-gray-400">Company-wide</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-gray-900">
+                          {a.expenseId ? (
+                            <>
+                              $
+                              {Number(a.expenseAmount || 0).toLocaleString(
+                                undefined,
+                                { maximumFractionDigits: 2 },
+                              )}
+                              <span className="text-gray-400 block text-xs">
+                                Exp #{a.expenseId}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              a.ledgerStatus === "POSTED"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-red-100 text-red-700"
+                            }`}
+                          >
+                            {a.ledgerStatus}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs text-gray-600">
+                          {a.journalEntry || "—"}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       )}
 
       {showGenerate && (
