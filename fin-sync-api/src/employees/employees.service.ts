@@ -132,28 +132,31 @@ export class EmployeesService {
       // Gross ⇄ Net resolution (dynamic tax + pension from active config)
       const salary = await this.resolveSalary(companyId, dto);
 
-      // Create the employee
-      const created = await prisma.employee.create({
-        data: {
-          companyId,
-          employeeCode: dto.employeeCode,
-          firstName: dto.firstName,
-          lastName: dto.lastName,
-          email: dto.email,
-          phone: dto.phone,
-          designation: dto.designation || dto.role || 'Employee',
-          employmentType: dto.employmentType || 'FULL_TIME',
-          payFrequency: dto.payFrequency || 'MONTHLY',
-          baseSalary: salary.baseSalary,
-          hourlyRate: salary.hourlyRate,
-          dailyRate: salary.dailyRate,
-          isActive: dto.isActive ?? true,
-          joinedDate: dto.joinedDate ? new Date(dto.joinedDate) : new Date(),
-          userId,
-        },
-      });
+      // Create the employee (raw SQL — avoids stale client type issues)
+      const created: { id: number }[] = await this.prisma.$queryRawUnsafe(
+        `INSERT INTO finsync.employees
+           ("companyId", "employeeCode", "firstName", "lastName", email, phone,
+            designation, "employmentType", "payFrequency",
+            "baseSalary", "hourlyRate", "dailyRate",
+            "isActive", "joinedDate", "userId")
+         VALUES (${companyId}, '${dto.employeeCode.replace(/'/g, "''")}',
+           '${dto.firstName.replace(/'/g, "''")}',
+           '${dto.lastName.replace(/'/g, "''")}',
+           ${dto.email ? `'${dto.email.replace(/'/g, "''")}'` : 'NULL'},
+           ${dto.phone ? `'${dto.phone.replace(/'/g, "''")}'` : 'NULL'},
+           '${(dto.designation || dto.role || 'Employee').replace(/'/g, "''")}',
+           '${dto.employmentType || 'FULL_TIME'}',
+           '${dto.payFrequency || 'MONTHLY'}',
+           ${salary.baseSalary ?? 'NULL'},
+           ${salary.hourlyRate ?? 'NULL'},
+           ${salary.dailyRate ?? 'NULL'},
+           ${dto.isActive ?? true},
+           ${dto.joinedDate ? `'${dto.joinedDate}'` : 'NOW()'},
+           ${userId ?? 'NULL'})
+         RETURNING id`,
+      );
 
-      return this.findOneAfterCreate(created.id);
+      return this.findOneAfterCreate(created[0].id);
     });
   }
 
