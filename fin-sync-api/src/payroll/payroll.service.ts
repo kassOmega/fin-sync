@@ -155,6 +155,129 @@ export class PayrollService {
   }
 
   /**
+   * Rounding standard — standard arithmetic half-up to 2 decimals,
+   * applied at EVERY calculation step so per-employee nets always sum
+   * exactly to the payroll total and GL lines.
+   */
+  private roundMoney(n: number): number {
+    return Math.round((n + Number.EPSILON) * 100) / 100;
+  }
+
+  /**
+   * Sync approved leave into payroll (Ethiopian statutory rules).
+   * - paidDays: any approved leave with LeaveType.isPaid = true → counted as
+   *   working days (full salary continuity; NEVER reduces base)
+   * - specialDays: fully-paid statutory special leave (maternity/paternity/
+   *   marriage/bereavement) — also counted as working days
+   * - unpaidDays: approved leave where LeaveType.isPaid = false → deducted
+   * - sick (post-probation, after 1yr service): first 22 working days 100%,
+   *   next 44 working days 50% (half-days counted), remainder unpaid
+   */
+  private async getApprovedLeaveBreakdown(
+    companyId: number,
+    employeeId: number,
+    startDate: string,
+    endDate: string,
+    joinedDate?: Date,
+  ): Promise<{
+    paidDays: number;
+    specialDays: number;
+    unpaidDays: number;
+    sickPaid100: number;
+    sickPaid50: number;
+    sickUnpaid: number;
+  }> {
+    const requests: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT lr."startDate", lr."endDate", lr."totalDays", lt.name, lt."isPaid"
+       FROM finsync.leave_requests lr
+       JOIN finsync.leave_types lt ON lt.id = lr."leaveTypeId"
+       WHERE lr."employeeId" = ${employeeId}
+         AND lr."companyId" = ${companyId}
+         AND lr.status = 'APPROVED'
+         AND lr."startDate" <= '${endDate}'
+         AND lr."endDate" >= '${startDate}'`,
+    );
+
+    const servicedYears = joinedDate
+      ? Math.max(
+          0,
+          Math.floor(
+            (Date.now() - new Date(joinedDate).getTime()) /
+              (365.25 * 24 * 3600 * 1000),
+          ),
+        )
+      : 0;
+    // After probation (≈1yr): sick 100% first 22 days, 50% next 44, else unpaid
+    const eligibleSick = servicedYears >= 1;
+
+    let paidDays = 0;
+    let specialDays = 0;
+    let unpaidDays = 0;
+    let sickPaid100 = 0;
+    let sickPaid50 = 0;
+    let sickUnpaid = 0;
+
+    for (const req of requests) {
+      // Count business days (Mon–Fri) overlapping the payroll period
+      const overlapStart = new Date(
+        Math.max(
+          new Date(req.startDate).getTime(),
+          new Date(startDate).getTime(),
+        ),
+      );
+      const overlapEnd = new Date(
+        Math.min(new Date(req.endDate).getTime(), new Date(endDate).getTime()),
+      );
+      if (overlapStart > overlapEnd) continue;
+
+      let days = 0;
+      const cur = new Date(overlapStart);
+      while (cur <= overlapEnd) {
+        const d = cur.getDay();
+        if (d !== 0 && d !== 6) days++;
+        cur.setDate(cur.getDate() + 1);
+      }
+      if (days <= 0) continue;
+
+      const name = String(req.name || '').toLowerCase();
+      const isSpecial = /maternity|paternity|marriage|bereavement/.test(name);
+      if (isSpecial) {
+        specialDays += days;
+      } else if (/sick/i.test(name)) {
+        if (!eligibleSick) {
+          // Pre-probation sick leave: still paid (full continuity)
+          paidDays += days;
+        } else {
+          const remaining100 = Math.max(0, 22 - sickPaid100);
+          const take100 = Math.min(days, remaining100);
+          sickPaid100 += take100;
+          let rest = days - take100;
+          if (rest > 0) {
+            const remaining50 = Math.max(0, 44 - sickPaid50);
+            const take50 = Math.min(rest, remaining50);
+            sickPaid50 += take50;
+            rest -= take50;
+          }
+          sickUnpaid += rest;
+        }
+      } else if (req.isPaid) {
+        paidDays += days;
+      } else {
+        unpaidDays += days;
+      }
+    }
+
+    return {
+      paidDays: Math.round(paidDays),
+      specialDays: Math.round(specialDays),
+      unpaidDays: Math.round(unpaidDays),
+      sickPaid100: Math.round(sickPaid100),
+      sickPaid50: Math.round(sickPaid50),
+      sickUnpaid: Math.round(sickUnpaid),
+    };
+  }
+
+  /**
    * Strict duplicate protection: reject payroll generation when the requested
    * period overlaps ANY existing (non-voided) payroll for this company —
    * whether created from a company or project workspace. Payrolls are
@@ -215,25 +338,46 @@ export class PayrollService {
           );
 
     for (const e of fullTimeEmployees) {
-      // Count PRESENT attendance days within the payroll date range
+      // Count PRESENT attendance days (DATE() cast so ISO timestamps match)
       const attRows: any[] = await this.prisma.$queryRawUnsafe(
         `SELECT COUNT(*) as present_days
          FROM finsync.attendances
          WHERE "employeeId" = ${e.id}
            AND "companyId" = ${companyId}
            AND status = 'PRESENT'
-           AND date >= '${dto.startDate}'
-           AND date <= '${dto.endDate}'`,
+           AND DATE(date) >= DATE('${dto.startDate}')
+           AND DATE(date) <= DATE('${dto.endDate}')`,
       );
       const presentDays = parseInt(attRows[0]?.present_days || '0', 10);
-      if (presentDays <= 0) continue;
 
-      // Base pay = dailyRate × presentDays (fallback: baseSalary / 22 per day)
+      // Approved leave sync: paid/special leave count as working days
+      const leave = await this.getApprovedLeaveBreakdown(
+        companyId,
+        e.id,
+        dto.startDate,
+        dto.endDate,
+        e.joinedDate,
+      );
+      const workingDays =
+        presentDays + leave.paidDays + leave.specialDays + leave.sickPaid100;
+      if (workingDays <= 0) continue;
+
+      // Rate fallback chain: dailyRate → baseSalary/22 → hourlyRate×8
       let dailyRate = parseFloat(String(e.dailyRate || 0));
       if (!dailyRate && e.baseSalary) {
         dailyRate = parseFloat(String(e.baseSalary)) / 22;
       }
-      const basePay = dailyRate * presentDays;
+      if (!dailyRate && e.hourlyRate) {
+        dailyRate = parseFloat(String(e.hourlyRate)) * 8;
+      }
+      if (!dailyRate) continue; // no resolvable rate — skip with reason
+
+      // Half-rate for sick 50% band; unpaid/sick-unpaid prorate out
+      const basePay = this.roundMoney(
+        dailyRate * (workingDays - leave.sickPaid50) +
+          (dailyRate / 2) * leave.sickPaid50 -
+          dailyRate * (leave.unpaidDays + leave.sickUnpaid),
+      );
       const overtimePay = 0; // Full-time OT comes from OvertimeEntry table
 
       // ── Consolidated Overtime Earnings (approved OvertimeEntry in period) ──
