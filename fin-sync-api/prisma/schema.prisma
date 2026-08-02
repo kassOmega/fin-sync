@@ -395,6 +395,7 @@ model Employee {
   phone          String?
   designation    String
   employmentType String  @default("FULL_TIME")
+  payFrequency   String  @default("MONTHLY") // MONTHLY | WEEKLY | DAILY
 
   baseSalary Decimal? @db.Decimal(12, 2)
   hourlyRate Decimal? @db.Decimal(10, 2)

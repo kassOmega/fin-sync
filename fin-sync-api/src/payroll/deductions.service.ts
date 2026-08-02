@@ -50,10 +50,37 @@ export class DeductionsService {
       totalDeductions += unpaidLeaveDeduction;
     }
 
-    // 2. Fetch active deduction rules
+    // 2. Income tax from the VERSIONED company payroll config
+    //    (Ethiopian shortcut formula: income × rate − deduct per bracket)
+    const config = await this.getEffectiveConfig(companyId);
+    if (config?.tax_brackets?.length) {
+      taxAmount = this.computeEthiopianTax(
+        taxableIncome,
+        JSON.parse(config.tax_brackets),
+      );
+      if (taxAmount > 0) {
+        results.push({ name: 'Income Tax', amount: taxAmount, type: 'TAX' });
+        totalDeductions += taxAmount;
+      }
+    }
+
+    // 3. Employee pension (statutory % of gross, config-driven)
+    const pensionRate = parseFloat(String(config?.employee_pension_rate ?? 7));
+    const pensionAmount =
+      Math.round(grossPay * (pensionRate / 100) * 100) / 100;
+    if (pensionAmount > 0) {
+      results.push({
+        name: 'Employee Pension',
+        amount: pensionAmount,
+        type: 'PENSION',
+      });
+      totalDeductions += pensionAmount;
+    }
+
+    // 4. Additional FIXED/PERCENTAGE deduction rules (BRACKET handled above)
     const deductionRules = await (this.prisma as any).payrollDeduction.findMany(
       {
-        where: { companyId, isActive: true },
+        where: { companyId, isActive: true, type: { not: 'BRACKET' } },
       },
     );
 
@@ -68,25 +95,6 @@ export class DeductionsService {
         case 'PERCENTAGE':
           amount = taxableIncome * (Number(rule.value) / 100);
           break;
-
-        case 'BRACKET': {
-          // Find active tax table for this deduction
-          const taxTable = await (this.prisma as any).taxTable.findFirst({
-            where: { companyId, name: rule.name, isActive: true },
-            include: {
-              brackets: { orderBy: { minIncome: 'asc' as const } },
-            },
-          });
-
-          if (taxTable && taxTable.brackets.length > 0) {
-            amount = this.computeProgressiveTax(
-              taxableIncome,
-              taxTable.brackets,
-            );
-            taxAmount = amount;
-          }
-          break;
-        }
 
         case 'LEAVE_UNPAID':
           // Already calculated above
@@ -177,32 +185,40 @@ export class DeductionsService {
   }
 
   /**
-   * Compute progressive tax given brackets.
+   * Resolve the company payroll config version effective for today
+   * (raw SQL — the versioned config's tax_brackets JSON is the source of truth).
    */
-  private computeProgressiveTax(income: number, brackets: any[]): number {
-    let remainingIncome = income;
-    let totalTax = 0;
+  private async getEffectiveConfig(companyId: number) {
+    const rows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT * FROM finsync.company_payroll_config_versions
+       WHERE company_id = ${companyId}
+         AND effective_from <= NOW()
+         AND (superseded_at IS NULL OR superseded_at > NOW())
+       ORDER BY effective_from DESC
+       LIMIT 1`,
+    );
+    return rows[0] ?? null;
+  }
 
+  /**
+   * Ethiopian shortcut formula: tax = income × rate − deduct
+   * for the bracket containing `income` (not a tiered sum).
+   */
+  private computeEthiopianTax(
+    income: number,
+    brackets: Array<{ upTo: number | null; rate: number; deduct: number }>,
+  ): number {
+    let tax = 0;
     for (let i = 0; i < brackets.length; i++) {
-      const bracket = brackets[i];
-      const minIncome = Number(bracket.minIncome);
-      const maxIncome = bracket.maxIncome
-        ? Number(bracket.maxIncome)
-        : Infinity;
-      const rate = Number(bracket.rate);
-      const fixedAmount = Number(bracket.fixedAmount || 0);
-
-      if (remainingIncome <= 0) break;
-
-      const taxableInBracket = Math.min(maxIncome - minIncome, remainingIncome);
-
-      if (taxableInBracket > 0) {
-        totalTax += taxableInBracket * (rate / 100) + fixedAmount;
-        remainingIncome -= taxableInBracket;
+      const b = brackets[i];
+      const upTo = b.upTo ?? Infinity;
+      if (income <= upTo) {
+        tax = income * b.rate - b.deduct;
+        break;
       }
     }
-
-    return totalTax;
+    if (tax < 0) tax = 0;
+    return Math.round(tax * 100) / 100;
   }
 
   // ─── Tax Table Management ──────────────────────────────────
