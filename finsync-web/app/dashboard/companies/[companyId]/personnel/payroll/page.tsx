@@ -132,6 +132,22 @@ export default function PayrollPage() {
 
   // Payroll Settings — versioned tax/pension config
   const [config, setConfig] = useState<Record<string, any> | null>(null);
+  const [configHistory, setConfigHistory] = useState<
+    Array<Record<string, any>>
+  >([]);
+  const [showTaxModal, setShowTaxModal] = useState(false);
+  const [openHistory, setOpenHistory] = useState(false);
+
+  const loadConfigHistory = async () => {
+    try {
+      const res = await api.get(
+        `/companies/${companyId}/payroll/config/history`,
+      );
+      setConfigHistory(res.data || []);
+    } catch {
+      setConfigHistory([]);
+    }
+  };
   const [bracketDraft, setBracketDraft] = useState<
     Array<{ upTo: string; rate: string; deduct: string }>
   >([]);
@@ -321,6 +337,7 @@ export default function PayrollPage() {
               if (key === "settings") {
                 loadSettings();
                 loadGovDeductions();
+                loadConfigHistory();
               }
             }}
             className={`px-4 py-2 rounded-md text-sm font-medium ${tab === key ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
@@ -628,163 +645,337 @@ export default function PayrollPage() {
               )}
             </div>
             <div className="p-4 space-y-4">
-              {/* Bracket editor */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Tax Brackets
-                  <InfoTag text="Ethiopian shortcut: tax = salary × rate − deduct for the bracket containing the salary. Changing these creates a NEW version — past payroll keeps old brackets." />
-                </label>
+              {/* Active rules — clean read-only card */}
+              <div className="border border-gray-200 rounded-md p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-gray-900">
+                    Active Tax Rules
+                    <span className="ml-2 text-xs font-normal text-gray-500">
+                      v{config?.id ?? "—"} · effective{" "}
+                      {config?.effective_from
+                        ? new Date(config.effective_from).toLocaleDateString()
+                        : "—"}
+                    </span>
+                  </h4>
+                  <button
+                    onClick={() => {
+                      loadSettings();
+                      setShowTaxModal(true);
+                    }}
+                    className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-700"
+                  >
+                    Update Tax Rules
+                  </button>
+                </div>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-gray-500 text-xs uppercase border-b">
-                      <th className="text-left px-2 py-1">
-                        Salary Up To
-                        <InfoTag text="Top of this salary bracket (ETB). Leave blank for the highest (∞) bracket." />
-                      </th>
-                      <th className="text-left px-2 py-1">
-                        Tax Rate
-                        <InfoTag text="% applied to salary in this bracket." />
-                      </th>
-                      <th className="text-left px-2 py-1">
-                        Deduct
-                        <InfoTag text="Fixed amount subtracted after applying the rate (per Ethiopian shortcut formula)." />
-                      </th>
-                      <th className="w-10"></th>
+                      <th className="text-left px-2 py-1">Salary Up To</th>
+                      <th className="text-left px-2 py-1">Tax Rate</th>
+                      <th className="text-left px-2 py-1">Deduct</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {bracketDraft.map((b, i) => (
+                    {(config?.tax_brackets
+                      ? typeof config.tax_brackets === "string"
+                        ? JSON.parse(config.tax_brackets)
+                        : config.tax_brackets
+                      : []
+                    ).map((b: any, i: number) => (
                       <tr key={i} className="border-b border-gray-50">
-                        <td className="px-2 py-1">
-                          <input
-                            type="text"
-                            placeholder="∞ (blank)"
-                            value={b.upTo}
-                            onChange={(e) => {
-                              const next = [...bracketDraft];
-                              next[i] = { ...next[i], upTo: e.target.value };
-                              setBracketDraft(next);
-                            }}
-                            className="w-24 px-2 py-1 border border-gray-300 rounded"
-                          />
+                        <td className="px-2 py-1 text-gray-900">
+                          {b.upTo === null
+                            ? "∞"
+                            : `${Number(b.upTo).toLocaleString()} ETB`}
                         </td>
-                        <td className="px-2 py-1">
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={b.rate}
-                            onChange={(e) => {
-                              const next = [...bracketDraft];
-                              next[i] = { ...next[i], rate: e.target.value };
-                              setBracketDraft(next);
-                            }}
-                            className="w-24 px-2 py-1 border border-gray-300 rounded"
-                          />
+                        <td className="px-2 py-1 text-gray-900">
+                          {Number(b.rate) * 100}%
                         </td>
-                        <td className="px-2 py-1">
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={b.deduct}
-                            onChange={(e) => {
-                              const next = [...bracketDraft];
-                              next[i] = { ...next[i], deduct: e.target.value };
-                              setBracketDraft(next);
-                            }}
-                            className="w-24 px-2 py-1 border border-gray-300 rounded"
-                          />
-                        </td>
-                        <td className="px-2 py-1 text-right">
-                          <button
-                            onClick={() =>
-                              setBracketDraft(
-                                bracketDraft.filter((_, j) => j !== i),
-                              )
-                            }
-                            className="text-xs text-red-500 hover:text-red-700"
-                          >
-                            ✕
-                          </button>
+                        <td className="px-2 py-1 text-gray-900">
+                          {Number(b.deduct).toLocaleString()} ETB
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                <button
-                  onClick={() =>
-                    setBracketDraft([
-                      ...bracketDraft,
-                      { upTo: "", rate: "", deduct: "" },
-                    ])
-                  }
-                  className="mt-2 text-xs text-indigo-600 hover:text-indigo-800"
-                >
-                  + Add bracket
-                </button>
-              </div>
-
-              <div className="grid grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Employee Pension (%)
-                    <InfoTag text="% deducted from each employee's gross pay (statutory 7% default)." />
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={pensionDraft}
-                    onChange={(e) => setPensionDraft(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Employer Pension (%)
-                    <InfoTag text="% the company contributes on top of pay (statutory 11% default) — for reporting." />
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={employerPensionDraft}
-                    onChange={(e) => setEmployerPensionDraft(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    OT Multiplier
-                    <InfoTag text="Multiplier applied to hours beyond normal for overtime pay (default 1.5×)." />
-                  </label>
-                  <input
-                    type="number"
-                    step="0.25"
-                    value={otDraft}
-                    onChange={(e) => setOtDraft(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Effective From
-                    <InfoTag text="Runs starting this date use the new rules. Runs BEFORE this date keep the previous brackets." />
-                  </label>
-                  <input
-                    type="date"
-                    value={effectiveFromDraft}
-                    onChange={(e) => setEffectiveFromDraft(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
+                <div className="mt-3 flex flex-wrap gap-6 text-sm text-gray-700">
+                  <span>
+                    <strong>Employee Pension:</strong>{" "}
+                    {Number(config?.employee_pension_rate ?? 0)}%
+                  </span>
+                  <span>
+                    <strong>Employer Pension:</strong>{" "}
+                    {Number(config?.employer_pension_rate ?? 0)}%
+                  </span>
+                  <span>
+                    <strong>OT Multiplier:</strong>{" "}
+                    {Number(config?.ot_multiplier ?? 0)}×
+                  </span>
                 </div>
               </div>
 
-              <div className="flex justify-end">
+              {/* Version History — accordion (audit only) */}
+              <div className="border border-gray-200 rounded-md">
                 <button
-                  onClick={saveSettings}
-                  className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700"
+                  onClick={() => {
+                    setOpenHistory(!openHistory);
+                    if (!openHistory) loadConfigHistory();
+                  }}
+                  className="w-full flex items-center justify-between px-4 py-3 text-left text-sm font-medium text-gray-800 hover:bg-gray-50"
                 >
-                  Save as New Version
+                  Version History
+                  <span className="text-gray-400">
+                    {openHistory ? "▾" : "▸"}
+                  </span>
                 </button>
+                {openHistory && (
+                  <div className="border-t border-gray-200 px-4 py-3">
+                    {configHistory.length === 0 ? (
+                      <p className="text-sm text-gray-500">
+                        No past versions recorded.
+                      </p>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-gray-500 text-xs uppercase border-b">
+                            <th className="text-left px-2 py-1">Version</th>
+                            <th className="text-left px-2 py-1">
+                              Effective From
+                            </th>
+                            <th className="text-left px-2 py-1">
+                              Superseded At
+                            </th>
+                            <th className="text-right px-2 py-1">
+                              Emp Pension
+                            </th>
+                            <th className="text-right px-2 py-1">OT Mult</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {configHistory.map((h) => (
+                            <tr key={h.id} className="border-b border-gray-50">
+                              <td className="px-2 py-1 text-gray-900">
+                                v{h.id}
+                              </td>
+                              <td className="px-2 py-1 text-gray-900">
+                                {new Date(
+                                  h.effective_from,
+                                ).toLocaleDateString()}
+                              </td>
+                              <td className="px-2 py-1 text-gray-500">
+                                {h.superseded_at
+                                  ? new Date(
+                                      h.superseded_at,
+                                    ).toLocaleDateString()
+                                  : "Active"}
+                              </td>
+                              <td className="px-2 py-1 text-right text-gray-900">
+                                {Number(h.employee_pension_rate)}%
+                              </td>
+                              <td className="px-2 py-1 text-right text-gray-900">
+                                {Number(h.ot_multiplier)}×
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {/* Update Tax Rules — clean modal (saves a NEW version behind the scenes) */}
+              {showTaxModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4">
+                  <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-lg font-semibold text-gray-900">
+                        Update Tax Rules
+                      </h2>
+                      <button
+                        onClick={() => setShowTaxModal(false)}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Effective From
+                          <InfoTag text="Runs starting this date use the new rules. Runs BEFORE this date keep the previous brackets (versioning — past payroll is never recalculated)." />
+                        </label>
+                        <input
+                          type="date"
+                          value={effectiveFromDraft}
+                          onChange={(e) =>
+                            setEffectiveFromDraft(e.target.value)
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Tax Brackets
+                          <InfoTag text="Ethiopian shortcut: tax = salary × rate − deduct for the bracket containing the salary." />
+                        </label>
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-gray-500 text-xs uppercase border-b">
+                              <th className="text-left px-2 py-1">
+                                Salary Up To
+                              </th>
+                              <th className="text-left px-2 py-1">
+                                Tax Rate (%)
+                              </th>
+                              <th className="text-left px-2 py-1">Deduct</th>
+                              <th className="w-10"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {bracketDraft.map((b, i) => (
+                              <tr key={i} className="border-b border-gray-50">
+                                <td className="px-2 py-1">
+                                  <input
+                                    type="text"
+                                    placeholder="∞ (blank)"
+                                    value={b.upTo}
+                                    onChange={(e) => {
+                                      const next = [...bracketDraft];
+                                      next[i] = {
+                                        ...next[i],
+                                        upTo: e.target.value,
+                                      };
+                                      setBracketDraft(next);
+                                    }}
+                                    className="w-24 px-2 py-1 border border-gray-300 rounded"
+                                  />
+                                </td>
+                                <td className="px-2 py-1">
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    value={b.rate}
+                                    onChange={(e) => {
+                                      const next = [...bracketDraft];
+                                      next[i] = {
+                                        ...next[i],
+                                        rate: e.target.value,
+                                      };
+                                      setBracketDraft(next);
+                                    }}
+                                    className="w-24 px-2 py-1 border border-gray-300 rounded"
+                                  />
+                                </td>
+                                <td className="px-2 py-1">
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    value={b.deduct}
+                                    onChange={(e) => {
+                                      const next = [...bracketDraft];
+                                      next[i] = {
+                                        ...next[i],
+                                        deduct: e.target.value,
+                                      };
+                                      setBracketDraft(next);
+                                    }}
+                                    className="w-24 px-2 py-1 border border-gray-300 rounded"
+                                  />
+                                </td>
+                                <td className="px-2 py-1 text-right">
+                                  <button
+                                    onClick={() =>
+                                      setBracketDraft(
+                                        bracketDraft.filter((_, j) => j !== i),
+                                      )
+                                    }
+                                    className="text-xs text-red-500 hover:text-red-700"
+                                  >
+                                    ✕
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        <button
+                          onClick={() =>
+                            setBracketDraft([
+                              ...bracketDraft,
+                              { upTo: "", rate: "", deduct: "" },
+                            ])
+                          }
+                          className="mt-2 text-xs text-indigo-600 hover:text-indigo-800"
+                        >
+                          + Add bracket
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Employee Pension (%)
+                            <InfoTag text="% deducted from each employee's gross pay (statutory 7% default)." />
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={pensionDraft}
+                            onChange={(e) => setPensionDraft(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Employer Pension (%)
+                            <InfoTag text="% the company contributes on top of pay (statutory 11% default)." />
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={employerPensionDraft}
+                            onChange={(e) =>
+                              setEmployerPensionDraft(e.target.value)
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            OT Multiplier
+                            <InfoTag text="Multiplier applied to hours beyond normal for overtime pay (default 1.5×)." />
+                          </label>
+                          <input
+                            type="number"
+                            step="0.25"
+                            value={otDraft}
+                            onChange={(e) => setOtDraft(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-3 pt-2">
+                        <button
+                          onClick={() => setShowTaxModal(false)}
+                          className="px-4 py-2 text-sm text-gray-600"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await saveSettings();
+                            setShowTaxModal(false);
+                            await loadConfigHistory();
+                          }}
+                          className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700"
+                        >
+                          Save as New Version
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Government / Statutory Deductions */}
               <div className="border-t border-gray-200 pt-4">
