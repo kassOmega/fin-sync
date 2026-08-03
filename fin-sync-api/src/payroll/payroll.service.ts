@@ -72,8 +72,8 @@ export class PayrollService {
     const rows: any[] = await this.prisma.$queryRawUnsafe(
       `SELECT * FROM finsync.company_payroll_config_versions
        WHERE company_id = ${companyId}
-         AND effective_from <= ${date.toISOString()}
-         AND (superseded_at IS NULL OR superseded_at > ${date.toISOString()})
+         AND effective_from <= '${date.toISOString()}'
+         AND (superseded_at IS NULL OR superseded_at > '${date.toISOString()}')
        ORDER BY effective_from DESC
        LIMIT 1`,
     );
@@ -122,17 +122,17 @@ export class PayrollService {
     // Supersede any currently-active version (audit trail: never edited in place)
     await this.prisma.$executeRawUnsafe(
       `UPDATE finsync.company_payroll_config_versions
-       SET superseded_at = ${eff}
+       SET superseded_at = '${eff}'
        WHERE company_id = ${companyId}
          AND superseded_at IS NULL
-         AND effective_from <= ${eff}`,
+         AND effective_from <= '${eff}'`,
     );
 
     const inserted: { id: number }[] = await this.prisma.$queryRawUnsafe(
       `INSERT INTO finsync.company_payroll_config_versions
          (company_id, effective_from, tax_brackets, employee_pension_rate, employer_pension_rate,
           standard_allowance_amount, ot_multiplier, default_pay_frequency, created_at, created_by_id)
-       VALUES (${companyId}, ${eff},
+       VALUES (${companyId}, '${eff}',
          '${JSON.stringify(dto.taxBrackets).replace(/'/g, "''")}',
          ${dto.employeePensionRate}, ${dto.employerPensionRate},
          ${dto.standardAllowanceAmount}, ${dto.otMultiplier}, '${dto.defaultPayFrequency}',
