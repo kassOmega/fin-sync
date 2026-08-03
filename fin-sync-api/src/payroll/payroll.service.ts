@@ -119,6 +119,35 @@ export class PayrollService {
       .replace('T', ' ')
       .slice(0, 19);
 
+    const bracketsJson = JSON.stringify(dto.taxBrackets).replace(/'/g, "''");
+
+    // Upsert for this effective date: if a version already exists for the same
+    // (companyId, effectiveFrom) — e.g. the UX modal defaulted to the active
+    // version's date — update it in place (idempotent) instead of duplicating.
+    // Only a genuinely different date creates a NEW version.
+    const existing: { id: number }[] = await this.prisma.$queryRawUnsafe(
+      `SELECT id FROM finsync.company_payroll_config_versions
+       WHERE company_id = ${companyId} AND effective_from = '${eff}'`,
+    );
+
+    if (existing.length > 0) {
+      await this.prisma.$executeRawUnsafe(
+        `UPDATE finsync.company_payroll_config_versions
+         SET tax_brackets = '${bracketsJson}',
+             employee_pension_rate = ${dto.employeePensionRate},
+             employer_pension_rate = ${dto.employerPensionRate},
+             standard_allowance_amount = ${dto.standardAllowanceAmount},
+             ot_multiplier = ${dto.otMultiplier},
+             default_pay_frequency = '${dto.defaultPayFrequency}',
+             created_by_id = ${createdById ?? 'NULL'}
+         WHERE id = ${existing[0].id}`,
+      );
+      const updated: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT * FROM finsync.company_payroll_config_versions WHERE id = ${existing[0].id}`,
+      );
+      return updated[0];
+    }
+
     // Supersede any currently-active version (audit trail: never edited in place)
     await this.prisma.$executeRawUnsafe(
       `UPDATE finsync.company_payroll_config_versions
@@ -133,7 +162,7 @@ export class PayrollService {
          (company_id, effective_from, tax_brackets, employee_pension_rate, employer_pension_rate,
           standard_allowance_amount, ot_multiplier, default_pay_frequency, created_at, created_by_id)
        VALUES (${companyId}, '${eff}',
-         '${JSON.stringify(dto.taxBrackets).replace(/'/g, "''")}',
+         '${bracketsJson}',
          ${dto.employeePensionRate}, ${dto.employerPensionRate},
          ${dto.standardAllowanceAmount}, ${dto.otMultiplier}, '${dto.defaultPayFrequency}',
          NOW(), ${createdById ?? 'NULL'})
