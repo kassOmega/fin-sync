@@ -1904,52 +1904,6 @@ function CompensationTab({
         </table>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">Withholdings</h3>
-          <button
-            onClick={() => setShowWith(true)}
-            className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-700"
-          >
-            + Withholding
-          </button>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-gray-500 text-xs uppercase border-b">
-              <th className="text-left px-4 py-2">Employee</th>
-              <th className="text-left px-4 py-2">Type</th>
-              <th className="text-right px-4 py-2">Amount</th>
-              <th className="text-left px-4 py-2">Reason</th>
-              <th className="text-left px-4 py-2">Effective</th>
-            </tr>
-          </thead>
-          <tbody>
-            {withholdings
-              .filter((w) => w.isActive)
-              .map((w) => (
-                <tr key={w.id} className="border-b border-gray-100">
-                  <td className="px-4 py-2 font-medium text-gray-800">
-                    Emp #{w.employeeId}
-                  </td>
-                  <td className="px-4 py-2 text-gray-900">{w.type}</td>
-                  <td className="px-4 py-2 text-right text-red-600">
-                    {w.calcType === "PERCENTAGE"
-                      ? `${Number(w.amount)}%`
-                      : money(Number(w.amount))}
-                  </td>
-                  <td className="px-4 py-2 text-gray-500 italic">
-                    "{w.reason}"
-                  </td>
-                  <td className="px-4 py-2 text-gray-900">
-                    {new Date(w.effectiveDate).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </div>
-
       {showAllow && (
         <CompensForm
           title="Add Allowance"
