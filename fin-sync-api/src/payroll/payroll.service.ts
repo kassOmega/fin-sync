@@ -155,6 +155,20 @@ export class PayrollService {
   }
 
   /**
+   * Government / statutory deduction rules passthrough (payroll_deductions).
+   */
+  async listDeductions(companyId: number) {
+    return this.deductions.getDeductions(companyId);
+  }
+
+  async addDeduction(
+    companyId: number,
+    dto: { name: string; type: string; value: number },
+  ) {
+    return this.deductions.createDeduction(companyId, dto);
+  }
+
+  /**
    * Rounding standard — standard arithmetic half-up to 2 decimals,
    * applied at EVERY calculation step so per-employee nets always sum
    * exactly to the payroll total and GL lines.

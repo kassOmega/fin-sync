@@ -78,6 +78,21 @@ export class PayrollController {
     );
   }
 
+  @Get('deductions')
+  @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
+  listDeductions(@Param('companyId', ParseIntPipe) companyId: number) {
+    return this.service.listDeductions(companyId);
+  }
+
+  @Post('deductions')
+  @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
+  addDeduction(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Body() dto: { name: string; type: string; value: number },
+  ) {
+    return this.service.addDeduction(companyId, dto);
+  }
+
   @Post('config')
   @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
   createConfig(
