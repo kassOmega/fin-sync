@@ -103,6 +103,33 @@ export default function PayrollPage() {
     }
   };
 
+  // Government / Statutory deduction rules (from payroll_deductions)
+  const [govDeductions, setGovDeductions] = useState<
+    Array<{
+      id: number;
+      name: string;
+      type: string;
+      value: string;
+      isActive: boolean;
+    }>
+  >([]);
+  const [showGovForm, setShowGovForm] = useState(false);
+  const [govForm, setGovForm] = useState({
+    name: "",
+    type: "FIXED",
+    value: "",
+  });
+  const [savingGov, setSavingGov] = useState(false);
+
+  const loadGovDeductions = async () => {
+    try {
+      const res = await api.get(`/companies/${companyId}/payroll/deductions`);
+      setGovDeductions(res.data || []);
+    } catch {
+      setGovDeductions([]);
+    }
+  };
+
   // Payroll Settings — versioned tax/pension config
   const [config, setConfig] = useState<Record<string, any> | null>(null);
   const [bracketDraft, setBracketDraft] = useState<
@@ -280,7 +307,7 @@ export default function PayrollPage() {
             ["overtime", "Overtime"],
             ["compensation", "Compensation"],
             ["audit", "Audit & Registry"],
-            ["settings", "Settings"],
+            ["settings", "Deductions & Tax"],
           ] as [TabType, string][]
         ).map(([key, label]) => (
           <button
@@ -293,6 +320,7 @@ export default function PayrollPage() {
               }
               if (key === "settings") {
                 loadSettings();
+                loadGovDeductions();
               }
             }}
             className={`px-4 py-2 rounded-md text-sm font-medium ${tab === key ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
@@ -756,6 +784,168 @@ export default function PayrollPage() {
                 >
                   Save as New Version
                 </button>
+              </div>
+
+              {/* Government / Statutory Deductions */}
+              <div className="border-t border-gray-200 pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-gray-900">
+                    Government / Statutory Deductions
+                    <InfoTag text="Future-proof: register any new government tax/levy (flat amount or % of gross). It is applied automatically in future payroll runs." />
+                  </h4>
+                  <button
+                    onClick={() => setShowGovForm(!showGovForm)}
+                    className="text-sm text-indigo-600 hover:text-indigo-800"
+                  >
+                    {showGovForm ? "Cancel" : "+ Add Government Deduction"}
+                  </button>
+                </div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-gray-500 text-xs uppercase border-b">
+                      <th className="text-left px-2 py-1">Name</th>
+                      <th className="text-left px-2 py-1">Type</th>
+                      <th className="text-right px-2 py-1">Value</th>
+                      <th className="text-left px-2 py-1">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {govDeductions.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={4}
+                          className="px-2 py-4 text-center text-gray-500"
+                        >
+                          No government deductions configured.
+                        </td>
+                      </tr>
+                    ) : (
+                      govDeductions.map((d) => (
+                        <tr key={d.id} className="border-b border-gray-50">
+                          <td className="px-2 py-1 font-medium text-gray-800">
+                            {d.name}
+                          </td>
+                          <td className="px-2 py-1 text-gray-600">
+                            {d.type === "PERCENTAGE"
+                              ? "Percent (%)"
+                              : d.type === "FIXED"
+                                ? "Amount"
+                                : d.type}
+                          </td>
+                          <td className="px-2 py-1 text-right text-gray-900">
+                            {d.type === "PERCENTAGE"
+                              ? `${Number(d.value)}%`
+                              : money(Number(d.value))}
+                          </td>
+                          <td className="px-2 py-1">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-xs ${d.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
+                            >
+                              {d.isActive ? "Active" : "Inactive"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+                {showGovForm && (
+                  <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-md grid grid-cols-4 gap-3 items-end">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Deduction Name
+                        <InfoTag text="Free text — e.g. COVID Levy, New Tax 2027" />
+                      </label>
+                      <input
+                        value={govForm.name}
+                        onChange={(e) =>
+                          setGovForm({ ...govForm, name: e.target.value })
+                        }
+                        placeholder="e.g. COVID Levy"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Type
+                        <InfoTag text="Amount = flat ETB deduction. Percent = % of employee gross pay." />
+                      </label>
+                      <select
+                        value={govForm.type}
+                        onChange={(e) => {
+                          const type = e.target.value;
+                          setGovForm({
+                            ...govForm,
+                            type,
+                            value:
+                              type === "PERCENTAGE"
+                                ? govForm.value || "0"
+                                : govForm.value,
+                          });
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                      >
+                        <option value="FIXED">Amount</option>
+                        <option value="PERCENTAGE">Percent (%)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        {govForm.type === "PERCENTAGE"
+                          ? "Percent (%)"
+                          : "Amount"}
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={govForm.value}
+                        onChange={(e) =>
+                          setGovForm({ ...govForm, value: e.target.value })
+                        }
+                        placeholder={
+                          govForm.type === "PERCENTAGE" ? "e.g. 3.5" : "0.00"
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                      />
+                    </div>
+                    <button
+                      disabled={
+                        savingGov || !govForm.name.trim() || !govForm.value
+                      }
+                      onClick={async () => {
+                        setSavingGov(true);
+                        try {
+                          await api.post(
+                            `/companies/${companyId}/payroll/deductions`,
+                            {
+                              name: govForm.name.trim(),
+                              type: govForm.type,
+                              value: parseFloat(govForm.value) || 0,
+                            },
+                          );
+                          toast.success(
+                            "Government deduction added — applies to future payroll runs",
+                          );
+                          setGovForm({ name: "", type: "FIXED", value: "" });
+                          setShowGovForm(false);
+                          await loadGovDeductions();
+                        } catch {
+                          toast.error("Failed to add government deduction");
+                        } finally {
+                          setSavingGov(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-md disabled:opacity-50"
+                    >
+                      {savingGov ? "Adding..." : "Add"}
+                    </button>
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 mt-2">
+                  Employee-specific withholdings (loans, union dues) are managed
+                  under the Compensation tab.
+                </p>
               </div>
             </div>
           </div>
