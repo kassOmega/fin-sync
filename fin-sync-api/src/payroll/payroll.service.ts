@@ -168,6 +168,17 @@ export class PayrollService {
     return this.deductions.createDeduction(companyId, dto);
   }
 
+  async updateDeduction(
+    id: number,
+    dto: { name?: string; type?: string; value?: number; isActive?: boolean },
+  ) {
+    return this.deductions.updateDeduction(id, dto);
+  }
+
+  async deleteDeduction(id: number) {
+    return this.deductions.deleteDeduction(id);
+  }
+
   /**
    * Rounding standard — standard arithmetic half-up to 2 decimals,
    * applied at EVERY calculation step so per-employee nets always sum

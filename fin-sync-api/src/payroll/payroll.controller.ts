@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -91,6 +92,22 @@ export class PayrollController {
     @Body() dto: { name: string; type: string; value: number },
   ) {
     return this.service.addDeduction(companyId, dto);
+  }
+
+  @Patch('deductions/:id')
+  @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
+  updateDeduction(
+    @Param('id', ParseIntPipe) id: number,
+    @Body()
+    dto: { name?: string; type?: string; value?: number; isActive?: boolean },
+  ) {
+    return this.service.updateDeduction(id, dto);
+  }
+
+  @Delete('deductions/:id')
+  @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
+  deleteDeduction(@Param('id', ParseIntPipe) id: number) {
+    return this.service.deleteDeduction(id);
   }
 
   @Post('config')

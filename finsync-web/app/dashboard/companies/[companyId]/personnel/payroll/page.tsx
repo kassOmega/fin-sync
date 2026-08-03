@@ -114,6 +114,7 @@ export default function PayrollPage() {
     }>
   >([]);
   const [showGovForm, setShowGovForm] = useState(false);
+  const [editingGovId, setEditingGovId] = useState<number | null>(null);
   const [govForm, setGovForm] = useState({
     name: "",
     type: "FIXED",
@@ -698,19 +699,33 @@ export default function PayrollPage() {
                     ))}
                   </tbody>
                 </table>
-                <div className="mt-3 flex flex-wrap gap-6 text-sm text-gray-700">
-                  <span>
-                    <strong>Employee Pension:</strong>{" "}
-                    {Number(config?.employee_pension_rate ?? 0)}%
-                  </span>
-                  <span>
-                    <strong>Employer Pension:</strong>{" "}
-                    {Number(config?.employer_pension_rate ?? 0)}%
-                  </span>
-                  <span>
-                    <strong>OT Multiplier:</strong>{" "}
-                    {Number(config?.ot_multiplier ?? 0)}×
-                  </span>
+                <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
+                  <div className="bg-gray-50 rounded-md p-3">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">
+                      Employee Pension
+                    </p>
+                    <p className="text-lg font-semibold text-gray-900">
+                      {Number(config?.employee_pension_rate ?? 0)}%
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      deducted from each employee's gross pay
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-md p-3">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">
+                      Employer Pension
+                    </p>
+                    <p className="text-lg font-semibold text-gray-900">
+                      {Number(config?.employer_pension_rate ?? 0)}%
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      contributed on top by the company
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-2 text-sm text-gray-600">
+                  <strong>OT Multiplier:</strong>{" "}
+                  {Number(config?.ot_multiplier ?? 0)}×
                 </div>
               </div>
 
@@ -911,35 +926,45 @@ export default function PayrollPage() {
                           + Add bracket
                         </button>
                       </div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
-                            Employee Pension (%)
-                            <InfoTag text="% deducted from each employee's gross pay (statutory 7% default)." />
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={pensionDraft}
-                            onChange={(e) => setPensionDraft(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
-                          />
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">
+                          Pension
+                        </p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              Employee Pension (%)
+                              <InfoTag text="% deducted from each employee's gross pay (statutory 7% default)." />
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={pensionDraft}
+                              onChange={(e) => setPensionDraft(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              Employer Pension (%)
+                              <InfoTag text="% the company contributes on top of pay (statutory 11% default)." />
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={employerPensionDraft}
+                              onChange={(e) =>
+                                setEmployerPensionDraft(e.target.value)
+                              }
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
-                            Employer Pension (%)
-                            <InfoTag text="% the company contributes on top of pay (statutory 11% default)." />
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={employerPensionDraft}
-                            onChange={(e) =>
-                              setEmployerPensionDraft(e.target.value)
-                            }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
-                          />
-                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">
+                          Overtime
+                        </p>
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">
                             OT Multiplier
@@ -969,7 +994,7 @@ export default function PayrollPage() {
                           }}
                           className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700"
                         >
-                          Save as New Version
+                          Save Tax Rules
                         </button>
                       </div>
                     </div>
@@ -998,13 +1023,14 @@ export default function PayrollPage() {
                       <th className="text-left px-2 py-1">Type</th>
                       <th className="text-right px-2 py-1">Value</th>
                       <th className="text-left px-2 py-1">Status</th>
+                      <th className="text-right px-2 py-1">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {govDeductions.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={4}
+                          colSpan={5}
                           className="px-2 py-4 text-center text-gray-500"
                         >
                           No government deductions configured.
@@ -1034,6 +1060,49 @@ export default function PayrollPage() {
                             >
                               {d.isActive ? "Active" : "Inactive"}
                             </span>
+                          </td>
+                          <td className="px-2 py-1 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => {
+                                setEditingGovId(d.id);
+                                setGovForm({
+                                  name: d.name,
+                                  type:
+                                    d.type === "PERCENTAGE"
+                                      ? "PERCENTAGE"
+                                      : "FIXED",
+                                  value: String(d.value),
+                                });
+                                setShowGovForm(true);
+                              }}
+                              className="text-xs text-indigo-600 hover:text-indigo-800 mr-2"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (
+                                  !confirm(
+                                    `Delete government deduction "${d.name}"?`,
+                                  )
+                                )
+                                  return;
+                                try {
+                                  await api.delete(
+                                    `/companies/${companyId}/payroll/deductions/${d.id}`,
+                                  );
+                                  toast.success("Government deduction deleted");
+                                  await loadGovDeductions();
+                                } catch {
+                                  toast.error(
+                                    "Failed to delete government deduction",
+                                  );
+                                }
+                              }}
+                              className="text-xs text-red-600 hover:text-red-800"
+                            >
+                              Delete
+                            </button>
                           </td>
                         </tr>
                       ))
@@ -1107,29 +1176,50 @@ export default function PayrollPage() {
                       onClick={async () => {
                         setSavingGov(true);
                         try {
-                          await api.post(
-                            `/companies/${companyId}/payroll/deductions`,
-                            {
-                              name: govForm.name.trim(),
-                              type: govForm.type,
-                              value: parseFloat(govForm.value) || 0,
-                            },
-                          );
-                          toast.success(
-                            "Government deduction added — applies to future payroll runs",
-                          );
+                          if (editingGovId) {
+                            await api.patch(
+                              `/companies/${companyId}/payroll/deductions/${editingGovId}`,
+                              {
+                                name: govForm.name.trim(),
+                                type: govForm.type,
+                                value: parseFloat(govForm.value) || 0,
+                              },
+                            );
+                            toast.success("Government deduction updated");
+                          } else {
+                            await api.post(
+                              `/companies/${companyId}/payroll/deductions`,
+                              {
+                                name: govForm.name.trim(),
+                                type: govForm.type,
+                                value: parseFloat(govForm.value) || 0,
+                              },
+                            );
+                            toast.success(
+                              "Government deduction added — applies to future payroll runs",
+                            );
+                          }
                           setGovForm({ name: "", type: "FIXED", value: "" });
                           setShowGovForm(false);
+                          setEditingGovId(null);
                           await loadGovDeductions();
                         } catch {
-                          toast.error("Failed to add government deduction");
+                          toast.error(
+                            editingGovId
+                              ? "Failed to update government deduction"
+                              : "Failed to add government deduction",
+                          );
                         } finally {
                           setSavingGov(false);
                         }
                       }}
                       className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-md disabled:opacity-50"
                     >
-                      {savingGov ? "Adding..." : "Add"}
+                      {savingGov
+                        ? "Saving..."
+                        : editingGovId
+                          ? "Update"
+                          : "Add"}
                     </button>
                   </div>
                 )}
@@ -2151,6 +2241,7 @@ function WithholdingsSection({
   money: (n: number) => string;
 }) {
   const [showWith, setShowWith] = useState(false);
+  const [editingWithId, setEditingWithId] = useState<number | null>(null);
   const [form, setForm] = useState({
     employeeId: "",
     name: "",
@@ -2165,7 +2256,7 @@ function WithholdingsSection({
   });
 
   const saveWithholding = async () => {
-    await compensationService.createWithholding(companyId, {
+    const payload: Record<string, unknown> = {
       employeeId: form.isGlobal ? undefined : Number(form.employeeId),
       name: form.name || "Withholding",
       type: form.type,
@@ -2175,8 +2266,18 @@ function WithholdingsSection({
       reason: form.reason,
       effectiveDate: form.effectiveDate,
       ...(form.expiryDate && { expiryDate: form.expiryDate }),
-    });
+    };
+    if (editingWithId) {
+      await compensationService.updateWithholding(
+        companyId,
+        editingWithId,
+        payload,
+      );
+    } else {
+      await compensationService.createWithholding(companyId, payload as any);
+    }
     setShowWith(false);
+    setEditingWithId(null);
     setForm({
       ...form,
       employeeId: "",
@@ -2216,12 +2317,13 @@ function WithholdingsSection({
               <th className="text-right px-4 py-2">Amount</th>
               <th className="text-left px-4 py-2">Reason</th>
               <th className="text-left px-4 py-2">Effective</th>
+              <th className="text-right px-4 py-2">Actions</th>
             </tr>
           </thead>
           <tbody>
             {withholdings.filter((w) => w.isActive).length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-4 text-center text-gray-500">
+                <td colSpan={6} className="px-4 py-4 text-center text-gray-500">
                   No withholdings configured.
                 </td>
               </tr>
@@ -2245,6 +2347,62 @@ function WithholdingsSection({
                     <td className="px-4 py-2 text-gray-900">
                       {new Date(w.effectiveDate).toLocaleDateString()}
                     </td>
+                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                      <button
+                        onClick={() => {
+                          setEditingWithId(w.id);
+                          setForm({
+                            employeeId: w.isGlobal
+                              ? ""
+                              : w.employeeId
+                                ? String(w.employeeId)
+                                : "",
+                            name: w.name || "",
+                            type: w.type || "",
+                            amount: String(w.amount ?? ""),
+                            isTaxable: true,
+                            isGlobal: w.isGlobal || false,
+                            calcType:
+                              w.calcType === "PERCENTAGE"
+                                ? "PERCENTAGE"
+                                : "FIXED",
+                            reason: w.reason || "",
+                            effectiveDate: w.effectiveDate
+                              ? String(w.effectiveDate).split("T")[0]
+                              : new Date().toISOString().split("T")[0],
+                            expiryDate: w.expiryDate
+                              ? String(w.expiryDate).split("T")[0]
+                              : "",
+                          });
+                          setShowWith(true);
+                        }}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 mr-2"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!confirm("Delete this withholding?")) return;
+                          try {
+                            await compensationService.deleteWithholding(
+                              companyId,
+                              w.id,
+                            );
+                            toast.success("Withholding deleted");
+                            setWithholdings(
+                              await compensationService.getWithholdings(
+                                companyId,
+                              ),
+                            );
+                          } catch {
+                            toast.error("Failed to delete withholding");
+                          }
+                        }}
+                        className="text-xs text-red-600 hover:text-red-800"
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
                 ))
             )}
@@ -2253,7 +2411,7 @@ function WithholdingsSection({
       </div>
       {showWith && (
         <CompensForm
-          title="Add Withholding"
+          title={editingWithId ? "Edit Withholding" : "Add Withholding"}
           types={["LOAN", "INSURANCE", "ADVANCE", "FINE", "OTHER"]}
           requireReason
           showName
@@ -2262,7 +2420,10 @@ function WithholdingsSection({
           employees={employees}
           form={form}
           setForm={setForm}
-          onClose={() => setShowWith(false)}
+          onClose={() => {
+            setShowWith(false);
+            setEditingWithId(null);
+          }}
           onSave={saveWithholding}
         />
       )}

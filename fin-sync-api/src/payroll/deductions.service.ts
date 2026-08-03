@@ -362,4 +362,23 @@ export class DeductionsService {
       },
     });
   }
+
+  async updateDeduction(
+    id: number,
+    dto: {
+      name?: string;
+      type?: string;
+      value?: number;
+      isActive?: boolean;
+    },
+  ) {
+    return (this.prisma as any).payrollDeduction.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async deleteDeduction(id: number) {
+    return (this.prisma as any).payrollDeduction.delete({ where: { id } });
+  }
 }
