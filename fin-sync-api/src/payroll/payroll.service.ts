@@ -244,7 +244,7 @@ export class PayrollService {
     const requests: any[] = await this.prisma.$queryRawUnsafe(
       `SELECT lr."startDate", lr."endDate", lr."totalDays", lt.name, lt."isPaid"
        FROM finsync.leave_requests lr
-       JOIN finsync.leave_types lt ON lt.id = lr."leaveTypeId"
+       JOIN finsync.leave_types lt ON lt.id = lr."leave_type_id"
        WHERE lr."employeeId" = ${employeeId}
          AND lr."companyId" = ${companyId}
          AND lr.status = 'APPROVED'
