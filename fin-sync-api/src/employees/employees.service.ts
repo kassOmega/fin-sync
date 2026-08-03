@@ -17,7 +17,7 @@ export class EmployeesService {
       role?: string;
     },
   ) {
-    let where = `e."companyId" = ${companyId}`;
+    let where = `e."companyId" = ${companyId} AND e."employmentType" != 'DAILY_LABORER'`;
     if (filters?.employmentType) {
       where += ` AND e."employmentType" = '${filters.employmentType}'`;
     }

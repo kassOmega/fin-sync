@@ -686,7 +686,7 @@ export default function PayrollPage() {
                       <tr key={i} className="border-b border-gray-50">
                         <td className="px-2 py-1 text-gray-900">
                           {b.upTo === null
-                            ? "∞"
+                            ? "And Above"
                             : `${Number(b.upTo).toLocaleString()} ETB`}
                         </td>
                         <td className="px-2 py-1 text-gray-900">
@@ -853,7 +853,7 @@ export default function PayrollPage() {
                                 <td className="px-2 py-1">
                                   <input
                                     type="text"
-                                    placeholder="∞ (blank)"
+                                    placeholder="And Above"
                                     value={b.upTo}
                                     onChange={(e) => {
                                       const next = [...bracketDraft];
@@ -2251,13 +2251,13 @@ function WithholdingsSection({
     isGlobal: false,
     calcType: "FIXED" as "FIXED" | "PERCENTAGE",
     reason: "",
+    employeeIds: [] as number[],
     effectiveDate: new Date().toISOString().split("T")[0],
     expiryDate: "",
   });
 
   const saveWithholding = async () => {
-    const payload: Record<string, unknown> = {
-      employeeId: form.isGlobal ? undefined : Number(form.employeeId),
+    const base = {
       name: form.name || "Withholding",
       type: form.type,
       amount: Number(form.amount),
@@ -2268,13 +2268,26 @@ function WithholdingsSection({
       ...(form.expiryDate && { expiryDate: form.expiryDate }),
     };
     if (editingWithId) {
-      await compensationService.updateWithholding(
-        companyId,
-        editingWithId,
-        payload,
-      );
+      await compensationService.updateWithholding(companyId, editingWithId, {
+        ...base,
+        employeeId: form.isGlobal ? undefined : Number(form.employeeId),
+      });
+    } else if (form.isGlobal) {
+      await compensationService.createWithholding(companyId, {
+        ...base,
+        employeeId: undefined,
+      } as any);
     } else {
-      await compensationService.createWithholding(companyId, payload as any);
+      // Targeted: one withholding row per selected employee
+      const ids = form.employeeIds.length
+        ? form.employeeIds
+        : [form.employeeId].filter(Boolean);
+      for (const id of ids) {
+        await compensationService.createWithholding(companyId, {
+          ...base,
+          employeeId: Number(id),
+        } as any);
+      }
     }
     setShowWith(false);
     setEditingWithId(null);
@@ -2288,6 +2301,7 @@ function WithholdingsSection({
       isGlobal: false,
       calcType: "FIXED",
       reason: "",
+      employeeIds: [],
       effectiveDate: new Date().toISOString().split("T")[0],
       expiryDate: "",
     });
@@ -2367,6 +2381,7 @@ function WithholdingsSection({
                                 ? "PERCENTAGE"
                                 : "FIXED",
                             reason: w.reason || "",
+                            employeeIds: [],
                             effectiveDate: w.effectiveDate
                               ? String(w.effectiveDate).split("T")[0]
                               : new Date().toISOString().split("T")[0],
@@ -2417,6 +2432,7 @@ function WithholdingsSection({
           showName
           showGlobal
           showCalcType
+          showMultiSelect
           employees={employees}
           form={form}
           setForm={setForm}
@@ -2439,6 +2455,7 @@ function CompensForm({
   showName,
   showGlobal,
   showCalcType,
+  showMultiSelect,
   employees,
   form,
   setForm,
@@ -2452,12 +2469,34 @@ function CompensForm({
   showName?: boolean;
   showGlobal?: boolean;
   showCalcType?: boolean;
+  showMultiSelect?: boolean;
   employees: any[];
   form: any;
   setForm: (f: any) => void;
   onClose: () => void;
   onSave: () => Promise<void>;
 }) {
+  const [empSearch, setEmpSearch] = useState("");
+  const filteredEmployees = empSearch.trim()
+    ? employees.filter(
+        (emp) =>
+          `${emp.firstName} ${emp.lastName}`
+            .toLowerCase()
+            .includes(empSearch.toLowerCase()) ||
+          String(emp.employeeCode || "")
+            .toLowerCase()
+            .includes(empSearch.toLowerCase()),
+      )
+    : employees;
+  const toggleEmp = (id: number) => {
+    const current = form.employeeIds || [];
+    setForm({
+      ...form,
+      employeeIds: current.includes(id)
+        ? current.filter((x: number) => x !== id)
+        : [...current, id],
+    });
+  };
   const [saving, setSaving] = useState(false);
   const submit = async () => {
     if (requireReason && !form.reason.trim()) return;
@@ -2497,26 +2536,72 @@ function CompensForm({
               </label>
             </div>
           )}
-          {!showGlobal && (
+          {showGlobal && !form.isGlobal && showMultiSelect ? (
             <div>
               <label className="block text-sm text-gray-600 mb-1">
-                Employee
+                Target Employees (select one or more)
+                <InfoTag text="Search and check the specific staff this withholding applies to. One withholding is created per selected employee." />
               </label>
-              <select
-                value={form.employeeId}
-                onChange={(e) =>
-                  setForm({ ...form, employeeId: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
-              >
-                <option value="">Select employee...</option>
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.firstName} {emp.lastName}
-                  </option>
-                ))}
-              </select>
+              <input
+                value={empSearch}
+                onChange={(e) => setEmpSearch(e.target.value)}
+                placeholder="Search by name or code..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 mb-2"
+              />
+              <div className="max-h-36 overflow-y-auto border border-gray-200 rounded-md divide-y divide-gray-100">
+                {filteredEmployees.length === 0 ? (
+                  <p className="px-3 py-2 text-xs text-gray-500">
+                    No employees match.
+                  </p>
+                ) : (
+                  filteredEmployees.map((emp) => {
+                    const checked = (form.employeeIds || []).includes(emp.id);
+                    return (
+                      <label
+                        key={emp.id}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleEmp(emp.id)}
+                          className="h-4 w-4"
+                        />
+                        {emp.firstName} {emp.lastName}
+                        <span className="text-xs text-gray-400">
+                          ({emp.employeeCode})
+                        </span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {(form.employeeIds || []).length} employee(s) selected.
+              </p>
             </div>
+          ) : (
+            !showGlobal && (
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">
+                  Employee
+                </label>
+                <select
+                  value={form.employeeId}
+                  onChange={(e) =>
+                    setForm({ ...form, employeeId: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                >
+                  <option value="">Select employee...</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.firstName} {emp.lastName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )
           )}
           {showGlobal && form.isGlobal && (
             <p className="text-xs text-gray-500 -mt-2">
