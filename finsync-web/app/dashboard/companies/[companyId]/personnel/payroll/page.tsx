@@ -603,14 +603,24 @@ export default function PayrollPage() {
               {/* Bracket editor */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Tax Brackets (Ethiopian shortcut: income × rate − deduct)
+                  Tax Brackets
+                  <InfoTag text="Ethiopian shortcut: tax = salary × rate − deduct for the bracket containing the salary. Changing these creates a NEW version — past payroll keeps old brackets." />
                 </label>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-gray-500 text-xs uppercase border-b">
-                      <th className="text-left px-2 py-1">Up To (ETB)</th>
-                      <th className="text-left px-2 py-1">Rate (%)</th>
-                      <th className="text-left px-2 py-1">Deduct</th>
+                      <th className="text-left px-2 py-1">
+                        Salary Up To
+                        <InfoTag text="Top of this salary bracket (ETB). Leave blank for the highest (∞) bracket." />
+                      </th>
+                      <th className="text-left px-2 py-1">
+                        Tax Rate
+                        <InfoTag text="% applied to salary in this bracket." />
+                      </th>
+                      <th className="text-left px-2 py-1">
+                        Deduct
+                        <InfoTag text="Fixed amount subtracted after applying the rate (per Ethiopian shortcut formula)." />
+                      </th>
                       <th className="w-10"></th>
                     </tr>
                   </thead>
@@ -689,6 +699,7 @@ export default function PayrollPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     Employee Pension (%)
+                    <InfoTag text="% deducted from each employee's gross pay (statutory 7% default)." />
                   </label>
                   <input
                     type="number"
@@ -701,6 +712,7 @@ export default function PayrollPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     Employer Pension (%)
+                    <InfoTag text="% the company contributes on top of pay (statutory 11% default) — for reporting." />
                   </label>
                   <input
                     type="number"
@@ -713,6 +725,7 @@ export default function PayrollPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     OT Multiplier
+                    <InfoTag text="Multiplier applied to hours beyond normal for overtime pay (default 1.5×)." />
                   </label>
                   <input
                     type="number"
@@ -725,6 +738,7 @@ export default function PayrollPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     Effective From
+                    <InfoTag text="Runs starting this date use the new rules. Runs BEFORE this date keep the previous brackets." />
                   </label>
                   <input
                     type="date"
@@ -1723,7 +1737,9 @@ function CompensationTab({
                   </td>
                   <td className="px-4 py-2 text-gray-900">{w.type}</td>
                   <td className="px-4 py-2 text-right text-red-600">
-                    {money(Number(w.amount))}
+                    {w.calcType === "PERCENTAGE"
+                      ? `${Number(w.amount)}%`
+                      : money(Number(w.amount))}
                   </td>
                   <td className="px-4 py-2 text-gray-500 italic">
                     "{w.reason}"
@@ -1904,6 +1920,7 @@ function CompensForm({
             <div>
               <label className="block text-sm text-gray-600 mb-1">
                 Calculation Type
+                <InfoTag text="Fixed Amount = flat deduction (e.g. $50). Percentage (%) = % of the employee's gross pay (e.g. 35% → $35 for every $100 of gross)." />
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {(
@@ -1939,6 +1956,15 @@ function CompensForm({
               {showCalcType && form.calcType === "PERCENTAGE"
                 ? "Percentage (%)"
                 : "Amount"}
+              {showCalcType && (
+                <InfoTag
+                  text={
+                    form.calcType === "PERCENTAGE"
+                      ? "Number is a percentage of gross pay — NOT a dollar amount. E.g. 35 = 35%."
+                      : "Flat dollar amount deducted each run."
+                  }
+                />
+              )}
             </label>
             <input
               type="number"
@@ -2029,6 +2055,18 @@ function CompensForm({
         </div>
       </div>
     </div>
+  );
+}
+
+function InfoTag({ text }: { text: string }) {
+  return (
+    <span
+      title={text}
+      className="ml-1 inline-flex items-center justify-center h-4 w-4 rounded-full bg-gray-200 text-gray-500 text-[10px] font-bold cursor-help select-none"
+      aria-label={text}
+    >
+      i
+    </span>
   );
 }
 
