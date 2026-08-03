@@ -942,10 +942,17 @@ export default function PayrollPage() {
                     </button>
                   </div>
                 )}
-                <p className="text-xs text-gray-500 mt-2">
-                  Employee-specific withholdings (loans, union dues) are managed
-                  under the Compensation tab.
-                </p>
+              </div>
+
+              {/* Employee Withholdings (loans, union dues, etc.) */}
+              <div className="border-t border-gray-200 pt-4">
+                <WithholdingsSection
+                  companyId={companyId}
+                  withholdings={withholdings}
+                  setWithholdings={setWithholdings}
+                  employees={employees}
+                  money={money}
+                />
               </div>
             </div>
           </div>
@@ -1966,6 +1973,139 @@ function CompensationTab({
           onSave={saveBonus}
         />
       )}
+      {showWith && (
+        <CompensForm
+          title="Add Withholding"
+          types={["LOAN", "INSURANCE", "ADVANCE", "FINE", "OTHER"]}
+          requireReason
+          showName
+          showGlobal
+          showCalcType
+          employees={employees}
+          form={form}
+          setForm={setForm}
+          onClose={() => setShowWith(false)}
+          onSave={saveWithholding}
+        />
+      )}
+    </div>
+  );
+}
+
+function WithholdingsSection({
+  companyId,
+  withholdings,
+  setWithholdings,
+  employees,
+  money,
+}: {
+  companyId: number;
+  withholdings: PayrollWithholding[];
+  setWithholdings: (w: PayrollWithholding[]) => void;
+  employees: any[];
+  money: (n: number) => string;
+}) {
+  const [showWith, setShowWith] = useState(false);
+  const [form, setForm] = useState({
+    employeeId: "",
+    name: "",
+    type: "",
+    amount: "",
+    isTaxable: true,
+    isGlobal: false,
+    calcType: "FIXED" as "FIXED" | "PERCENTAGE",
+    reason: "",
+    effectiveDate: new Date().toISOString().split("T")[0],
+    expiryDate: "",
+  });
+
+  const saveWithholding = async () => {
+    await compensationService.createWithholding(companyId, {
+      employeeId: form.isGlobal ? undefined : Number(form.employeeId),
+      name: form.name || "Withholding",
+      type: form.type,
+      amount: Number(form.amount),
+      calcType: form.calcType,
+      isGlobal: form.isGlobal,
+      reason: form.reason,
+      effectiveDate: form.effectiveDate,
+      ...(form.expiryDate && { expiryDate: form.expiryDate }),
+    });
+    setShowWith(false);
+    setForm({
+      ...form,
+      employeeId: "",
+      name: "",
+      type: "",
+      amount: "",
+      isTaxable: true,
+      isGlobal: false,
+      calcType: "FIXED",
+      reason: "",
+      effectiveDate: new Date().toISOString().split("T")[0],
+      expiryDate: "",
+    });
+    setWithholdings(await compensationService.getWithholdings(companyId));
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="font-semibold text-gray-900">
+          Employee Withholdings
+          <InfoTag text="Per-employee or company-global deductions (loans, union dues, insurance). Percent (%) is computed as % of gross pay — displayed as 35% not $35." />
+        </h4>
+        <button
+          onClick={() => setShowWith(!showWith)}
+          className="text-sm text-indigo-600 hover:text-indigo-800"
+        >
+          {showWith ? "Cancel" : "+ Add Withholding"}
+        </button>
+      </div>
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-gray-500 text-xs uppercase border-b">
+              <th className="text-left px-4 py-2">Employee</th>
+              <th className="text-left px-4 py-2">Type</th>
+              <th className="text-right px-4 py-2">Amount</th>
+              <th className="text-left px-4 py-2">Reason</th>
+              <th className="text-left px-4 py-2">Effective</th>
+            </tr>
+          </thead>
+          <tbody>
+            {withholdings.filter((w) => w.isActive).length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-4 text-center text-gray-500">
+                  No withholdings configured.
+                </td>
+              </tr>
+            ) : (
+              withholdings
+                .filter((w) => w.isActive)
+                .map((w) => (
+                  <tr key={w.id} className="border-b border-gray-100">
+                    <td className="px-4 py-2 font-medium text-gray-800">
+                      Emp #{w.employeeId}
+                    </td>
+                    <td className="px-4 py-2 text-gray-900">{w.type}</td>
+                    <td className="px-4 py-2 text-right text-red-600">
+                      {w.calcType === "PERCENTAGE"
+                        ? `${Number(w.amount)}%`
+                        : money(Number(w.amount))}
+                    </td>
+                    <td className="px-4 py-2 text-gray-500 italic">
+                      "{w.reason}"
+                    </td>
+                    <td className="px-4 py-2 text-gray-900">
+                      {new Date(w.effectiveDate).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))
+            )}
+          </tbody>
+        </table>
+      </div>
       {showWith && (
         <CompensForm
           title="Add Withholding"
