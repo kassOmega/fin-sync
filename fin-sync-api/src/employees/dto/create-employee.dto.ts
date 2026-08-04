@@ -55,6 +55,11 @@ export class CreateEmployeeDto {
   @IsOptional()
   payFrequency?: string;
 
+  /** Linked WorkPosition — position-based allowances auto-apply from this. */
+  @IsNumber()
+  @IsOptional()
+  positionId?: number;
+
   @IsNumber()
   @IsOptional()
   hourlyRate?: number;

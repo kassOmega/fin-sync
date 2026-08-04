@@ -136,7 +136,7 @@ export class EmployeesService {
       const created: { id: number }[] = await this.prisma.$queryRawUnsafe(
         `INSERT INTO finsync.employees
            ("companyId", "employeeCode", "firstName", "lastName", email, phone,
-            designation, "employmentType", "payFrequency",
+            designation, "employmentType", "payFrequency", "position_id",
             "baseSalary", "hourlyRate", "dailyRate",
             "isActive", "joinedDate", "userId")
          VALUES (${companyId}, '${dto.employeeCode.replace(/'/g, "''")}',
@@ -147,6 +147,7 @@ export class EmployeesService {
            '${(dto.designation || dto.role || 'Employee').replace(/'/g, "''")}',
            '${dto.employmentType || 'FULL_TIME'}',
            '${dto.payFrequency || 'MONTHLY'}',
+           ${dto.positionId ?? 'NULL'},
            ${salary.baseSalary ?? 'NULL'},
            ${salary.hourlyRate ?? 'NULL'},
            ${salary.dailyRate ?? 'NULL'},
@@ -380,6 +381,8 @@ export class EmployeesService {
       const empSets: string[] = ['"updated_at" = NOW()'];
       if (dto.payFrequency)
         empSets.push(`"payFrequency" = '${dto.payFrequency}'`);
+      if (dto.positionId !== undefined)
+        empSets.push(`"position_id" = ${dto.positionId ?? 'NULL'}`);
       if (dto.baseSalary !== undefined)
         empSets.push(
           `"baseSalary" = ${salary.baseSalary ?? dto.baseSalary ?? 'NULL'}`,
