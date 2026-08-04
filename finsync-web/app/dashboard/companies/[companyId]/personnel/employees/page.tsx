@@ -31,6 +31,18 @@ interface Employee {
   }>;
 }
 
+function InfoTag({ text }: { text: string }) {
+  return (
+    <span
+      title={text}
+      className="ml-1 inline-flex items-center justify-center h-4 w-4 rounded-full bg-gray-200 text-gray-500 text-[10px] font-bold cursor-help select-none"
+      aria-label={text}
+    >
+      i
+    </span>
+  );
+}
+
 export default function EmployeesPage() {
   const params = useParams();
   const companyId = params.companyId as string;
@@ -52,6 +64,10 @@ export default function EmployeesPage() {
   >([]);
   const [selectedProjectIds, setSelectedProjectIds] = useState<number[]>([]);
 
+  const [positions, setPositions] = useState<
+    Array<{ id: number; name: string; isActive: boolean }>
+  >([]);
+
   const [form, setForm] = useState({
     employeeCode: "",
     firstName: "",
@@ -59,6 +75,7 @@ export default function EmployeesPage() {
     email: "",
     phone: "",
     designation: "",
+    positionId: "",
     employmentType: "FULL_TIME",
     hourlyRate: "",
     dailyRate: "",
@@ -76,6 +93,21 @@ export default function EmployeesPage() {
       setRoles(res.data || []);
     } catch {
       /* fallback to empty */
+    }
+  };
+
+  const fetchPositions = async () => {
+    try {
+      const res = await api.get(`/companies/${companyId}/work-positions`);
+      setPositions(
+        (res.data || []).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          isActive: !!p.isActive,
+        })),
+      );
+    } catch {
+      setPositions([]);
     }
   };
 
@@ -127,6 +159,7 @@ export default function EmployeesPage() {
     }
     fetchAll();
     fetchRoles();
+    fetchPositions();
   }, [companyId, empTypeFilter, activeFilter, searchFilter]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -138,6 +171,7 @@ export default function EmployeesPage() {
       email: form.email || undefined,
       phone: form.phone || undefined,
       designation: form.designation,
+      ...(form.positionId && { positionId: Number(form.positionId) }),
       employmentType: form.employmentType,
       hourlyRate: form.hourlyRate ? parseFloat(form.hourlyRate) : undefined,
       dailyRate: form.dailyRate ? parseFloat(form.dailyRate) : undefined,
@@ -165,6 +199,7 @@ export default function EmployeesPage() {
         email: "",
         phone: "",
         designation: "",
+        positionId: "",
         employmentType: "FULL_TIME",
         hourlyRate: "",
         dailyRate: "",
@@ -417,6 +452,9 @@ export default function EmployeesPage() {
                               email: e.email || "",
                               phone: e.phone || "",
                               designation: e.designation,
+                              positionId: (e as any).position_id
+                                ? String((e as any).position_id)
+                                : "",
                               employmentType: e.employmentType,
                               hourlyRate: e.hourlyRate
                                 ? String(e.hourlyRate)
@@ -550,6 +588,28 @@ export default function EmployeesPage() {
                     }
                     className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Position
+                    <InfoTag text="Optional. Work position drives position-based allowances that auto-apply during payroll." />
+                  </label>
+                  <select
+                    value={form.positionId}
+                    onChange={(e) =>
+                      setForm({ ...form, positionId: e.target.value })
+                    }
+                    className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
+                  >
+                    <option value="">
+                      No position (manual allowances only)
+                    </option>
+                    {positions.map((p: any) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium">
