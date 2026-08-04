@@ -140,6 +140,11 @@ export default function CompanyLayout({
         },
         { name: "Payroll", href: "/personnel/payroll", roles: adminRoles },
         {
+          name: "Work Positions",
+          href: "/work-positions",
+          roles: adminRoles,
+        },
+        {
           name: "Daily Laborers",
           href: "/daily-laboreers",
           roles: adminRoles,
