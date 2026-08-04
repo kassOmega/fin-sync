@@ -131,6 +131,41 @@ export default function PayrollPage() {
     }
   };
 
+  // Work Positions + Position Allowances (auto-applied to employees)
+  const [positions, setPositions] = useState<Array<Record<string, any>>>([]);
+  const [openPositionId, setOpenPositionId] = useState<number | null>(null);
+  const [posAllowances, setPosAllowances] = useState<
+    Array<Record<string, any>>
+  >([]);
+  const [newPosition, setNewPosition] = useState("");
+  const [newAllowance, setNewAllowance] = useState({
+    name: "",
+    amount: "",
+    isTaxable: true,
+    effectiveFrom: new Date().toISOString().split("T")[0],
+    effectiveTo: "",
+  });
+
+  const loadPositions = async () => {
+    try {
+      const res = await api.get(`/companies/${companyId}/work-positions`);
+      setPositions(res.data || []);
+    } catch {
+      setPositions([]);
+    }
+  };
+
+  const loadAllowances = async (positionId: number) => {
+    try {
+      const res = await api.get(
+        `/companies/${companyId}/work-positions/${positionId}/allowances`,
+      );
+      setPosAllowances(res.data || []);
+    } catch {
+      setPosAllowances([]);
+    }
+  };
+
   // Payroll Settings — versioned tax/pension config
   const [config, setConfig] = useState<Record<string, any> | null>(null);
   const [configHistory, setConfigHistory] = useState<
@@ -339,6 +374,7 @@ export default function PayrollPage() {
                 loadSettings();
                 loadGovDeductions();
                 loadConfigHistory();
+                loadPositions();
               }
             }}
             className={`px-4 py-2 rounded-md text-sm font-medium ${tab === key ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
@@ -1221,6 +1257,286 @@ export default function PayrollPage() {
                           ? "Update"
                           : "Add"}
                     </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Work Positions & Position-based Allowances */}
+              <div className="border-t border-gray-200 pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-gray-900">
+                    Work Positions & Position Allowances
+                    <InfoTag text="Predefine allowances per work position — they are auto-applied to every employee in that position during payroll (prorated by period overlap). Taxable allowances add to gross; non-taxable are excluded from the taxable base." />
+                  </h4>
+                </div>
+                <div className="mb-3 flex items-center gap-2">
+                  <input
+                    value={newPosition}
+                    onChange={(e) => setNewPosition(e.target.value)}
+                    placeholder="New position name, e.g. Foreman"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!newPosition.trim()) return;
+                      try {
+                        await api.post(
+                          `/companies/${companyId}/work-positions`,
+                          {
+                            name: newPosition.trim(),
+                          },
+                        );
+                        toast.success("Work position created");
+                        setNewPosition("");
+                        await loadPositions();
+                      } catch {
+                        toast.error("Failed to create work position");
+                      }
+                    }}
+                    className="px-4 py-2 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-700"
+                  >
+                    Add Position
+                  </button>
+                </div>
+                {positions.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    No work positions yet. Create one to start assigning
+                    position-based allowances.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {positions.map((p) => (
+                      <div
+                        key={p.id}
+                        className="border border-gray-200 rounded-md"
+                      >
+                        <div className="flex items-center justify-between px-3 py-2">
+                          <button
+                            onClick={async () => {
+                              if (openPositionId === p.id) {
+                                setOpenPositionId(null);
+                              } else {
+                                setOpenPositionId(p.id);
+                                await loadAllowances(p.id);
+                              }
+                            }}
+                            className="font-medium text-gray-800 text-sm"
+                          >
+                            {p.name}
+                            <span className="ml-2 text-xs text-gray-400">
+                              {Number(p.employeeCount || 0)} employee(s) ·{" "}
+                              {Number(p.allowanceCount || 0)} allowance(s)
+                            </span>
+                          </button>
+                          <div className="flex items-center gap-2">
+                            {openPositionId === p.id && (
+                              <div className="flex items-center gap-2 mr-2">
+                                <input
+                                  placeholder="Allowance name"
+                                  value={newAllowance.name}
+                                  onChange={(e) =>
+                                    setNewAllowance({
+                                      ...newAllowance,
+                                      name: e.target.value,
+                                    })
+                                  }
+                                  className="w-40 px-2 py-1 border border-gray-300 rounded text-xs"
+                                />
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  placeholder="Amount"
+                                  value={newAllowance.amount}
+                                  onChange={(e) =>
+                                    setNewAllowance({
+                                      ...newAllowance,
+                                      amount: e.target.value,
+                                    })
+                                  }
+                                  className="w-20 px-2 py-1 border border-gray-300 rounded text-xs"
+                                />
+                                <label className="flex items-center gap-1 text-xs text-gray-600">
+                                  <input
+                                    type="checkbox"
+                                    checked={newAllowance.isTaxable}
+                                    onChange={(e) =>
+                                      setNewAllowance({
+                                        ...newAllowance,
+                                        isTaxable: e.target.checked,
+                                      })
+                                    }
+                                    className="h-3.5 w-3.5"
+                                  />
+                                  Taxable
+                                </label>
+                                <button
+                                  onClick={async () => {
+                                    if (
+                                      !newAllowance.name.trim() ||
+                                      !newAllowance.amount
+                                    )
+                                      return;
+                                    try {
+                                      await api.post(
+                                        `/companies/${companyId}/work-positions/${p.id}/allowances`,
+                                        {
+                                          name: newAllowance.name.trim(),
+                                          amount: parseFloat(
+                                            newAllowance.amount,
+                                          ),
+                                          isTaxable: newAllowance.isTaxable,
+                                          effectiveFrom:
+                                            newAllowance.effectiveFrom,
+                                          ...(newAllowance.effectiveTo && {
+                                            effectiveTo:
+                                              newAllowance.effectiveTo,
+                                          }),
+                                        },
+                                      );
+                                      toast.success("Position allowance added");
+                                      setNewAllowance({
+                                        name: "",
+                                        amount: "",
+                                        isTaxable: true,
+                                        effectiveFrom: new Date()
+                                          .toISOString()
+                                          .split("T")[0],
+                                        effectiveTo: "",
+                                      });
+                                      await loadAllowances(p.id);
+                                      await loadPositions();
+                                    } catch {
+                                      toast.error(
+                                        "Failed to add position allowance",
+                                      );
+                                    }
+                                  }}
+                                  className="px-2 py-1 bg-indigo-600 text-white text-xs rounded"
+                                >
+                                  + Allowance
+                                </button>
+                              </div>
+                            )}
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`Delete position "${p.name}"?`))
+                                  return;
+                                try {
+                                  await api.delete(
+                                    `/companies/${companyId}/work-positions/${p.id}`,
+                                  );
+                                  toast.success("Work position deleted");
+                                  if (openPositionId === p.id)
+                                    setOpenPositionId(null);
+                                  await loadPositions();
+                                } catch {
+                                  toast.error("Failed to delete work position");
+                                }
+                              }}
+                              className="text-xs text-red-600 hover:text-red-800"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                        {openPositionId === p.id && (
+                          <div className="border-t border-gray-100 px-3 py-2">
+                            {posAllowances.length === 0 ? (
+                              <p className="text-xs text-gray-500">
+                                No allowances for this position.
+                              </p>
+                            ) : (
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="text-gray-500 text-xs uppercase border-b">
+                                    <th className="text-left px-2 py-1">
+                                      Name
+                                    </th>
+                                    <th className="text-right px-2 py-1">
+                                      Amount
+                                    </th>
+                                    <th className="text-left px-2 py-1">
+                                      Taxable
+                                    </th>
+                                    <th className="text-left px-2 py-1">
+                                      Effective
+                                    </th>
+                                    <th className="text-right px-2 py-1"></th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {posAllowances.map((a) => (
+                                    <tr
+                                      key={a.id}
+                                      className="border-b border-gray-50"
+                                    >
+                                      <td className="px-2 py-1 font-medium text-gray-800">
+                                        {a.name}
+                                      </td>
+                                      <td className="px-2 py-1 text-right text-gray-900">
+                                        {money(Number(a.amount))}
+                                      </td>
+                                      <td className="px-2 py-1">
+                                        <span
+                                          className={`px-2 py-0.5 rounded-full text-xs ${
+                                            a.isTaxable
+                                              ? "bg-red-100 text-red-700"
+                                              : "bg-green-100 text-green-700"
+                                          }`}
+                                        >
+                                          {a.isTaxable
+                                            ? "Taxable"
+                                            : "Non-taxable"}
+                                        </span>
+                                      </td>
+                                      <td className="px-2 py-1 text-gray-900">
+                                        {new Date(
+                                          a.effectiveFrom,
+                                        ).toLocaleDateString()}
+                                        {a.effectiveTo
+                                          ? ` → ${new Date(
+                                              a.effectiveTo,
+                                            ).toLocaleDateString()}`
+                                          : ""}
+                                      </td>
+                                      <td className="px-2 py-1 text-right">
+                                        <button
+                                          onClick={async () => {
+                                            if (
+                                              !confirm(
+                                                `Delete allowance "${a.name}"?`,
+                                              )
+                                            )
+                                              return;
+                                            try {
+                                              await api.delete(
+                                                `/companies/${companyId}/work-positions/allowances/${a.id}`,
+                                              );
+                                              toast.success(
+                                                "Position allowance deleted",
+                                              );
+                                              await loadAllowances(p.id);
+                                              await loadPositions();
+                                            } catch {
+                                              toast.error(
+                                                "Failed to delete allowance",
+                                              );
+                                            }
+                                          }}
+                                          className="text-xs text-red-600 hover:text-red-800"
+                                        >
+                                          Delete
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
