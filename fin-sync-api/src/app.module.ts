@@ -40,6 +40,7 @@ import { SavingsModule } from './savings/savings.module';
 import { StoreItemsModule } from './store-items/store-items.module';
 import { TimesheetsModule } from './timesheets/timesheets.module';
 import { UsersModule } from './users/users.module';
+import { WorkPositionsModule } from './work-positions/work-positions.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { UsersModule } from './users/users.module';
     AttendanceModule,
     AuthModule,
     UsersModule,
+    WorkPositionsModule,
     CompensationModule,
     DailyLaborersModule,
     CompaniesModule,

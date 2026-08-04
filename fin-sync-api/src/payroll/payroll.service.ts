@@ -457,12 +457,37 @@ export class PayrollService {
            AND "effectiveDate" <= '${dto.endDate}'
            AND ("expiryDate" IS NULL OR "expiryDate" >= '${dto.startDate}')`,
       );
-      const taxableAllowances = parseFloat(
-        allowanceRows[0]?.taxable_amt || '0',
-      );
-      const nonTaxableAllowances = parseFloat(
+      let taxableAllowances = parseFloat(allowanceRows[0]?.taxable_amt || '0');
+      let nonTaxableAllowances = parseFloat(
         allowanceRows[0]?.non_taxable_amt || '0',
       );
+
+      // ── Position-based allowances (auto-applied from employee's work position) ──
+      // Prorated by calendar-day overlap: amount × overlapDays / periodDays.
+      // Taxable → part of gross; non-taxable → excluded from taxable base.
+      if (e.positionId) {
+        const posRows: any[] = await this.prisma.$queryRawUnsafe(
+          `SELECT pa."isTaxable",
+                  pa.amount * (
+                    (EXTRACT(EPOCH FROM (
+                      LEAST('${dto.endDate}'::date, COALESCE(pa."effectiveTo", '${dto.endDate}'::date))
+                      - GREATEST('${dto.startDate}'::date, pa."effectiveFrom"::date)
+                    )) / 86400.0 + 1)
+                    / (EXTRACT(EPOCH FROM ('${dto.endDate}'::date - '${dto.startDate}'::date)) / 86400.0 + 1)
+                  ) AS prorated
+           FROM finsync.position_allowances pa
+           WHERE pa."position_id" = ${e.positionId}
+             AND pa."isActive" = true
+             AND pa."effectiveFrom" <= '${dto.endDate}'
+             AND (pa."effectiveTo" IS NULL OR pa."effectiveTo" >= '${dto.startDate}')`,
+        );
+        for (const pr of posRows) {
+          const amt = this.roundMoney(parseFloat(String(pr.prorated || 0)));
+          if (pr.isTaxable) taxableAllowances += amt;
+          else nonTaxableAllowances += amt;
+        }
+      }
+
       const allowanceTotal = taxableAllowances + nonTaxableAllowances;
 
       // ── Active Bonuses in period ──
