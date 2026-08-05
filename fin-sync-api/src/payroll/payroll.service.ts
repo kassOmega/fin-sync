@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { DailyLaborersService } from '../daily-laboreers/daily-laboreers.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { DeductionsService } from './deductions.service';
@@ -13,6 +14,7 @@ export class PayrollService {
     private prisma: PrismaService,
     private ledger: LedgerService,
     private deductions: DeductionsService,
+    private dailyLaborers: DailyLaborersService,
   ) {}
 
   /**
@@ -56,7 +58,10 @@ export class PayrollService {
       ? `AND p."endDate" <= '${filters.endDate}'`
       : '';
     return this.prisma.$queryRawUnsafe(
-      `SELECT p.* FROM finsync.payrolls p
+      `SELECT p.*,
+              (SELECT COUNT(*)::int FROM finsync.payroll_items pi
+               WHERE pi."payrollId" = p.id) AS "itemsGenerated"
+       FROM finsync.payrolls p
        WHERE p."companyId" = ${companyId} ${pf} ${sf} ${sdf} ${edf}
        ORDER BY p."created_at" DESC`,
     );
@@ -245,8 +250,8 @@ export class PayrollService {
       `SELECT lr."startDate", lr."endDate", lr."totalDays", lt.name, lt."isPaid"
        FROM finsync.leave_requests lr
        JOIN finsync.leave_types lt ON lt.id = lr."leave_type_id"
-       WHERE lr."employeeId" = ${employeeId}
-         AND lr."companyId" = ${companyId}
+       WHERE lr.employee_id = ${employeeId}
+         AND lr.company_id = ${companyId}
          AND lr.status = 'APPROVED'
          AND lr."startDate" <= '${endDate}'
          AND lr."endDate" >= '${startDate}'`,
@@ -349,6 +354,7 @@ export class PayrollService {
        FROM finsync.payrolls
        WHERE "companyId" = ${companyId}
          AND status <> 'VOIDED'
+         AND "sourceType" IN ('ALL', 'ATTENDANCE', 'TIMESHEETS')
          AND "startDate" <= '${endDate}'
          AND "endDate" >= '${startDate}'
          AND id <> ${excludeId ?? 0}`,
@@ -392,19 +398,24 @@ export class PayrollService {
           );
 
     for (const e of fullTimeEmployees) {
-      // Count PRESENT attendance days (DATE() cast so ISO timestamps match)
+      // Attendance is the source of truth for worked + leave days:
+      // PRESENT = 1.0, HALF_DAY = 0.5 (approved paid leave is auto-marked PRESENT).
       const attRows: any[] = await this.prisma.$queryRawUnsafe(
-        `SELECT COUNT(*) as present_days
+        `SELECT COALESCE(SUM(CASE WHEN status = 'PRESENT' THEN 1.0
+                                  WHEN status = 'HALF_DAY' THEN 0.5
+                                  ELSE 0 END), 0) AS present_days
          FROM finsync.attendances
          WHERE "employeeId" = ${e.id}
            AND "companyId" = ${companyId}
-           AND status = 'PRESENT'
+           AND status IN ('PRESENT', 'HALF_DAY')
            AND DATE(date) >= DATE('${dto.startDate}')
            AND DATE(date) <= DATE('${dto.endDate}')`,
       );
-      const presentDays = parseInt(attRows[0]?.present_days || '0', 10);
+      const presentDays = parseFloat(attRows[0]?.present_days || '0');
 
-      // Approved leave sync: paid/special leave count as working days
+      // Leave breakdown: used only for the sick-50% half-rate adjustment.
+      // Paid/special/sick leave is already counted as PRESENT attendance;
+      // unpaid leave is ON_LEAVE (excluded) and deducted via computeUnpaidLeave.
       const leave = await this.getApprovedLeaveBreakdown(
         companyId,
         e.id,
@@ -412,12 +423,14 @@ export class PayrollService {
         dto.endDate,
         e.joinedDate,
       );
-      const workingDays =
-        presentDays + leave.paidDays + leave.specialDays + leave.sickPaid100;
+      const workingDays = presentDays;
       if (workingDays <= 0) continue;
 
-      // Rate fallback chain: dailyRate → baseSalary/22 → hourlyRate×8
+      // Rate fallback chain: dailyRate → weeklyRate/6 → baseSalary/22 → hourlyRate×8
       let dailyRate = parseFloat(String(e.dailyRate || 0));
+      if (!dailyRate && e.weeklyRate) {
+        dailyRate = parseFloat(String(e.weeklyRate)) / 6;
+      }
       if (!dailyRate && e.baseSalary) {
         dailyRate = parseFloat(String(e.baseSalary)) / 22;
       }
@@ -426,11 +439,11 @@ export class PayrollService {
       }
       if (!dailyRate) continue; // no resolvable rate — skip with reason
 
-      // Half-rate for sick 50% band; unpaid/sick-unpaid prorate out
+      // Half-rate for the sick-50% band (those days are PRESENT at full weight);
+      // unpaid/sick-unpaid days are excluded from workingDays, so no subtraction here.
       const basePay = this.roundMoney(
         dailyRate * (workingDays - leave.sickPaid50) +
-          (dailyRate / 2) * leave.sickPaid50 -
-          dailyRate * (leave.unpaidDays + leave.sickUnpaid),
+          (dailyRate / 2) * leave.sickPaid50,
       );
       const overtimePay = 0; // Full-time OT comes from OvertimeEntry table
 
@@ -438,8 +451,8 @@ export class PayrollService {
       const otRows: any[] = await this.prisma.$queryRawUnsafe(
         `SELECT COALESCE(SUM(amount), 0) as total_ot
          FROM finsync.overtime_entries
-         WHERE "employeeId" = ${e.id}
-           AND "companyId" = ${companyId}
+         WHERE employee_id = ${e.id}
+           AND company_id = ${companyId}
            AND status = 'APPROVED'
            AND date >= '${dto.startDate}'
            AND date <= '${dto.endDate}'`,
@@ -450,9 +463,9 @@ export class PayrollService {
       const allowanceRows: any[] = await this.prisma.$queryRawUnsafe(
         `SELECT COALESCE(SUM(CASE WHEN "isTaxable" = true THEN amount ELSE 0 END), 0) as taxable_amt,
                 COALESCE(SUM(CASE WHEN "isTaxable" = false THEN amount ELSE 0 END), 0) as non_taxable_amt
-         FROM finsync.payroll_allowances
-         WHERE "employeeId" = ${e.id}
-           AND "companyId" = ${companyId}
+         FROM finsync.employee_specific_allowances
+         WHERE employee_id = ${e.id}
+           AND company_id = ${companyId}
            AND "isActive" = true
            AND "effectiveDate" <= '${dto.endDate}'
            AND ("expiryDate" IS NULL OR "expiryDate" >= '${dto.startDate}')`,
@@ -494,8 +507,8 @@ export class PayrollService {
       const bonusRows: any[] = await this.prisma.$queryRawUnsafe(
         `SELECT COALESCE(SUM(amount), 0) as total_bonus
          FROM finsync.payroll_bonuses
-         WHERE "employeeId" = ${e.id}
-           AND "companyId" = ${companyId}
+         WHERE employee_id = ${e.id}
+           AND company_id = ${companyId}
            AND "isActive" = true
            AND "effectiveDate" <= '${dto.endDate}'
            AND ("expiryDate" IS NULL OR "expiryDate" >= '${dto.startDate}')`,
@@ -522,9 +535,9 @@ export class PayrollService {
                 ELSE amount END
          ), 0) as total_withholding
          FROM finsync.payroll_withholdings
-         WHERE "companyId" = ${companyId}
+         WHERE company_id = ${companyId}
            AND "isActive" = true
-           AND ("employeeId" = ${e.id} OR "isGlobal" = true)
+           AND (employee_id = ${e.id} OR "isGlobal" = true)
            AND "effectiveDate" <= '${dto.endDate}'
            AND ("expiryDate" IS NULL OR "expiryDate" >= '${dto.startDate}')`,
       );
@@ -551,7 +564,7 @@ export class PayrollService {
       if (itemRows.length) {
         await this.prisma.$executeRawUnsafe(
           `UPDATE finsync.overtime_entries SET "payrollItemId" = ${itemRows[0].id}
-           WHERE "employeeId" = ${e.id} AND "companyId" = ${companyId}
+           WHERE employee_id = ${e.id} AND company_id = ${companyId}
              AND status = 'APPROVED'
              AND date >= '${dto.startDate}' AND date <= '${dto.endDate}'`,
         );
@@ -560,9 +573,9 @@ export class PayrollService {
       // Link active allowances to this payroll item
       if (itemRows.length && allowanceTotal > 0) {
         await this.prisma.$executeRawUnsafe(
-          `UPDATE finsync.payroll_allowances SET "payrollItemId" = ${itemRows[0].id}
-           WHERE "employeeId" = ${e.id} AND "companyId" = ${companyId}
-             AND "isActive" = true AND "payrollItemId" IS NULL
+          `UPDATE finsync.employee_specific_allowances SET "payroll_item_id" = ${itemRows[0].id}
+           WHERE employee_id = ${e.id} AND company_id = ${companyId}
+             AND "isActive" = true AND "payroll_item_id" IS NULL
              AND "effectiveDate" <= '${dto.endDate}'
              AND ("expiryDate" IS NULL OR "expiryDate" >= '${dto.startDate}')`,
         );
@@ -571,9 +584,9 @@ export class PayrollService {
       // Link active bonuses to this payroll item
       if (itemRows.length && bonusTotal > 0) {
         await this.prisma.$executeRawUnsafe(
-          `UPDATE finsync.payroll_bonuses SET "payrollItemId" = ${itemRows[0].id}
-           WHERE "employeeId" = ${e.id} AND "companyId" = ${companyId}
-             AND "isActive" = true AND "payrollItemId" IS NULL
+          `UPDATE finsync.payroll_bonuses SET "payroll_item_id" = ${itemRows[0].id}
+           WHERE employee_id = ${e.id} AND company_id = ${companyId}
+             AND "isActive" = true AND "payroll_item_id" IS NULL
              AND "effectiveDate" <= '${dto.endDate}'
              AND ("expiryDate" IS NULL OR "expiryDate" >= '${dto.startDate}')`,
         );
@@ -582,10 +595,10 @@ export class PayrollService {
       // Link active withholdings to this payroll item (per-employee + company-global)
       if (itemRows.length && withholdingTotal > 0) {
         await this.prisma.$executeRawUnsafe(
-          `UPDATE finsync.payroll_withholdings SET "payrollItemId" = ${itemRows[0].id}
-           WHERE "companyId" = ${companyId}
-             AND ("employeeId" = ${e.id} OR "isGlobal" = true)
-             AND "isActive" = true AND "payrollItemId" IS NULL
+          `UPDATE finsync.payroll_withholdings SET "payroll_item_id" = ${itemRows[0].id}
+           WHERE company_id = ${companyId}
+             AND (employee_id = ${e.id} OR "isGlobal" = true)
+             AND "isActive" = true AND "payroll_item_id" IS NULL
              AND "effectiveDate" <= '${dto.endDate}'
              AND ("expiryDate" IS NULL OR "expiryDate" >= '${dto.startDate}')`,
         );
@@ -595,15 +608,15 @@ export class PayrollService {
       if (itemRows.length) {
         for (const d of deductionResult.deductions) {
           await this.prisma.$executeRawUnsafe(
-            `INSERT INTO finsync.payroll_item_deductions ("payrollItemId", name, amount, type)
+            `INSERT INTO finsync.payroll_item_deductions ("payroll_item_id", name, amount, type)
              VALUES (${itemRows[0].id}, '${d.name.replace(/'/g, "''")}', ${d.amount}, '${d.type}')`,
           );
         }
         if (withholdingTotal > 0) {
           const withDetail: any[] = await this.prisma.$queryRawUnsafe(
             `SELECT wt.name, wt.type, wt.amount, wt.reason FROM finsync.payroll_withholdings wt
-             WHERE wt."companyId" = ${companyId}
-               AND (wt."employeeId" = ${e.id} OR wt."isGlobal" = true)
+             WHERE wt.company_id = ${companyId}
+               AND (wt.employee_id = ${e.id} OR wt."isGlobal" = true)
                AND wt."isActive" = true
                AND wt."effectiveDate" <= '${dto.endDate}'
                AND (wt."expiryDate" IS NULL OR wt."expiryDate" >= '${dto.startDate}')`,
@@ -615,7 +628,7 @@ export class PayrollService {
                 : parseFloat(String(w.amount));
             const label = `${w.name || w.type}${w.reason ? `: ${String(w.reason).replace(/'/g, "''")}` : ''}`;
             await this.prisma.$executeRawUnsafe(
-              `INSERT INTO finsync.payroll_item_deductions ("payrollItemId", name, amount, type)
+              `INSERT INTO finsync.payroll_item_deductions ("payroll_item_id", name, amount, type)
                VALUES (${itemRows[0].id}, '${String(label).replace(/'/g, "''")}', ${amount}, 'WITHHOLDING')`,
             );
           }
@@ -678,7 +691,7 @@ export class PayrollService {
       if (itemRows.length && deductionResult.deductions.length > 0) {
         for (const d of deductionResult.deductions) {
           await this.prisma.$executeRawUnsafe(
-            `INSERT INTO finsync.payroll_item_deductions ("payrollItemId", name, amount, type)
+            `INSERT INTO finsync.payroll_item_deductions ("payroll_item_id", name, amount, type)
              VALUES (${itemRows[0].id}, '${d.name.replace(/'/g, "''")}', ${d.amount}, '${d.type}')`,
           );
         }
@@ -696,7 +709,31 @@ export class PayrollService {
     return { ...payroll, totalAmount, itemsGenerated: totalItems };
   }
 
-  async approve(payrollId: number) {
+  /**
+   * Update a DRAFT payroll run (currently: rename the title). Approved/paid
+   * runs are immutable — their expense/ledger records reference the title.
+   */
+  async update(payrollId: number, dto: { title?: string }) {
+    const rows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT * FROM finsync.payrolls WHERE id = ${payrollId}`,
+    );
+    if (!rows.length) throw new NotFoundException('Payroll not found');
+    const p = rows[0];
+    if (p.status !== 'DRAFT') {
+      throw new BadRequestException(
+        'Only DRAFT payrolls can be renamed — approved/paid runs are immutable.',
+      );
+    }
+    const title = dto.title?.trim();
+    if (title) {
+      await this.prisma.$executeRawUnsafe(
+        `UPDATE finsync.payrolls SET title = '${title.replace(/'/g, "''")}', "updated_at" = NOW() WHERE id = ${payrollId}`,
+      );
+    }
+    return { updated: true, id: payrollId, title: title || p.title };
+  }
+
+  async approve(payrollId: number, registeredById?: number) {
     const rows: any[] = await this.prisma.$queryRawUnsafe(
       `SELECT * FROM finsync.payrolls WHERE id = ${payrollId}`,
     );
@@ -709,13 +746,10 @@ export class PayrollService {
 
     const amount = parseFloat(String(p.totalAmount || 0));
     if (amount > 0) {
-      await this.prisma.$executeRawUnsafe(
-        `INSERT INTO finsync."CompanyExpense" (company_id, registered_by, amount, category, date, note, project_id, payroll_expense_id, "createdAt", is_recurring, recurring_frequency)
-         VALUES (${p.companyId}, ${p.companyId}, ${amount}, 'Payroll', NOW(), 'Payroll: ${p.title}', ${p.projectId ?? 'NULL'}, ${payrollId}, NOW(), false, NULL)`,
-      );
-
-      const expRows: any[] = await this.prisma.$queryRawUnsafe(
-        `SELECT id FROM finsync."CompanyExpense" WHERE payroll_expense_id = ${payrollId} ORDER BY id DESC LIMIT 1`,
+      const expRows: { id: number }[] = await this.prisma.$queryRawUnsafe(
+        `INSERT INTO finsync."CompanyExpense" (company_id, registered_by, amount, category, date, note, project_id, "createdAt", "isRecurring", "recurringFrequency")
+         VALUES (${p.companyId}, ${registeredById ?? p.companyId}, ${amount}, 'Payroll', NOW(), 'Payroll: ${p.title}', ${p.projectId ?? 'NULL'}, NOW(), false, NULL)
+         RETURNING id`,
       );
       if (expRows.length) {
         await this.prisma.$executeRawUnsafe(
@@ -762,7 +796,7 @@ export class PayrollService {
    *  - Ensures a CompanyExpense is registered for the run
    *  - Posts the settlement journal entry: Debit 2200 Salaries Payable / Credit 1001 Cash
    */
-  async markPaid(payrollId: number) {
+  async markPaid(payrollId: number, registeredById?: number) {
     const rows: any[] = await this.prisma.$queryRawUnsafe(
       `SELECT * FROM finsync.payrolls WHERE id = ${payrollId}`,
     );
@@ -783,14 +817,17 @@ export class PayrollService {
 
     // 2. Ensure a CompanyExpense record exists (auto-register when status → PAID)
     if (amount > 0) {
-      const expCheck: { id: number }[] = await this.prisma.$queryRawUnsafe(
-        `SELECT id FROM finsync."CompanyExpense" WHERE payroll_expense_id = ${payrollId} LIMIT 1`,
-      );
-      if (expCheck.length === 0) {
-        await this.prisma.$executeRawUnsafe(
-          `INSERT INTO finsync."CompanyExpense" (company_id, registered_by, amount, category, date, note, project_id, payroll_expense_id, "createdAt", is_recurring, recurring_frequency)
-           VALUES (${p.companyId}, ${p.companyId}, ${amount}, 'Payroll', NOW(), 'Payroll (PAID): ${p.title}', ${p.projectId ?? 'NULL'}, ${payrollId}, NOW(), false, NULL)`,
+      if (!p.expenseId) {
+        const expRows: { id: number }[] = await this.prisma.$queryRawUnsafe(
+          `INSERT INTO finsync."CompanyExpense" (company_id, registered_by, amount, category, date, note, project_id, "createdAt", "isRecurring", "recurringFrequency")
+           VALUES (${p.companyId}, ${registeredById ?? p.companyId}, ${amount}, 'Payroll', NOW(), 'Payroll (PAID): ${p.title}', ${p.projectId ?? 'NULL'}, NOW(), false, NULL)
+           RETURNING id`,
         );
+        if (expRows.length) {
+          await this.prisma.$executeRawUnsafe(
+            `UPDATE finsync.payrolls SET "expenseId" = ${expRows[0].id} WHERE id = ${payrollId}`,
+          );
+        }
       }
 
       // 3. Settlement journal entry: reverse payable → cash out
@@ -899,7 +936,7 @@ export class PayrollService {
         j."sourceType" AS "journalSource"
        FROM finsync.payrolls p
        LEFT JOIN finsync."projects" prj ON prj.id = p."projectId"
-       LEFT JOIN finsync."CompanyExpense" ce ON ce.payroll_expense_id = p.id
+       LEFT JOIN finsync."CompanyExpense" ce ON ce.id = p."expenseId"
        LEFT JOIN finsync.journal_entries j ON j."sourceType" = 'PAYROLL' AND j."sourceId" = p.id
        WHERE p."companyId" = ${companyId} AND p.status <> 'VOIDED' ${pf}
        ORDER BY p."startDate" DESC, p.id DESC`,
@@ -907,6 +944,19 @@ export class PayrollService {
   }
 
   async getItems(payrollId: number) {
+    const pRows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT "sourceType" FROM finsync.payrolls WHERE id = ${payrollId}`,
+    );
+    const isTW = pRows[0]?.sourceType === 'DAILY_LABORERS';
+    if (isTW) {
+      return this.prisma.$queryRawUnsafe(
+        `SELECT pi.*, json_build_object('id', dl.id, 'firstName', dl."firstName", 'lastName', dl."lastName", 'employeeCode', dl."laborerCode") AS employee,
+                'TEMPORARY_WORKER' AS "workerType"
+         FROM finsync.payroll_items pi
+         JOIN finsync.daily_laborers dl ON dl.id = pi."employeeId"
+         WHERE pi."payrollId" = ${payrollId}`,
+      );
+    }
     return this.prisma.$queryRawUnsafe(
       `SELECT pi.*, json_build_object('id', e.id, 'firstName', e."firstName", 'lastName', e."lastName", 'employeeCode', e."employeeCode") AS employee
        FROM finsync.payroll_items pi
@@ -918,14 +968,26 @@ export class PayrollService {
   // ─── Payslip ──────────────────────────────────────────────
 
   async getPayslip(payrollId: number, itemId: number) {
+    const pRows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT "sourceType" FROM finsync.payrolls WHERE id = ${payrollId}`,
+    );
+    const isTW = pRows[0]?.sourceType === 'DAILY_LABORERS';
     const itemRows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT pi.*, json_build_object(
-        'id', e.id, 'firstName', e."firstName", 'lastName', e."lastName",
-        'employeeCode', e."employeeCode", 'designation', e.designation
-      ) AS employee
-       FROM finsync.payroll_items pi
-       JOIN finsync.employees e ON e.id = pi."employeeId"
-       WHERE pi.id = ${itemId} AND pi."payrollId" = ${payrollId}`,
+      isTW
+        ? `SELECT pi.*, json_build_object(
+             'id', dl.id, 'firstName', dl."firstName", 'lastName', dl."lastName",
+             'employeeCode', dl."laborerCode", 'designation', 'Temporary Worker'
+           ) AS employee
+           FROM finsync.payroll_items pi
+           JOIN finsync.daily_laborers dl ON dl.id = pi."employeeId"
+           WHERE pi.id = ${itemId} AND pi."payrollId" = ${payrollId}`
+        : `SELECT pi.*, json_build_object(
+             'id', e.id, 'firstName', e."firstName", 'lastName', e."lastName",
+             'employeeCode', e."employeeCode", 'designation', e.designation
+           ) AS employee
+           FROM finsync.payroll_items pi
+           JOIN finsync.employees e ON e.id = pi."employeeId"
+           WHERE pi.id = ${itemId} AND pi."payrollId" = ${payrollId}`,
     );
     if (!itemRows.length) throw new NotFoundException('Payroll item not found');
     const item = itemRows[0];
@@ -938,7 +1000,7 @@ export class PayrollService {
     );
 
     const deductions: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT * FROM finsync.payroll_item_deductions WHERE "payrollItemId" = ${itemId}`,
+      `SELECT * FROM finsync.payroll_item_deductions WHERE "payroll_item_id" = ${itemId}`,
     );
 
     return {
@@ -971,5 +1033,65 @@ export class PayrollService {
       },
       company: payrollRows[0]?.company || {},
     };
+  }
+
+  /**
+   * Delete a DRAFT payroll run (with its items). Approved/paid runs are
+   * immutable — they already created expense/ledger records. Also unlinks any
+   * overtime/allowance/bonus/withholding records that pointed at the items.
+   */
+  async remove(payrollId: number) {
+    const rows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT * FROM finsync.payrolls WHERE id = ${payrollId}`,
+    );
+    if (!rows.length) throw new NotFoundException('Payroll not found');
+    const p = rows[0];
+    if (p.status !== 'DRAFT') {
+      throw new BadRequestException(
+        'Only DRAFT payrolls can be deleted — approved/paid runs are immutable.',
+      );
+    }
+
+    const itemIds =
+      `SELECT id FROM finsync.payroll_items WHERE "payrollId" = ${payrollId}`;
+
+    // Unlink linked compensation records before deleting the items
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE finsync.overtime_entries SET "payrollItemId" = NULL
+       WHERE "payrollItemId" IN (${itemIds})`,
+    );
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE finsync.employee_specific_allowances SET "payroll_item_id" = NULL
+       WHERE "payroll_item_id" IN (${itemIds})`,
+    );
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE finsync.payroll_bonuses SET "payroll_item_id" = NULL
+       WHERE "payroll_item_id" IN (${itemIds})`,
+    );
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE finsync.payroll_withholdings SET "payroll_item_id" = NULL
+       WHERE "payroll_item_id" IN (${itemIds})`,
+    );
+
+    await this.prisma.$executeRawUnsafe(
+      `DELETE FROM finsync.payroll_item_deductions WHERE "payroll_item_id" IN (${itemIds})`,
+    );
+    await this.prisma.$executeRawUnsafe(
+      `DELETE FROM finsync.payroll_items WHERE "payrollId" = ${payrollId}`,
+    );
+    await this.prisma.$executeRawUnsafe(
+      `DELETE FROM finsync.journal_lines
+       WHERE entry_id IN (
+         SELECT id FROM finsync.journal_entries
+         WHERE "sourceType" = 'PAYROLL' AND "sourceId" = ${payrollId})`,
+    );
+    await this.prisma.$executeRawUnsafe(
+      `DELETE FROM finsync.journal_entries
+       WHERE "sourceType" = 'PAYROLL' AND "sourceId" = ${payrollId}`,
+    );
+    await this.prisma.$executeRawUnsafe(
+      `DELETE FROM finsync.payrolls WHERE id = ${payrollId}`,
+    );
+    return { deleted: true, id: payrollId };
   }
 }

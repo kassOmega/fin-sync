@@ -44,5 +44,9 @@ export class CreateStaffDto {
 
   @IsNumber()
   @IsOptional()
+  weeklyRate?: number;
+
+  @IsNumber()
+  @IsOptional()
   baseSalary?: number;
 }

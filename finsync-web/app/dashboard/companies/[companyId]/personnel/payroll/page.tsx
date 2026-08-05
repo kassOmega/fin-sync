@@ -2,7 +2,7 @@
 
 import api from "@/lib/api";
 import type {
-  PayrollAllowance,
+  EmployeeSpecificAllowance,
   PayrollBonus,
   PayrollWithholding,
 } from "@/lib/services/compensation";
@@ -17,6 +17,7 @@ import type {
   Payslip,
 } from "@/lib/services/types";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -68,7 +69,9 @@ export default function PayrollPage() {
   const [otEntries, setOtEntries] = useState<OvertimeEntry[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
 
-  const [allowances, setAllowances] = useState<PayrollAllowance[]>([]);
+  const [employeeSpecificAllowances, setEmployeeSpecificAllowances] = useState<
+    EmployeeSpecificAllowance[]
+  >([]);
   const [bonuses, setBonuses] = useState<PayrollBonus[]>([]);
   const [withholdings, setWithholdings] = useState<PayrollWithholding[]>([]);
 
@@ -276,14 +279,46 @@ export default function PayrollPage() {
         .then(setPayrolls),
       overtimeService.getRates(companyId).then(setRates),
       overtimeService.getEntries(companyId).then(setOtEntries),
-      compensationService.getAllowances(companyId).then(setAllowances),
+      compensationService
+        .getEmployeeSpecificAllowances(companyId)
+        .then(setEmployeeSpecificAllowances),
       compensationService.getBonuses(companyId).then(setBonuses),
       compensationService.getWithholdings(companyId).then(setWithholdings),
+      api
+        .get(`/companies/${companyId}/employees`)
+        .then((res) => setEmployees(res.data || []))
+        .catch(() => setEmployees([])),
     ])
       .catch(() => {})
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, payrollStatus, payrollStart, payrollEnd]);
+
+  // Deep-link tab support (e.g. ?tab=compensation from Work Positions → Manage Allowances)
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get(
+      "tab",
+    ) as TabType;
+    if (
+      t &&
+      ["runs", "overtime", "compensation", "audit", "settings"].includes(t)
+    ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTab(t);
+      if (t === "compensation") loadPositions();
+      if (t === "audit") {
+        loadAudit();
+        loadRegistry();
+      }
+      if (t === "settings") {
+        loadSettings();
+        loadGovDeductions();
+        loadConfigHistory();
+        loadPositions();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadItems = async (payroll: Payroll) => {
     setSelectedPayroll(payroll);
@@ -304,6 +339,13 @@ export default function PayrollPage() {
 
   const handleApprove = async (id: number) => {
     await payrollService.approve(companyId, id);
+    toast.success("Payroll approved — expense + ledger entry created");
+    await loadPayrolls();
+  };
+
+  const handleMarkPaid = async (id: number) => {
+    await payrollService.markPaid(companyId, id);
+    toast.success("Payroll marked PAID — expense + ledger settlement recorded");
     await loadPayrolls();
   };
 
@@ -311,27 +353,70 @@ export default function PayrollPage() {
     title: string;
     startDate: string;
     endDate: string;
-    sourceType?: PayrollSourceType;
+    sourceType?: Exclude<PayrollSourceType, "DAILY_LABORERS">;
   }) => {
-    await payrollService.generate(companyId, dto);
-    setShowGenerate(false);
-    await loadPayrolls();
+    try {
+      const res = await payrollService.generate(companyId, dto);
+      toast.success(
+        `Payroll created — ${res.itemsGenerated ?? 0} item(s) · ${money(
+          Number(res.totalAmount || 0),
+        )}`,
+      );
+      setShowGenerate(false);
+      await loadPayrolls();
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message || "Failed to generate payroll",
+      );
+    }
+  };
+
+  const handleRename = async (id: number, title: string) => {
+    const next = window.prompt("Rename payroll run", title);
+    if (!next || next.trim() === "" || next.trim() === title) return;
+    try {
+      await payrollService.rename(companyId, id, next.trim());
+      toast.success("Payroll renamed");
+      await loadPayrolls();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to rename payroll");
+    }
+  };
+
+  const handleCloseDetail = () => {
+    setSelectedPayroll(null);
+    setItems([]);
+    setPayslip(null);
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await payrollService.remove(companyId, id);
+      if (selectedPayroll?.id === id) {
+        handleCloseDetail();
+      }
+      toast.success("DRAFT payroll deleted");
+      await loadPayrolls();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to delete payroll");
+    }
   };
 
   const money = (n: number) =>
     `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const sourceBadge = (s?: PayrollSourceType) => {
+  const sourceBadge = (s?: string) => {
     const map: Record<string, string> = {
       ATTENDANCE: "bg-blue-100 text-blue-700",
       TIMESHEETS: "bg-purple-100 text-purple-700",
       ALL: "bg-emerald-100 text-emerald-700",
+      DAILY_LABORERS: "bg-orange-100 text-orange-700",
     };
-    const label = s || "ALL";
+    const label = s === "DAILY_LABORERS" ? "Temporary Workers" : s || "ALL";
+    const color =
+      s === "DAILY_LABORERS" ? map.DAILY_LABORERS : map[label] || "";
     return (
-      <span
-        className={`px-2 py-0.5 rounded-full text-xs font-medium ${map[label] || ""}`}
-      >
+      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>
         {label}
       </span>
     );
@@ -366,6 +451,7 @@ export default function PayrollPage() {
             key={key}
             onClick={() => {
               setTab(key);
+              window.history.replaceState(null, "", `?tab=${key}`);
               if (key === "audit") {
                 loadAudit();
                 loadRegistry();
@@ -398,6 +484,7 @@ export default function PayrollPage() {
               <option value="">All Status</option>
               <option value="DRAFT">DRAFT</option>
               <option value="APPROVED">APPROVED</option>
+              <option value="PAID">PAID</option>
             </select>
             <input
               type="date"
@@ -423,6 +510,10 @@ export default function PayrollPage() {
             onViewPayslip={loadPayslip}
             onBackPayslip={() => setPayslip(null)}
             onApprove={handleApprove}
+            onMarkPaid={handleMarkPaid}
+            onDelete={handleDelete}
+            onRename={handleRename}
+            onClose={handleCloseDetail}
           />
         </>
       )}
@@ -440,12 +531,12 @@ export default function PayrollPage() {
       {tab === "compensation" && (
         <CompensationTab
           companyId={companyId}
-          allowances={allowances}
+          employeeSpecificAllowances={employeeSpecificAllowances}
           bonuses={bonuses}
           withholdings={withholdings}
           employees={employees}
           positions={positions}
-          setAllowances={setAllowances}
+          setEmployeeSpecificAllowances={setEmployeeSpecificAllowances}
           setBonuses={setBonuses}
           setWithholdings={setWithholdings}
           money={money}
@@ -1562,6 +1653,7 @@ export default function PayrollPage() {
 
       {showGenerate && (
         <GeneratePayrollModal
+          companyId={companyId}
           onCancel={() => setShowGenerate(false)}
           onSubmit={handleGenerate}
         />
@@ -1581,21 +1673,61 @@ function PayrollRunsTab({
   onViewPayslip,
   onBackPayslip,
   onApprove,
+  onMarkPaid,
+  onDelete,
+  onRename,
+  onClose,
 }: {
   payrolls: Payroll[];
   selectedPayroll: Payroll | null;
   items: PayrollItem[];
   payslip: Payslip | null;
   money: (n: number) => string;
-  sourceBadge: (s?: PayrollSourceType) => React.ReactNode;
+  sourceBadge: (s?: string) => React.ReactNode;
   onSelect: (p: Payroll) => Promise<void>;
   onViewPayslip: (id: number) => Promise<void>;
   onBackPayslip: () => void;
   onApprove: (id: number) => Promise<void>;
+  onMarkPaid: (id: number) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+  onRename: (id: number, title: string) => Promise<void>;
+  onClose: () => void;
 }) {
   const [expandedItem, setExpandedItem] = useState<number | null>(null);
+
+  const totals = items.reduce(
+    (acc, it) => {
+      acc.gross += Number(it.grossPay || 0);
+      acc.deductions += Number(it.totalDeductions || 0);
+      acc.tax += Number(it.taxAmount || 0);
+      acc.net += Number(it.netPay || 0);
+      return acc;
+    },
+    { gross: 0, deductions: 0, tax: 0, net: 0 },
+  );
+
+  const statusBadge = (s: string) => (
+    <span
+      className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+        s === "PAID"
+          ? "bg-emerald-100 text-emerald-700"
+          : s === "APPROVED"
+            ? "bg-green-100 text-green-700"
+            : s === "VOIDED"
+              ? "bg-gray-200 text-gray-600"
+              : "bg-yellow-100 text-yellow-700"
+      }`}
+    >
+      {s}
+    </span>
+  );
+
+  const period = `${new Date(selectedPayroll?.startDate || "").toLocaleDateString()} → ${new Date(
+    selectedPayroll?.endDate || "",
+  ).toLocaleDateString()}`;
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
       <div className={selectedPayroll ? "lg:col-span-1" : "lg:col-span-3"}>
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="w-full text-sm">
@@ -1603,7 +1735,8 @@ function PayrollRunsTab({
               <tr className="text-gray-500 text-xs uppercase border-b">
                 <th className="text-left px-4 py-2">Title</th>
                 <th className="text-left px-4 py-2">Period</th>
-                <th className="text-left px-4 py-2">Source</th>
+                <th className="text-left px-4 py-2">Type</th>
+                <th className="text-right px-4 py-2">Items</th>
                 <th className="text-right px-4 py-2">Total</th>
                 <th className="text-left px-4 py-2">Status</th>
                 <th className="text-right px-4 py-2">Actions</th>
@@ -1619,22 +1752,19 @@ function PayrollRunsTab({
                   <td className="px-4 py-2 font-medium text-gray-800">
                     {p.title}
                   </td>
-                  <td className="px-4 py-2 text-gray-900">
+                  <td className="px-4 py-2 text-gray-900 whitespace-nowrap">
                     {new Date(p.startDate).toLocaleDateString()} →{" "}
                     {new Date(p.endDate).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-2">{sourceBadge(p.sourceType)}</td>
+                  <td className="px-4 py-2 text-right text-gray-500">
+                    {p.itemsGenerated ?? "—"}
+                  </td>
                   <td className="px-4 py-2 text-right font-medium text-gray-900">
-                    {money(Number(p.totalAmount))}
+                    {money(Number(p.totalAmount || 0))}
                   </td>
-                  <td className="px-4 py-2">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.status === "APPROVED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}
-                    >
-                      {p.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-right">
+                  <td className="px-4 py-2">{statusBadge(p.status)}</td>
+                  <td className="px-4 py-2 text-right whitespace-nowrap">
                     {p.status === "DRAFT" && (
                       <button
                         onClick={(e) => {
@@ -1646,6 +1776,45 @@ function PayrollRunsTab({
                         Approve
                       </button>
                     )}
+                    {p.status === "APPROVED" && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMarkPaid(p.id);
+                        }}
+                        className="text-xs text-emerald-600 hover:text-emerald-800"
+                      >
+                        Mark Paid
+                      </button>
+                    )}
+                    {p.status === "DRAFT" && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRename(p.id, p.title);
+                        }}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 ml-2"
+                      >
+                        Rename
+                      </button>
+                    )}
+                    {p.status === "DRAFT" && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (
+                            window.confirm(
+                              `Delete "${p.title}"? This removes its items and can't be undone.`,
+                            )
+                          ) {
+                            onDelete(p.id);
+                          }
+                        }}
+                        className="text-xs text-red-600 hover:text-red-800 ml-2"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1653,19 +1822,51 @@ function PayrollRunsTab({
           </table>
         </div>
       </div>
+
+
       {selectedPayroll && (
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-              <h2 className="font-semibold text-gray-900">
-                {selectedPayroll.title}
-              </h2>
-              <p className="text-xs text-gray-500">
-                {new Date(selectedPayroll.startDate).toLocaleDateString()} →{" "}
-                {new Date(selectedPayroll.endDate).toLocaleDateString()} ·{" "}
-                {sourceBadge(selectedPayroll.sourceType)}
-              </p>
+            {/* Header */}
+            <div className="px-5 py-4 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-semibold text-gray-900">
+                    {selectedPayroll.title}
+                  </h2>
+                  {statusBadge(selectedPayroll.status)}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {period} · {sourceBadge(selectedPayroll.sourceType)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onClose}
+                  title="Close detail"
+                  className="p-1.5 text-gray-400 hover:text-gray-700 rounded-md hover:bg-gray-200"
+                >
+                  ✕
+                </button>
+                {selectedPayroll.status === "DRAFT" && (
+                  <button
+                    onClick={() => onApprove(selectedPayroll.id)}
+                    className="px-3 py-1.5 text-xs bg-green-600 text-white rounded-md hover:bg-green-700"
+                  >
+                    Approve
+                  </button>
+                )}
+                {selectedPayroll.status === "APPROVED" && (
+                  <button
+                    onClick={() => onMarkPaid(selectedPayroll.id)}
+                    className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+                  >
+                    Mark Paid
+                  </button>
+                )}
+              </div>
             </div>
+
             {payslip ? (
               <PayslipView
                 payslip={payslip}
@@ -1673,154 +1874,239 @@ function PayrollRunsTab({
                 money={money}
               />
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-gray-500 text-xs uppercase border-b">
-                    <th className="text-left px-4 py-2">Employee</th>
-                    <th className="text-right px-4 py-2">Base</th>
-                    <th className="text-right px-4 py-2">OT</th>
-                    <th className="text-right px-4 py-2">Allow.</th>
-                    <th className="text-right px-4 py-2">Bonus</th>
-                    <th className="text-right px-4 py-2">Gross</th>
-                    <th className="text-right px-4 py-2">Deduct.</th>
-                    <th className="text-right px-4 py-2">Net</th>
-                    <th className="text-right px-4 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <Fragment key={item.id}>
-                      <tr className="border-b border-gray-100">
-                        <td className="px-4 py-2 font-medium text-gray-800">
-                          {item.employee?.firstName} {item.employee?.lastName}
-                        </td>
-                        <td className="px-4 py-2 text-right text-gray-900">
-                          {money(Number(item.basePay))}
-                        </td>
-                        <td className="px-4 py-2 text-right text-gray-900">
-                          {money(
-                            Number(item.overtimeEarnings || item.overtimePay),
-                          )}
-                        </td>
-                        <td className="px-4 py-2 text-right text-gray-900">
-                          {money(Number(item.allowanceTotal || 0))}
-                        </td>
-                        <td className="px-4 py-2 text-right text-gray-900">
-                          {money(Number(item.bonusTotal || 0))}
-                        </td>
-                        <td className="px-4 py-2 text-right font-medium text-gray-900">
-                          {money(Number(item.grossPay))}
-                        </td>
-                        <td className="px-4 py-2 text-right text-red-600">
-                          {money(Number(item.totalDeductions))}
-                        </td>
-                        <td className="px-4 py-2 text-right font-bold text-green-700">
-                          {money(Number(item.netPay))}
-                        </td>
-                        <td className="px-4 py-2 text-right">
-                          <button
-                            onClick={() =>
-                              setExpandedItem(
-                                expandedItem === item.id ? null : item.id,
-                              )
-                            }
-                            className="text-xs text-indigo-600 hover:text-indigo-800 mr-2"
-                          >
-                            {expandedItem === item.id ? "Hide" : "Details"}
-                          </button>
-                          <button
-                            onClick={() => onViewPayslip(item.id)}
-                            className="text-xs text-indigo-600 hover:text-indigo-800"
-                          >
-                            Payslip
-                          </button>
-                        </td>
-                      </tr>
-                      {expandedItem === item.id && (
-                        <tr className="bg-gray-50">
-                          <td colSpan={9} className="px-6 py-4">
-                            <div className="grid grid-cols-2 gap-6 text-sm">
-                              <div>
-                                <h4 className="font-semibold text-gray-800 mb-2">
-                                  Earnings
-                                </h4>
-                                <Space>
-                                  <Label>Base Pay</Label>
-                                  <Value>{money(Number(item.basePay))}</Value>
-                                </Space>
-                                <Space>
-                                  <Label>Overtime</Label>
-                                  <Value>
-                                    {money(
-                                      Number(
-                                        item.overtimeEarnings ||
-                                          item.overtimePay,
-                                      ),
-                                    )}
-                                  </Value>
-                                </Space>
-                                <Space>
-                                  <Label>Allowances</Label>
-                                  <Value>
-                                    {money(Number(item.allowanceTotal || 0))}
-                                  </Value>
-                                </Space>
-                                <Space>
-                                  <Label>Bonuses</Label>
-                                  <Value>
-                                    {money(Number(item.bonusTotal || 0))}
-                                  </Value>
-                                </Space>
-                                <Space>
-                                  <Label strong>Gross Pay</Label>
-                                  <Value strong>
-                                    {money(Number(item.grossPay))}
-                                  </Value>
-                                </Space>
-                              </div>
-                              <div>
-                                <h4 className="font-semibold text-gray-800 mb-2">
-                                  Deductions
-                                </h4>
-                                <Space>
-                                  <Label>Income Tax</Label>
-                                  <Value>{money(Number(item.taxAmount))}</Value>
-                                </Space>
-                                <Space>
-                                  <Label>Withholdings</Label>
-                                  <Value>
-                                    {money(Number(item.withholdingTotal || 0))}
-                                  </Value>
-                                </Space>
-                                <Space>
-                                  <Label red strong>
-                                    Total Deductions
-                                  </Label>
-                                  <Value red strong>
-                                    {money(Number(item.totalDeductions))}
-                                  </Value>
-                                </Space>
-                                <Space>
-                                  <Label green strong>
-                                    Net Pay
-                                  </Label>
-                                  <Value green strong>
-                                    {money(Number(item.netPay))}
-                                  </Value>
-                                </Space>
-                              </div>
-                            </div>
-                          </td>
+              <>
+                {/* Summary stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-gray-200 border-b border-gray-200 text-center">
+                  <SummaryStat label="Workers" value={String(items.length)} />
+                  <SummaryStat label="Gross" value={money(totals.gross)} />
+                  <SummaryStat
+                    label="Deductions"
+                    value={money(totals.deductions)}
+                  />
+                  <SummaryStat label="Net Pay" value={money(totals.net)} accent />
+                </div>
+
+                {items.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">
+                    <p className="font-medium text-gray-700 mb-1">
+                      No payroll items in this run
+                    </p>
+                    <p className="text-xs">
+                      Check that attendance / approved timesheets exist for{" "}
+                      {period}. If this run was generated from an old build,
+                      delete the DRAFT run and generate again.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-gray-500 text-xs uppercase border-b">
+                          <th className="text-left px-4 py-2">Worker</th>
+                          <th className="text-left px-4 py-2">Type</th>
+                          <th className="text-right px-4 py-2">Gross</th>
+                          <th className="text-right px-4 py-2">Deductions</th>
+                          <th className="text-right px-4 py-2">Tax</th>
+                          <th className="text-right px-4 py-2">Net</th>
+                          <th className="text-right px-4 py-2">Actions</th>
                         </tr>
-                      )}
-                    </Fragment>
-                  ))}
-                </tbody>
-              </table>
+                      </thead>
+                      <tbody>
+                        {items.map((item) => (
+                          <Fragment key={item.id}>
+                            <tr className="border-b border-gray-100">
+                              <td className="px-4 py-2 font-medium text-gray-800">
+                                {item.employee?.firstName}{" "}
+                                {item.employee?.lastName}
+                              </td>
+                              <td className="px-4 py-2">
+                                {item.workerType === "TEMPORARY_WORKER" ? (
+                                  <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full">
+                                    Temporary
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                                    Employee
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 text-right text-gray-900">
+                                {money(Number(item.grossPay))}
+                              </td>
+                              <td className="px-4 py-2 text-right text-red-600">
+                                {money(Number(item.totalDeductions || 0))}
+                              </td>
+                              <td className="px-4 py-2 text-right text-gray-600">
+                                {money(Number(item.taxAmount || 0))}
+                              </td>
+                              <td className="px-4 py-2 text-right font-bold text-green-700">
+                                {money(Number(item.netPay))}
+                              </td>
+                              <td className="px-4 py-2 text-right whitespace-nowrap">
+                                <button
+                                  onClick={() =>
+                                    setExpandedItem(
+                                      expandedItem === item.id ? null : item.id,
+                                    )
+                                  }
+                                  className="text-xs text-indigo-600 hover:text-indigo-800 mr-2"
+                                >
+                                  {expandedItem === item.id
+                                    ? "Hide"
+                                    : "Details"}
+                                </button>
+                                <button
+                                  onClick={() => onViewPayslip(item.id)}
+                                  className="text-xs text-indigo-600 hover:text-indigo-800"
+                                >
+                                  Payslip
+                                </button>
+                              </td>
+                            </tr>
+                            {expandedItem === item.id && (
+                              <tr className="bg-gray-50">
+                                <td colSpan={7} className="px-6 py-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                                    <div>
+                                      <h4 className="font-semibold text-gray-800 mb-2">
+                                        Earnings
+                                      </h4>
+                                      <Space>
+                                        <Label>Base Pay</Label>
+                                        <Value>
+                                          {money(Number(item.basePay))}
+                                        </Value>
+                                      </Space>
+                                      <Space>
+                                        <Label>Overtime</Label>
+                                        <Value>
+                                          {money(
+                                            Number(
+                                              item.overtimeEarnings ||
+                                                item.overtimePay,
+                                            ),
+                                          )}
+                                        </Value>
+                                      </Space>
+                                      <Space>
+                                        <Label>Allowances</Label>
+                                        <Value>
+                                          {money(
+                                            Number(item.allowanceTotal || 0),
+                                          )}
+                                        </Value>
+                                      </Space>
+                                      <Space>
+                                        <Label>Bonuses</Label>
+                                        <Value>
+                                          {money(Number(item.bonusTotal || 0))}
+                                        </Value>
+                                      </Space>
+                                      <Space>
+                                        <Label strong>Gross Pay</Label>
+                                        <Value strong>
+                                          {money(Number(item.grossPay))}
+                                        </Value>
+                                      </Space>
+                                    </div>
+                                    <div>
+                                      <h4 className="font-semibold text-gray-800 mb-2">
+                                        Deductions
+                                      </h4>
+                                      <Space>
+                                        <Label>Income Tax</Label>
+                                        <Value>
+                                          {money(Number(item.taxAmount))}
+                                        </Value>
+                                      </Space>
+                                      <Space>
+                                        <Label>Withholdings</Label>
+                                        <Value>
+                                          {money(
+                                            Number(item.withholdingTotal || 0),
+                                          )}
+                                        </Value>
+                                      </Space>
+                                      <Space>
+                                        <Label red strong>
+                                          Total Deductions
+                                        </Label>
+                                        <Value red strong>
+                                          {money(
+                                            Number(item.totalDeductions),
+                                          )}
+                                        </Value>
+                                      </Space>
+                                    </div>
+                                    <div>
+                                      <h4 className="font-semibold text-gray-800 mb-2">
+                                        Leave & Net
+                                      </h4>
+                                      <Space>
+                                        <Label>Unpaid Leave Days</Label>
+                                        <Value>
+                                          {Number(item.unpaidLeaveDays || 0)}
+                                        </Value>
+                                      </Space>
+                                      <Space>
+                                        <Label>Unpaid Leave Deduction</Label>
+                                        <Value>
+                                          {money(
+                                            Number(
+                                              item.unpaidLeaveDeduction || 0,
+                                            ),
+                                          )}
+                                        </Value>
+                                      </Space>
+                                      <div className="border-t border-gray-200 mt-2 pt-2">
+                                        <Space>
+                                          <Label green strong>
+                                            Net Pay
+                                          </Label>
+                                          <Value green strong>
+                                            {money(Number(item.netPay))}
+                                          </Value>
+                                        </Space>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function SummaryStat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="px-4 py-3">
+      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
+      <p
+        className={`mt-1 text-lg font-semibold ${
+          accent ? "text-green-700" : "text-gray-900"
+        }`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -2296,23 +2582,23 @@ function OvertimeTab({
 
 function CompensationTab({
   companyId,
-  allowances,
+  employeeSpecificAllowances,
   bonuses,
   withholdings,
   employees,
   positions,
-  setAllowances,
+  setEmployeeSpecificAllowances,
   setBonuses,
   setWithholdings,
   money,
 }: {
   companyId: number;
-  allowances: PayrollAllowance[];
+  employeeSpecificAllowances: EmployeeSpecificAllowance[];
   bonuses: PayrollBonus[];
   withholdings: PayrollWithholding[];
   employees: any[];
   positions: Array<Record<string, any>>;
-  setAllowances: (a: PayrollAllowance[]) => void;
+  setEmployeeSpecificAllowances: (a: EmployeeSpecificAllowance[]) => void;
   setBonuses: (b: PayrollBonus[]) => void;
   setWithholdings: (w: PayrollWithholding[]) => void;
   money: (n: number) => string;
@@ -2329,7 +2615,7 @@ function CompensationTab({
     isGlobal: false,
     calcType: "FIXED" as "FIXED" | "PERCENTAGE",
     reason: "",
-    usePosition: false,
+    usePosition: true,
     positionId: "",
     effectiveDate: new Date().toISOString().split("T")[0],
     expiryDate: "",
@@ -2337,6 +2623,34 @@ function CompensationTab({
   const [positionAllowances, setPositionAllowances] = useState<
     Record<number, Array<Record<string, any>>>
   >({});
+
+  // Allowance modal state (bulk add / edit)
+  const [allowScope, setAllowScope] = useState<"position" | "employee">(
+    "position",
+  );
+  const [allowPositionId, setAllowPositionId] = useState("");
+  const [allowEmployeeId, setAllowEmployeeId] = useState("");
+  const [allowRows, setAllowRows] = useState<
+    Array<{
+      name: string;
+      amount: string;
+      isTaxable: boolean;
+      effectiveFrom: string;
+      effectiveTo: string;
+    }>
+  >([
+    {
+      name: "",
+      amount: "",
+      isTaxable: true,
+      effectiveFrom: new Date().toISOString().split("T")[0],
+      effectiveTo: "",
+    },
+  ]);
+  const [editingAllowId, setEditingAllowId] = useState<number | null>(null); // position allowance being edited
+  const [editingEaId, setEditingEaId] = useState<number | null>(null); // employee-specific allowance being edited
+  const [allowActive, setAllowActive] = useState(true);
+  const [savingAllow, setSavingAllow] = useState(false);
 
   const loadPositionAllowances = async () => {
     const map: Record<number, Array<Record<string, any>>> = {};
@@ -2359,51 +2673,171 @@ function CompensationTab({
   }, [companyId, positions]);
 
   const refresh = async () => {
-    setAllowances(await compensationService.getAllowances(companyId));
+    setEmployeeSpecificAllowances(
+      await compensationService.getEmployeeSpecificAllowances(companyId),
+    );
     setBonuses(await compensationService.getBonuses(companyId));
     setWithholdings(await compensationService.getWithholdings(companyId));
   };
 
-  const saveAllowance = async () => {
-    if (form.usePosition) {
-      if (!form.positionId || !form.type.trim() || !form.amount) return;
-      await api.post(
-        `/companies/${companyId}/work-positions/${form.positionId}/allowances`,
-        {
-          name: form.type.trim(),
-          amount: Number(form.amount),
-          isTaxable: form.isTaxable,
-          effectiveFrom: form.effectiveDate,
-          ...(form.expiryDate && { effectiveTo: form.expiryDate }),
-        },
-      );
-      await loadPositionAllowances();
-    } else {
-      await compensationService.createAllowance(companyId, {
-        employeeId: Number(form.employeeId),
-        type: form.type,
-        amount: Number(form.amount),
-        isTaxable: form.isTaxable,
-        reason: form.reason || undefined,
-        effectiveDate: form.effectiveDate,
-        ...(form.expiryDate && { expiryDate: form.expiryDate }),
-      });
-      await refresh();
-    }
-    setShowAllow(false);
-    setForm({
-      ...form,
-      employeeId: "",
-      type: "",
-      amount: "",
-      isTaxable: true,
-      reason: "",
-      usePosition: false,
-      positionId: "",
-      effectiveDate: new Date().toISOString().split("T")[0],
-      expiryDate: "",
-    });
+  const openAddAllowance = (scope: "position" | "employee") => {
+    setEditingAllowId(null);
+    setEditingEaId(null);
+    setAllowScope(scope);
+    setAllowPositionId(String(positions[0]?.id || ""));
+    setAllowEmployeeId(String(employees[0]?.id || ""));
+    setAllowRows([
+      {
+        name: "",
+        amount: "",
+        isTaxable: true,
+        effectiveFrom: new Date().toISOString().split("T")[0],
+        effectiveTo: "",
+      },
+    ]);
+    setAllowActive(true);
+    setShowAllow(true);
   };
+
+  const openEditPositionAllowance = (a: any) => {
+    setEditingAllowId(a.id);
+    setEditingEaId(null);
+    setAllowScope("position");
+    setAllowPositionId(String(a.positionId ?? ""));
+    setAllowRows([
+      {
+        name: a.name,
+        amount: String(a.amount ?? ""),
+        isTaxable: !!a.isTaxable,
+        effectiveFrom: a.effectiveFrom
+          ? String(a.effectiveFrom).split("T")[0]
+          : new Date().toISOString().split("T")[0],
+        effectiveTo: a.effectiveTo ? String(a.effectiveTo).split("T")[0] : "",
+      },
+    ]);
+    setAllowActive(!!a.isActive);
+    setShowAllow(true);
+  };
+
+  const openEditEmployeeAllowance = (a: EmployeeSpecificAllowance) => {
+    setEditingEaId(a.id);
+    setEditingAllowId(null);
+    setAllowScope("employee");
+    setAllowEmployeeId(String(a.employeeId));
+    setAllowRows([
+      {
+        name: a.name,
+        amount: String(a.amount ?? ""),
+        isTaxable: !!a.isTaxable,
+        effectiveFrom: a.effectiveDate
+          ? String(a.effectiveDate).split("T")[0]
+          : new Date().toISOString().split("T")[0],
+        effectiveTo: a.expiryDate ? String(a.expiryDate).split("T")[0] : "",
+      },
+    ]);
+    setAllowActive(!!a.isActive);
+    setShowAllow(true);
+  };
+
+  const setAllowRow = (i: number, patch: any) =>
+    setAllowRows((rows) =>
+      rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)),
+    );
+  const saveAllowances = async () => {
+    const valid = allowRows.filter((r) => r.name.trim() && r.amount);
+    if (valid.length === 0) return;
+    setSavingAllow(true);
+    try {
+      if (editingAllowId) {
+        await api.patch(
+          `/companies/${companyId}/work-positions/allowances/${editingAllowId}`,
+          {
+            name: valid[0].name.trim(),
+            amount: parseFloat(valid[0].amount),
+            isTaxable: valid[0].isTaxable,
+            positionId: Number(allowPositionId),
+            isActive: allowActive,
+            effectiveFrom: valid[0].effectiveFrom,
+            ...(valid[0].effectiveTo && { effectiveTo: valid[0].effectiveTo }),
+          },
+        );
+        toast.success("Position allowance updated");
+      } else if (editingEaId) {
+        await compensationService.updateEmployeeSpecificAllowance(
+          companyId,
+          editingEaId,
+          {
+            employeeId: Number(allowEmployeeId),
+            name: valid[0].name.trim(),
+            amount: parseFloat(valid[0].amount),
+            isTaxable: valid[0].isTaxable,
+            isActive: allowActive,
+            effectiveDate: valid[0].effectiveFrom,
+            ...(valid[0].effectiveTo && { expiryDate: valid[0].effectiveTo }),
+          },
+        );
+        toast.success("Employee allowance updated");
+      } else {
+        for (const r of valid) {
+          if (allowScope === "position") {
+            await api.post(
+              `/companies/${companyId}/work-positions/${allowPositionId}/allowances`,
+              {
+                name: r.name.trim(),
+                amount: parseFloat(r.amount),
+                isTaxable: r.isTaxable,
+                effectiveFrom: r.effectiveFrom,
+                ...(r.effectiveTo && { effectiveTo: r.effectiveTo }),
+              },
+            );
+          } else {
+            await compensationService.createEmployeeSpecificAllowance(companyId, {
+              employeeId: Number(allowEmployeeId),
+              name: r.name.trim(),
+              amount: parseFloat(r.amount),
+              isTaxable: r.isTaxable,
+              effectiveDate: r.effectiveFrom,
+              ...(r.effectiveTo && { expiryDate: r.effectiveTo }),
+            });
+          }
+        }
+        toast.success("Allowances added");
+      }
+      setShowAllow(false);
+      setEditingAllowId(null);
+      setEditingEaId(null);
+      await Promise.all([loadPositionAllowances(), refresh()]);
+    } catch {
+      toast.error("Failed to save allowances");
+    } finally {
+      setSavingAllow(false);
+    }
+  };
+
+  const removePositionAllowance = async (a: any) => {
+    if (!confirm(`Delete allowance "${a.name}"?`)) return;
+    try {
+      await api.delete(
+        `/companies/${companyId}/work-positions/allowances/${a.id}`,
+      );
+      toast.success("Position allowance deleted");
+      await loadPositionAllowances();
+    } catch {
+      toast.error("Failed to delete allowance");
+    }
+  };
+
+  const removeEmployeeAllowance = async (a: EmployeeSpecificAllowance) => {
+    if (!confirm(`Delete employee allowance "${a.name}"?`)) return;
+    try {
+      await compensationService.deleteEmployeeSpecificAllowance(companyId, a.id);
+      toast.success("Employee allowance deleted");
+      await refresh();
+    } catch {
+      toast.error("Failed to delete allowance");
+    }
+  };
+
   const saveBonus = async () => {
     await compensationService.createBonus(companyId, {
       employeeId: Number(form.employeeId),
@@ -2460,33 +2894,44 @@ function CompensationTab({
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
           <h3 className="font-semibold text-gray-900">Allowances</h3>
-          <button
-            onClick={() => setShowAllow(true)}
-            className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-700"
-          >
-            + Allowance
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => openAddAllowance("employee")}
+              className="px-3 py-1.5 border border-indigo-300 text-indigo-700 text-xs rounded-md hover:bg-indigo-50"
+            >
+              + Employee Allowance
+            </button>
+            <button
+              onClick={() => openAddAllowance("position")}
+              className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-700"
+            >
+              + Position Allowance
+            </button>
+          </div>
         </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-gray-500 text-xs uppercase border-b">
               <th className="text-left px-4 py-2">Employee</th>
-              <th className="text-left px-4 py-2">Type</th>
+              <th className="text-left px-4 py-2">Allowance Name</th>
               <th className="text-right px-4 py-2">Amount</th>
               <th className="text-left px-4 py-2">Taxable</th>
               <th className="text-left px-4 py-2">Effective</th>
               <th className="text-left px-4 py-2">Reason</th>
+              <th className="text-right px-4 py-2">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {allowances
+            {employeeSpecificAllowances
               .filter((a) => a.isActive)
               .map((a) => (
                 <tr key={a.id} className="border-b border-gray-100">
                   <td className="px-4 py-2 font-medium text-gray-800">
-                    Emp #{a.employeeId}
+                    {a.employee
+                      ? `${a.employee.firstName} ${a.employee.lastName}`
+                      : `Emp #${a.employeeId}`}
                   </td>
-                  <td className="px-4 py-2 text-gray-900">{a.type}</td>
+                  <td className="px-4 py-2 text-gray-900">{a.name}</td>
                   <td className="px-4 py-2 text-right text-gray-900">
                     {money(Number(a.amount))}
                   </td>
@@ -2501,6 +2946,20 @@ function CompensationTab({
                     {new Date(a.effectiveDate).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-2 text-gray-500">{a.reason}</td>
+                  <td className="px-4 py-2 text-right whitespace-nowrap">
+                    <button
+                      onClick={() => openEditEmployeeAllowance(a)}
+                      className="text-xs text-indigo-600 hover:text-indigo-800 mr-2"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => removeEmployeeAllowance(a)}
+                      className="text-xs text-red-600 hover:text-red-800"
+                    >
+                      Delete
+                    </button>
+                  </td>
                 </tr>
               ))}
           </tbody>
@@ -2509,14 +2968,22 @@ function CompensationTab({
 
       {/* Position-based allowances (auto-applied) */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-          <h3 className="font-semibold text-gray-900">
-            Position Allowances (auto-applied)
-          </h3>
-          <p className="text-xs text-gray-500">
-            Defined per work position — automatically added to every employee in
-            that position during payroll.
-          </p>
+        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-gray-900">
+              Position Allowances (auto-applied)
+            </h3>
+            <p className="text-xs text-gray-500">
+              Defined per work position — automatically added to every employee
+              in that position during payroll.
+            </p>
+          </div>
+          <button
+            onClick={() => openAddAllowance("position")}
+            className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-700"
+          >
+            + Position Allowance
+          </button>
         </div>
         {positions.length === 0 ? (
           <p className="px-4 py-4 text-sm text-gray-500">
@@ -2570,6 +3037,20 @@ function CompensationTab({
                                     a.effectiveTo,
                                   ).toLocaleDateString()}`
                                 : ""}
+                            </td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap">
+                              <button
+                                onClick={() => openEditPositionAllowance(a)}
+                                className="text-xs text-indigo-600 hover:text-indigo-800 mr-2"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => removePositionAllowance(a)}
+                                className="text-xs text-red-600 hover:text-red-800"
+                              >
+                                Delete
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -2632,18 +3113,220 @@ function CompensationTab({
       </div>
 
       {showAllow && (
-        <CompensForm
-          title={form.usePosition ? "Add Position Allowance" : "Add Allowance"}
-          types={["HOUSING", "TRANSPORT", "HARDSHIP", "COMMUNICATION"]}
-          showTaxable
-          showPositionOption
-          positions={positions}
-          employees={employees}
-          form={form}
-          setForm={setForm}
-          onClose={() => setShowAllow(false)}
-          onSave={saveAllowance}
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto text-gray-900">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">
+                {editingAllowId || editingEaId
+                  ? "Edit Allowance"
+                  : "Add Allowance(s)"}
+              </h2>
+              <button
+                onClick={() => setShowAllow(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-4">
+              {!editingAllowId && !editingEaId && (
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">
+                    Scope
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        ["position", "Work Position"],
+                        ["employee", "Specific Employee"],
+                      ] as const
+                    ).map(([v, l]) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setAllowScope(v)}
+                        className={`px-3 py-2 text-sm font-medium rounded-md border ${
+                          allowScope === v
+                            ? "bg-indigo-50 border-indigo-500 text-indigo-700"
+                            : "bg-white border-gray-300 text-gray-600 hover:bg-gray-50"
+                        }`}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {allowScope === "position" ? (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Position *
+                  </label>
+                  <select
+                    value={allowPositionId}
+                    onChange={(e) => setAllowPositionId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                  >
+                    <option value="">Select position...</option>
+                    {positions.map((p: any) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Employee *
+                  </label>
+                  <select
+                    value={allowEmployeeId}
+                    onChange={(e) => setAllowEmployeeId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                  >
+                    <option value="">Select employee...</option>
+                    {employees.map((emp: any) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.firstName} {emp.lastName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="border-t border-gray-200 pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-gray-600">
+                    Allowances
+                  </p>
+                  {!editingAllowId && !editingEaId && (
+                    <button
+                      onClick={() =>
+                        setAllowRows([
+                          ...allowRows,
+                          {
+                            name: "",
+                            amount: "",
+                            isTaxable: true,
+                            effectiveFrom: new Date()
+                              .toISOString()
+                              .split("T")[0],
+                            effectiveTo: "",
+                          },
+                        ])
+                      }
+                      className="text-xs text-indigo-600 hover:text-indigo-800"
+                    >
+                      + Add another
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  {allowRows.map((r, i) => (
+                    <div
+                      key={i}
+                      className="border border-gray-200 rounded-md p-2 space-y-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={r.name}
+                          onChange={(e) =>
+                            setAllowRow(i, { name: e.target.value })
+                          }
+                          placeholder="Allowance name (e.g. Housing)"
+                          className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm bg-white"
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={r.amount}
+                          onChange={(e) =>
+                            setAllowRow(i, { amount: e.target.value })
+                          }
+                          placeholder="Amount"
+                          className="w-28 px-2 py-1 border border-gray-300 rounded text-sm bg-white"
+                        />
+                        <label className="flex items-center gap-1 text-xs text-gray-600 whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={r.isTaxable}
+                            onChange={(e) =>
+                              setAllowRow(i, { isTaxable: e.target.checked })
+                            }
+                            className="h-4 w-4"
+                          />
+                          Taxable
+                        </label>
+                        {!editingAllowId &&
+                          !editingEaId &&
+                          allowRows.length > 1 && (
+                            <button
+                              onClick={() =>
+                                setAllowRows(
+                                  allowRows.filter((_, j) => j !== i),
+                                )
+                              }
+                              className="text-xs text-red-500 hover:text-red-700"
+                            >
+                              ✕
+                            </button>
+                          )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="date"
+                          value={r.effectiveFrom}
+                          onChange={(e) =>
+                            setAllowRow(i, { effectiveFrom: e.target.value })
+                          }
+                          title="Effective from"
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-white"
+                        />
+                        <input
+                          type="date"
+                          value={r.effectiveTo}
+                          onChange={(e) =>
+                            setAllowRow(i, { effectiveTo: e.target.value })
+                          }
+                          title="Effective to (optional)"
+                          className="px-2 py-1 border border-gray-300 rounded text-sm bg-white"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {(editingAllowId || editingEaId) && (
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={allowActive}
+                    onChange={(e) => setAllowActive(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  Active
+                </label>
+              )}
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowAllow(false)}
+                  className="px-4 py-2 text-sm text-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveAllowances}
+                  disabled={savingAllow}
+                  className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-md disabled:opacity-50"
+                >
+                  {savingAllow ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
       {showBonus && (
         <CompensForm
@@ -3112,21 +3795,41 @@ function CompensForm({
               />
             </div>
           )}
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">Type</label>
-            <select
-              value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
-            >
-              <option value="">Select type...</option>
-              {types.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </div>
+          {showPositionOption && form.usePosition ? (
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">
+                Allowance Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                value={form.name}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    name: e.target.value,
+                    type: e.target.value,
+                  })
+                }
+                placeholder="e.g. Housing, Transport, Site Hazard"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Type</label>
+              <select
+                value={form.type}
+                onChange={(e) => setForm({ ...form, type: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+              >
+                <option value="">Select type...</option>
+                {types.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {showCalcType && (
             <div>
               <label className="block text-sm text-gray-600 mb-1">
@@ -3282,21 +3985,25 @@ function InfoTag({ text }: { text: string }) {
 }
 
 function GeneratePayrollModal({
+  companyId,
   onCancel,
   onSubmit,
 }: {
+  companyId: number;
   onCancel: () => void;
   onSubmit: (dto: {
     title: string;
     startDate: string;
     endDate: string;
-    sourceType?: PayrollSourceType;
+    sourceType?: Exclude<PayrollSourceType, "DAILY_LABORERS">;
   }) => Promise<void>;
 }) {
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [sourceType, setSourceType] = useState<PayrollSourceType>("ALL");
+  const [sourceType, setSourceType] = useState<
+    Exclude<PayrollSourceType, "DAILY_LABORERS">
+  >("ALL");
   const [saving, setSaving] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -3304,7 +4011,12 @@ function GeneratePayrollModal({
     if (!title || !startDate || !endDate) return;
     setSaving(true);
     try {
-      await onSubmit({ title, startDate, endDate, sourceType });
+      await onSubmit({
+        title,
+        startDate,
+        endDate,
+        sourceType,
+      });
     } finally {
       setSaving(false);
     }
@@ -3332,7 +4044,7 @@ function GeneratePayrollModal({
                 ["ATTENDANCE", "Attendance"],
                 ["TIMESHEETS", "Timesheets"],
                 ["ALL", "Both"],
-              ] as [PayrollSourceType, string][]
+              ] as [Exclude<PayrollSourceType, "DAILY_LABORERS">, string][]
             ).map(([v, l]) => (
               <button
                 key={v}
@@ -3344,6 +4056,17 @@ function GeneratePayrollModal({
               </button>
             ))}
           </div>
+          <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+            Temporary workers payroll is generated separately (daily / weekly /
+            monthly) from the{" "}
+            <Link
+              href={`/dashboard/companies/${companyId}/daily-laboreers`}
+              className="text-indigo-600 hover:text-indigo-800 font-medium"
+            >
+              Temporary Workers
+            </Link>{" "}
+            page.
+          </p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-gray-600 mb-1">

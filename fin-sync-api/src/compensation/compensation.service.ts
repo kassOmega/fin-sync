@@ -9,17 +9,18 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CompensationService {
   constructor(private prisma: PrismaService) {}
 
-  // Allowances
-  async getAllowances(
+  // ─── Employee-Specific Allowances ─────────────────────────────
+
+  async getEmployeeSpecificAllowances(
     companyId: number,
-    filters?: { employeeId?: number; type?: string; isActive?: string },
+    filters?: { employeeId?: number; name?: string; isActive?: string },
   ) {
     const where: any = { companyId };
     if (filters?.employeeId) where.employeeId = filters.employeeId;
-    if (filters?.type) where.type = filters.type;
+    if (filters?.name) where.name = filters.name;
     if (filters?.isActive !== undefined && filters.isActive !== '')
       where.isActive = filters.isActive === 'true';
-    return (this.prisma as any).payrollAllowance.findMany({
+    return (this.prisma as any).employeeSpecificAllowance.findMany({
       where,
       include: {
         employee: {
@@ -35,11 +36,11 @@ export class CompensationService {
     });
   }
 
-  async createAllowance(
+  async createEmployeeSpecificAllowance(
     companyId: number,
     dto: {
       employeeId: number;
-      type: string;
+      name: string;
       amount: number;
       isTaxable?: boolean;
       reason?: string;
@@ -53,11 +54,13 @@ export class CompensationService {
     if (!emp) throw new NotFoundException('Employee not found');
     if (dto.amount <= 0)
       throw new BadRequestException('Amount must be positive');
-    return (this.prisma as any).payrollAllowance.create({
+    if (!dto.name?.trim())
+      throw new BadRequestException('Allowance name is required');
+    return (this.prisma as any).employeeSpecificAllowance.create({
       data: {
         companyId,
         employeeId: dto.employeeId,
-        type: dto.type,
+        name: dto.name.trim(),
         amount: dto.amount,
         isTaxable: dto.isTaxable ?? true,
         reason: dto.reason,
@@ -67,15 +70,19 @@ export class CompensationService {
     });
   }
 
-  async updateAllowance(companyId: number, id: number, dto: any) {
-    const rec = await (this.prisma as any).payrollAllowance.findFirst({
+  async updateEmployeeSpecificAllowance(
+    companyId: number,
+    id: number,
+    dto: any,
+  ) {
+    const rec = await (this.prisma as any).employeeSpecificAllowance.findFirst({
       where: { id, companyId },
     });
     if (!rec) throw new NotFoundException('Allowance not found');
-    return (this.prisma as any).payrollAllowance.update({
+    return (this.prisma as any).employeeSpecificAllowance.update({
       where: { id },
       data: {
-        ...(dto.type !== undefined && { type: dto.type }),
+        ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.amount !== undefined && { amount: dto.amount }),
         ...(dto.isTaxable !== undefined && { isTaxable: dto.isTaxable }),
         ...(dto.reason !== undefined && { reason: dto.reason }),
@@ -90,15 +97,18 @@ export class CompensationService {
     });
   }
 
-  async deleteAllowance(companyId: number, id: number) {
-    const rec = await (this.prisma as any).payrollAllowance.findFirst({
+  async deleteEmployeeSpecificAllowance(companyId: number, id: number) {
+    const rec = await (this.prisma as any).employeeSpecificAllowance.findFirst({
       where: { id, companyId },
     });
     if (!rec) throw new NotFoundException('Allowance not found');
-    return (this.prisma as any).payrollAllowance.delete({ where: { id } });
+    return (this.prisma as any).employeeSpecificAllowance.delete({
+      where: { id },
+    });
   }
 
-  // Bonuses
+  // ─── Bonuses ──────────────────────────────────────────────────
+
   async getBonuses(
     companyId: number,
     filters?: { employeeId?: number; type?: string; isActive?: string },
@@ -184,7 +194,8 @@ export class CompensationService {
     return (this.prisma as any).payrollBonus.delete({ where: { id } });
   }
 
-  // Withholdings
+  // ─── Withholdings ─────────────────────────────────────────────
+
   async getWithholdings(
     companyId: number,
     filters?: {

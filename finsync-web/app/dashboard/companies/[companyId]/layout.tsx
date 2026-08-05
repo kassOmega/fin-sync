@@ -145,7 +145,7 @@ export default function CompanyLayout({
           roles: adminRoles,
         },
         {
-          name: "Daily Laborers",
+          name: "Temporary Workers",
           href: "/daily-laboreers",
           roles: adminRoles,
         },

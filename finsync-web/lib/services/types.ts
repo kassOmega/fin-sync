@@ -170,7 +170,11 @@ export interface LeaveCalendarEntry {
 
 // ─── Payroll ────────────────────────────────────────────────
 
-export type PayrollSourceType = "ATTENDANCE" | "TIMESHEETS" | "ALL";
+export type PayrollSourceType =
+  | "ATTENDANCE"
+  | "TIMESHEETS"
+  | "ALL"
+  | "DAILY_LABORERS";
 
 export interface Payroll {
   id: number;
@@ -181,13 +185,16 @@ export interface Payroll {
   startDate: string;
   endDate: string;
   totalAmount: number;
-  status: "DRAFT" | "APPROVED";
+  status: "DRAFT" | "APPROVED" | "PAID" | "VOIDED";
+  expenseId?: number;
+  itemsGenerated?: number;
 }
 
 export interface PayrollItem {
   id: number;
   payrollId: number;
   employeeId: number;
+  workerType?: "EMPLOYEE" | "TEMPORARY_WORKER";
   basePay: number;
   overtimeEarnings?: number;
   overtimePay: number;

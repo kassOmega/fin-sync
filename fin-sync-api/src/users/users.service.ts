@@ -199,6 +199,7 @@ export class UsersService {
           employmentType: dto.employmentType || 'FULL_TIME',
           hourlyRate: dto.hourlyRate,
           dailyRate: dto.dailyRate,
+          weeklyRate: dto.weeklyRate,
           baseSalary: dto.baseSalary,
           phone: dto.phone,
         },

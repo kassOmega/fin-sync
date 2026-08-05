@@ -70,6 +70,7 @@ const BUILTIN_ROLES: { name: string; permissions: string[] }[] = [
       'ACCOUNTS_READ',
       'LEDGER_READ',
       'LEAVE_TYPE_MANAGE',
+      'LEAVE_REQUEST_CREATE',
       'LEAVE_REQUEST_APPROVE',
       'LEAVE_BALANCE_VIEW',
     ],
@@ -148,6 +149,14 @@ export async function seedRoles(
           });
         }
       }
+
+      // Memberships are seeded (02-companies.ts) before roles exist, so their
+      // company_role_id is null. Link every membership whose SystemRole matches
+      // this CompanyRole so the PermissionsGuard can resolve their permissions.
+      await (prisma as any).companyMember.updateMany({
+        where: { companyId, role: role.name, companyRoleId: null },
+        data: { companyRoleId: companyRole.id },
+      });
     }
   }
 

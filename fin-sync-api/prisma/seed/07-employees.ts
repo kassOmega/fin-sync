@@ -32,7 +32,7 @@ const EMPLOYEES: EmployeeData[] = [
     firstName: 'Liam',
     lastName: "O'Connor",
     designation: 'Laborer',
-    employmentType: 'DAILY_LABORER',
+    employmentType: 'CONTRACT',
     dailyRate: 65,
   },
   {
@@ -42,7 +42,7 @@ const EMPLOYEES: EmployeeData[] = [
     firstName: 'Yusuf',
     lastName: 'Ahmed',
     designation: 'Laborer',
-    employmentType: 'DAILY_LABORER',
+    employmentType: 'CONTRACT',
     dailyRate: 70,
   },
   {
@@ -52,7 +52,7 @@ const EMPLOYEES: EmployeeData[] = [
     firstName: 'Miguel',
     lastName: 'Santos',
     designation: 'Operator',
-    employmentType: 'DAILY_LABORER',
+    employmentType: 'CONTRACT',
     dailyRate: 60,
   },
   {
@@ -82,7 +82,7 @@ const EMPLOYEES: EmployeeData[] = [
     firstName: 'James',
     lastName: 'Okonkwo',
     designation: 'Laborer',
-    employmentType: 'DAILY_LABORER',
+    employmentType: 'CONTRACT',
     dailyRate: 75,
   },
   {
@@ -92,7 +92,7 @@ const EMPLOYEES: EmployeeData[] = [
     firstName: 'Chen',
     lastName: 'Wei',
     designation: 'Laborer',
-    employmentType: 'DAILY_LABORER',
+    employmentType: 'CONTRACT',
     dailyRate: 65,
   },
   {
@@ -112,7 +112,7 @@ const EMPLOYEES: EmployeeData[] = [
     firstName: 'Tony',
     lastName: 'Moretti',
     designation: 'Foreman',
-    employmentType: 'DAILY_LABORER',
+    employmentType: 'CONTRACT',
     dailyRate: 80,
   },
   {
@@ -122,7 +122,7 @@ const EMPLOYEES: EmployeeData[] = [
     firstName: 'Anh',
     lastName: 'Nguyen',
     designation: 'Laborer',
-    employmentType: 'DAILY_LABORER',
+    employmentType: 'CONTRACT',
     dailyRate: 60,
   },
   {
@@ -192,7 +192,7 @@ const EMPLOYEES: EmployeeData[] = [
     firstName: 'Jamal',
     lastName: 'Hassan',
     designation: 'Laborer',
-    employmentType: 'DAILY_LABORER',
+    employmentType: 'CONTRACT',
     dailyRate: 55,
   },
   {
@@ -202,7 +202,7 @@ const EMPLOYEES: EmployeeData[] = [
     firstName: 'Maria',
     lastName: 'Fernandez',
     designation: 'Laborer',
-    employmentType: 'DAILY_LABORER',
+    employmentType: 'CONTRACT',
     dailyRate: 50,
   },
   {

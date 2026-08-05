@@ -68,6 +68,11 @@ export class CreateEmployeeDto {
   @IsOptional()
   dailyRate?: number;
 
+  /** Weekly pay rate — derived as daily × 6 when monthly/daily is provided. */
+  @IsNumber()
+  @IsOptional()
+  weeklyRate?: number;
+
   @IsOptional()
   @IsNumber()
   userId?: number;

@@ -3,6 +3,7 @@ import type {
   Payroll,
   PayrollDeduction,
   PayrollItem,
+  PayrollSourceType,
   Payslip,
   TaxTable,
 } from "./types";
@@ -12,7 +13,12 @@ export interface GeneratePayrollDto {
   startDate: string;
   endDate: string;
   projectId?: number;
-  sourceType?: "ATTENDANCE" | "TIMESHEETS" | "ALL";
+  sourceType?: Exclude<PayrollSourceType, "DAILY_LABORERS">;
+}
+
+/** Response of POST /payroll/generate (employee payroll). */
+export interface GeneratePayrollResult extends Payroll {
+  itemsGenerated: number;
 }
 
 export const payrollService = {
@@ -40,8 +46,27 @@ export const payrollService = {
   generate: async (
     companyId: number,
     dto: GeneratePayrollDto,
-  ): Promise<Payroll> => {
+  ): Promise<GeneratePayrollResult> => {
     const res = await api.post(`/companies/${companyId}/payroll/generate`, dto);
+    return res.data;
+  },
+
+  rename: async (
+    companyId: number,
+    id: number,
+    title: string,
+  ): Promise<{ updated: boolean; id: number; title: string }> => {
+    const res = await api.patch(`/companies/${companyId}/payroll/${id}`, {
+      title,
+    });
+    return res.data;
+  },
+
+  remove: async (
+    companyId: number,
+    id: number,
+  ): Promise<{ deleted: boolean; id: number }> => {
+    const res = await api.delete(`/companies/${companyId}/payroll/${id}`);
     return res.data;
   },
 
@@ -52,6 +77,14 @@ export const payrollService = {
     const res = await api.patch(
       `/companies/${companyId}/payroll/${id}/approve`,
     );
+    return res.data;
+  },
+
+  markPaid: async (
+    companyId: number,
+    id: number,
+  ): Promise<{ paid: boolean; id: number; amount: number }> => {
+    const res = await api.patch(`/companies/${companyId}/payroll/${id}/paid`);
     return res.data;
   },
 

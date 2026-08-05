@@ -2,6 +2,7 @@
 
 import Loading from "@/components/Loading";
 import api from "@/lib/api";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -50,6 +51,15 @@ export default function WorkPositionsPage() {
     null,
   );
   const [posForm, setPosForm] = useState({ name: "", isActive: true });
+  const [allowanceDrafts, setAllowanceDrafts] = useState<
+    Array<{
+      name: string;
+      amount: string;
+      isTaxable: boolean;
+      effectiveFrom: string;
+      effectiveTo: string;
+    }>
+  >([]);
 
   // Allowance modal (position is chosen via dropdown — point 2)
   const [allowanceModal, setAllowanceModal] = useState(false);
@@ -66,9 +76,26 @@ export default function WorkPositionsPage() {
     effectiveTo: "",
   });
 
+  // Multi-row allowance options for the Add Position Allowance modal
+  const [allowRows, setAllowRows] = useState<
+    Array<{
+      name: string;
+      amount: string;
+      isTaxable: boolean;
+      effectiveFrom: string;
+      effectiveTo: string;
+    }>
+  >([]);
+
+  // Bulk-add allowances to an existing position
+  const [bulkPositionId, setBulkPositionId] = useState<number | null>(null);
+  const [bulkRows, setBulkRows] = useState<
+    Array<{ name: string; amount: string; isTaxable: boolean }>
+  >([]);
+
   const loadAll = async () => {
     try {
-      const posRes = await api.get(`/companies/${companyId}/work-positions`);
+      const posRes = await api.get(`/companies/${companyId}/work-positions/with-allowances`);
       const empRes = await api.get(`/companies/${companyId}/employees`);
       const posList: WorkPosition[] = posRes.data || [];
       setPositions(posList);
@@ -76,14 +103,7 @@ export default function WorkPositionsPage() {
 
       const byPosition: Record<number, PositionAllowance[]> = {};
       for (const p of posList) {
-        try {
-          const res = await api.get(
-            `/companies/${companyId}/work-positions/${p.id}/allowances`,
-          );
-          byPosition[p.id] = res.data || [];
-        } catch {
-          byPosition[p.id] = [];
-        }
+        byPosition[p.id] = (p as any).allowances || [];
       }
       setAllowancesByPosition(byPosition);
     } catch {
@@ -98,6 +118,31 @@ export default function WorkPositionsPage() {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
+
+  const saveBulkAllowances = async () => {
+    if (!bulkPositionId) return;
+    const valid = bulkRows.filter((a) => a.name.trim() && a.amount);
+    if (!valid.length) return;
+    try {
+      for (const a of valid) {
+        await api.post(
+          `/companies/${companyId}/work-positions/${bulkPositionId}/allowances`,
+          {
+            name: a.name.trim(),
+            amount: parseFloat(a.amount),
+            isTaxable: a.isTaxable,
+            effectiveFrom: new Date().toISOString().split("T")[0],
+          },
+        );
+      }
+      toast.success(`Added ${valid.length} allowance(s)`);
+      setBulkPositionId(null);
+      setBulkRows([]);
+      await loadAll();
+    } catch {
+      toast.error("Failed to add allowances");
+    }
+  };
 
   if (loading) return <Loading />;
 
@@ -119,12 +164,23 @@ export default function WorkPositionsPage() {
       } else {
         await api.post(`/companies/${companyId}/work-positions`, {
           name: posForm.name.trim(),
+          allowances: allowanceDrafts
+            .filter((a) => a.name.trim() && a.amount)
+            .map((a) => ({
+              name: a.name.trim(),
+              amount: parseFloat(a.amount),
+              isTaxable: a.isTaxable,
+              effectiveFrom:
+                a.effectiveFrom || new Date().toISOString().split("T")[0],
+              ...(a.effectiveTo && { effectiveTo: a.effectiveTo }),
+            })),
         });
         toast.success("Work position created");
       }
       setPositionModal(false);
       setEditingPosition(null);
       setPosForm({ name: "", isActive: true });
+      setAllowanceDrafts([]);
       await loadAll();
     } catch {
       toast.error("Failed to save work position");
@@ -149,14 +205,16 @@ export default function WorkPositionsPage() {
 
   const openAllowanceModal = (positionId?: number) => {
     setEditingAllowance(null);
-    setAllowForm({
-      name: "",
-      amount: "",
-      isTaxable: true,
-      effectiveFrom: new Date().toISOString().split("T")[0],
-      effectiveTo: "",
-    });
     setAllowancePositionId(positionId ?? (positions[0]?.id || ""));
+    setAllowRows([
+      {
+        name: "",
+        amount: "",
+        isTaxable: true,
+        effectiveFrom: new Date().toISOString().split("T")[0],
+        effectiveTo: "",
+      },
+    ]);
     setAllowanceModal(true);
   };
 
@@ -176,28 +234,36 @@ export default function WorkPositionsPage() {
   };
 
   const saveAllowance = async () => {
-    if (!allowancePositionId || !allowForm.name.trim() || !allowForm.amount)
-      return;
-    const payload = {
-      name: allowForm.name.trim(),
-      amount: parseFloat(allowForm.amount),
-      isTaxable: allowForm.isTaxable,
-      effectiveFrom: allowForm.effectiveFrom,
-      ...(allowForm.effectiveTo && { effectiveTo: allowForm.effectiveTo }),
-    };
+    if (!allowancePositionId) return;
     try {
       if (editingAllowance) {
         await api.patch(
           `/companies/${companyId}/work-positions/allowances/${editingAllowance.id}`,
-          payload,
+          {
+            name: allowForm.name.trim(),
+            amount: parseFloat(allowForm.amount),
+            isTaxable: allowForm.isTaxable,
+            effectiveFrom: allowForm.effectiveFrom,
+            ...(allowForm.effectiveTo && { effectiveTo: allowForm.effectiveTo }),
+          },
         );
         toast.success("Position allowance updated");
       } else {
-        await api.post(
-          `/companies/${companyId}/work-positions/${allowancePositionId}/allowances`,
-          payload,
-        );
-        toast.success("Position allowance added");
+        const valid = allowRows.filter((a) => a.name.trim() && a.amount);
+        if (!valid.length) return;
+        for (const a of valid) {
+          await api.post(
+            `/companies/${companyId}/work-positions/${allowancePositionId}/allowances`,
+            {
+              name: a.name.trim(),
+              amount: parseFloat(a.amount),
+              isTaxable: a.isTaxable,
+              effectiveFrom: a.effectiveFrom,
+              ...(a.effectiveTo && { effectiveTo: a.effectiveTo }),
+            },
+          );
+        }
+        toast.success(`Added ${valid.length} allowance(s)`);
       }
       setAllowanceModal(false);
       setEditingAllowance(null);
@@ -235,16 +301,25 @@ export default function WorkPositionsPage() {
             to a position automatically receives its allowances during payroll.
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEditingPosition(null);
-            setPosForm({ name: "", isActive: true });
-            setPositionModal(true);
-          }}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm"
-        >
-          + Add Position
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/dashboard/companies/${companyId}/personnel/payroll?tab=compensation`}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm"
+          >
+            Manage Allowances
+          </Link>
+          <button
+            onClick={() => {
+              setEditingPosition(null);
+              setPosForm({ name: "", isActive: true });
+              setAllowanceDrafts([]);
+              setPositionModal(true);
+            }}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm"
+          >
+            + Add Position
+          </button>
+        </div>
       </div>
 
       {positions.length === 0 ? (
@@ -285,6 +360,15 @@ export default function WorkPositionsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <button
+                      onClick={() => {
+                        setBulkPositionId(p.id);
+                        setBulkRows([{ name: "", amount: "", isTaxable: true }]);
+                      }}
+                      className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs rounded-md hover:bg-gray-50"
+                    >
+                      Bulk Add
+                    </button>
+                    <button
                       onClick={() => openAllowanceModal(p.id)}
                       className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-700"
                     >
@@ -308,6 +392,109 @@ export default function WorkPositionsPage() {
                     </button>
                   </div>
                 </div>
+
+                {bulkPositionId === p.id && (
+                  <div className="px-4 py-3 bg-indigo-50/40 border-b border-gray-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-gray-600">
+                        Add multiple allowances to {p.name}
+                      </p>
+                      <button
+                        onClick={() => setBulkPositionId(null)}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    {bulkRows.map((a, i) => (
+                      <div
+                        key={i}
+                        className="border border-gray-200 rounded p-2 space-y-1.5 bg-white"
+                      >
+                        <div className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">
+                              Allowance Name
+                            </label>
+                            <input
+                              value={a.name}
+                              onChange={(e) => {
+                                const next = [...bulkRows];
+                                next[i] = { ...next[i], name: e.target.value };
+                                setBulkRows(next);
+                              }}
+                              placeholder="e.g. Transportation"
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs bg-white"
+                            />
+                          </div>
+                          <div className="w-24">
+                            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">
+                              Amount
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={a.amount}
+                              onChange={(e) => {
+                                const next = [...bulkRows];
+                                next[i] = {
+                                  ...next[i],
+                                  amount: e.target.value,
+                                };
+                                setBulkRows(next);
+                              }}
+                              placeholder="0.00"
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs bg-white"
+                            />
+                          </div>
+                          <label className="flex items-center gap-1 text-xs text-gray-600 whitespace-nowrap pb-1">
+                            <input
+                              type="checkbox"
+                              checked={a.isTaxable}
+                              onChange={(e) => {
+                                const next = [...bulkRows];
+                                next[i] = {
+                                  ...next[i],
+                                  isTaxable: e.target.checked,
+                                };
+                                setBulkRows(next);
+                              }}
+                              className="h-3.5 w-3.5"
+                            />
+                            Taxable
+                          </label>
+                          <button
+                            onClick={() =>
+                              setBulkRows(bulkRows.filter((_, j) => j !== i))
+                            }
+                            className="text-xs text-red-500 hover:text-red-700 pb-1"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() =>
+                          setBulkRows([
+                            ...bulkRows,
+                            { name: "", amount: "", isTaxable: true },
+                          ])
+                        }
+                        className="text-xs text-indigo-600 hover:text-indigo-800"
+                      >
+                        + Add row
+                      </button>
+                      <button
+                        onClick={saveBulkAllowances}
+                        className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-700"
+                      >
+                        Save All
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Allowances table with Linked Employees coverage */}
                 <div className="overflow-x-auto">
@@ -441,6 +628,133 @@ export default function WorkPositionsPage() {
                   Active
                 </label>
               )}
+              {!editingPosition && (
+                <div className="border-t border-gray-200 pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-medium text-gray-600">
+                      Allowance Options (optional)
+                    </p>
+                    <button
+                      onClick={() =>
+                        setAllowanceDrafts([
+                          ...allowanceDrafts,
+                          {
+                            name: "",
+                            amount: "",
+                            isTaxable: true,
+                            effectiveFrom: new Date()
+                              .toISOString()
+                              .split("T")[0],
+                            effectiveTo: "",
+                          },
+                        ])
+                      }
+                      className="text-xs text-indigo-600 hover:text-indigo-800"
+                    >
+                      + Add Allowance
+                    </button>
+                  </div>
+                  {allowanceDrafts.length === 0 ? (
+                    <p className="text-xs text-gray-400">
+                      Add allowance options (e.g. Housing, Transport, Site Hazard)
+                      that will apply to this position automatically.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {allowanceDrafts.map((a, i) => (
+                        <div
+                          key={i}
+                          className="space-y-1.5 bg-gray-50 rounded-md p-2"
+                        >
+                          <div className="flex items-center gap-2">
+                            <input
+                              value={a.name}
+                              onChange={(e) => {
+                                const next = [...allowanceDrafts];
+                                next[i] = { ...next[i], name: e.target.value };
+                                setAllowanceDrafts(next);
+                              }}
+                              placeholder="Allowance name"
+                              className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs bg-white"
+                            />
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={a.amount}
+                              onChange={(e) => {
+                                const next = [...allowanceDrafts];
+                                next[i] = {
+                                  ...next[i],
+                                  amount: e.target.value,
+                                };
+                                setAllowanceDrafts(next);
+                              }}
+                              placeholder="Amount"
+                              className="w-24 px-2 py-1 border border-gray-300 rounded text-xs bg-white"
+                            />
+                            <label className="flex items-center gap-1 text-xs text-gray-600 whitespace-nowrap">
+                              <input
+                                type="checkbox"
+                                checked={a.isTaxable}
+                                onChange={(e) => {
+                                  const next = [...allowanceDrafts];
+                                  next[i] = {
+                                    ...next[i],
+                                    isTaxable: e.target.checked,
+                                  };
+                                  setAllowanceDrafts(next);
+                                }}
+                                className="h-3.5 w-3.5"
+                              />
+                              Taxable
+                            </label>
+                            <button
+                              onClick={() =>
+                                setAllowanceDrafts(
+                                  allowanceDrafts.filter((_, j) => j !== i),
+                                )
+                              }
+                              className="text-xs text-red-500 hover:text-red-700"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="date"
+                              value={a.effectiveFrom}
+                              onChange={(e) => {
+                                const next = [...allowanceDrafts];
+                                next[i] = {
+                                  ...next[i],
+                                  effectiveFrom: e.target.value,
+                                };
+                                setAllowanceDrafts(next);
+                              }}
+                              title="Effective from"
+                              className="px-2 py-1 border border-gray-300 rounded text-xs bg-white"
+                            />
+                            <input
+                              type="date"
+                              value={a.effectiveTo}
+                              onChange={(e) => {
+                                const next = [...allowanceDrafts];
+                                next[i] = {
+                                  ...next[i],
+                                  effectiveTo: e.target.value,
+                                };
+                                setAllowanceDrafts(next);
+                              }}
+                              title="Effective to (optional)"
+                              className="px-2 py-1 border border-gray-300 rounded text-xs bg-white"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => setPositionModal(false)}
@@ -491,80 +805,204 @@ export default function WorkPositionsPage() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Allowance Name *
-                </label>
-                <input
-                  value={allowForm.name}
-                  onChange={(e) =>
-                    setAllowForm({ ...allowForm, name: e.target.value })
-                  }
-                  placeholder="e.g. Housing, Transport, Lunch"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Amount (per month) *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={allowForm.amount}
-                  onChange={(e) =>
-                    setAllowForm({ ...allowForm, amount: e.target.value })
-                  }
-                  placeholder="0.00"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Effective From
+              {editingAllowance ? (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Allowance Name *
+                    </label>
+                    <input
+                      value={allowForm.name}
+                      onChange={(e) =>
+                        setAllowForm({ ...allowForm, name: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Amount (per month) *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={allowForm.amount}
+                      onChange={(e) =>
+                        setAllowForm({ ...allowForm, amount: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Effective From
+                      </label>
+                      <input
+                        type="date"
+                        value={allowForm.effectiveFrom}
+                        onChange={(e) =>
+                          setAllowForm({
+                            ...allowForm,
+                            effectiveFrom: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Effective To
+                      </label>
+                      <input
+                        type="date"
+                        value={allowForm.effectiveTo}
+                        onChange={(e) =>
+                          setAllowForm({
+                            ...allowForm,
+                            effectiveTo: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                      />
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={allowForm.isTaxable}
+                      onChange={(e) =>
+                        setAllowForm({
+                          ...allowForm,
+                          isTaxable: e.target.checked,
+                        })
+                      }
+                      className="h-4 w-4"
+                    />
+                    Taxable (adds to gross; taxed per salary-range rules)
                   </label>
-                  <input
-                    type="date"
-                    value={allowForm.effectiveFrom}
-                    onChange={(e) =>
-                      setAllowForm({
-                        ...allowForm,
-                        effectiveFrom: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
-                  />
+                </>
+              ) : (
+                <div className="border-t border-gray-200 pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-medium text-gray-600">
+                      Allowance Options
+                    </p>
+                    <button
+                      onClick={() =>
+                        setAllowRows([
+                          ...allowRows,
+                          {
+                            name: "",
+                            amount: "",
+                            isTaxable: true,
+                            effectiveFrom: new Date()
+                              .toISOString()
+                              .split("T")[0],
+                            effectiveTo: "",
+                          },
+                        ])
+                      }
+                      className="text-xs text-indigo-600 hover:text-indigo-800"
+                    >
+                      + Add another
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {allowRows.map((a, i) => (
+                      <div
+                        key={i}
+                        className="border border-gray-200 rounded-md p-2 space-y-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            value={a.name}
+                            onChange={(e) => {
+                              const next = [...allowRows];
+                              next[i] = { ...next[i], name: e.target.value };
+                              setAllowRows(next);
+                            }}
+                            placeholder="Allowance name"
+                            className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm bg-white"
+                          />
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={a.amount}
+                            onChange={(e) => {
+                              const next = [...allowRows];
+                              next[i] = { ...next[i], amount: e.target.value };
+                              setAllowRows(next);
+                            }}
+                            placeholder="Amount"
+                            className="w-24 px-2 py-1 border border-gray-300 rounded text-sm bg-white"
+                          />
+                          <label className="flex items-center gap-1 text-xs text-gray-600 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={a.isTaxable}
+                              onChange={(e) => {
+                                const next = [...allowRows];
+                                next[i] = {
+                                  ...next[i],
+                                  isTaxable: e.target.checked,
+                                };
+                                setAllowRows(next);
+                              }}
+                              className="h-4 w-4"
+                            />
+                            Taxable
+                          </label>
+                          {allowRows.length > 1 && (
+                            <button
+                              onClick={() =>
+                                setAllowRows(
+                                  allowRows.filter((_, j) => j !== i),
+                                )
+                              }
+                              className="text-xs text-red-500 hover:text-red-700"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="date"
+                            value={a.effectiveFrom}
+                            onChange={(e) => {
+                              const next = [...allowRows];
+                              next[i] = {
+                                ...next[i],
+                                effectiveFrom: e.target.value,
+                              };
+                              setAllowRows(next);
+                            }}
+                            title="Effective from"
+                            className="px-2 py-1 border border-gray-300 rounded text-sm bg-white"
+                          />
+                          <input
+                            type="date"
+                            value={a.effectiveTo}
+                            onChange={(e) => {
+                              const next = [...allowRows];
+                              next[i] = {
+                                ...next[i],
+                                effectiveTo: e.target.value,
+                              };
+                              setAllowRows(next);
+                            }}
+                            title="Effective to (optional)"
+                            className="px-2 py-1 border border-gray-300 rounded text-sm bg-white"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Effective To
-                  </label>
-                  <input
-                    type="date"
-                    value={allowForm.effectiveTo}
-                    onChange={(e) =>
-                      setAllowForm({
-                        ...allowForm,
-                        effectiveTo: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
-                  />
-                </div>
-              </div>
-              <label className="flex items-center gap-2 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={allowForm.isTaxable}
-                  onChange={(e) =>
-                    setAllowForm({ ...allowForm, isTaxable: e.target.checked })
-                  }
-                  className="h-4 w-4"
-                />
-                Taxable (adds to gross; taxed per salary-range rules)
-              </label>
+              )}
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => setAllowanceModal(false)}

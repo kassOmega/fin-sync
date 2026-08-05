@@ -26,29 +26,33 @@ export default function LeavesPage() {
 
   const loadRequests = async () => {
     const [mine, all] = await Promise.all([
-      leaveService.getMyRequests(companyId),
-      leaveService.getCompanyRequests(companyId),
+      leaveService.getMyRequests(companyId).catch(() => []),
+      leaveService.getCompanyRequests(companyId).catch(() => []),
     ]);
     setMyRequests(mine);
     setAllRequests(all);
   };
 
   const loadCalendar = async () => {
-    const start = new Date();
-    start.setDate(1);
-    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
-    const entries = await leaveService.getCalendar(
-      companyId,
-      start.toISOString().split("T")[0],
-      end.toISOString().split("T")[0],
-    );
-    setCalendar(entries);
+    try {
+      const start = new Date();
+      start.setDate(1);
+      const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+      const entries = await leaveService.getCalendar(
+        companyId,
+        start.toISOString().split("T")[0],
+        end.toISOString().split("T")[0],
+      );
+      setCalendar(entries);
+    } catch {
+      setCalendar([]);
+    }
   };
 
   const loadBalances = async () => {
     const [bal, typesData] = await Promise.all([
-      leaveService.getMyBalances(companyId),
-      leaveService.getTypes(companyId),
+      leaveService.getMyBalances(companyId).catch(() => []),
+      leaveService.getTypes(companyId).catch(() => []),
     ]);
     setBalances(bal);
     setTypes(typesData);

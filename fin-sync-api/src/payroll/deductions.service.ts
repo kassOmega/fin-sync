@@ -53,11 +53,12 @@ export class DeductionsService {
     // 2. Income tax from the VERSIONED company payroll config
     //    (Ethiopian shortcut formula: income × rate − deduct per bracket)
     const config = await this.getEffectiveConfig(companyId);
-    if (config?.tax_brackets?.length) {
-      taxAmount = this.computeEthiopianTax(
-        taxableIncome,
-        JSON.parse(config.tax_brackets),
-      );
+    const brackets =
+      typeof config?.tax_brackets === 'string'
+        ? JSON.parse(config.tax_brackets)
+        : config?.tax_brackets;
+    if (brackets?.length) {
+      taxAmount = this.computeEthiopianTax(taxableIncome, brackets);
       if (taxAmount > 0) {
         results.push({ name: 'Income Tax', amount: taxAmount, type: 'TAX' });
         totalDeductions += taxAmount;

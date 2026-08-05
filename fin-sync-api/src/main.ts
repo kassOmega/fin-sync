@@ -2,6 +2,14 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
+// Prisma 7 + @prisma/adapter-pg returns PostgreSQL bigint columns
+// (COUNT/SUM aggregates in raw queries) as JS BigInt. JSON.stringify — used by
+// Express res.json() — cannot serialize BigInt, which would 500 every endpoint
+// returning raw-SQL aggregates. Serialize BigInt as a number instead.
+(BigInt.prototype as unknown as { toJSON: () => number }).toJSON = function () {
+  return Number(this);
+};
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
@@ -13,6 +21,7 @@ async function bootstrap() {
   const defaultOrigins = [
     'http://localhost:5173',
     'http://localhost:3000',
+    'http://127.0.0.1:3000',
     'https://fin-sync-mu.vercel.app', // Explicit fallback
   ];
 

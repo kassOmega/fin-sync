@@ -21,31 +21,31 @@ import { CompensationService } from './compensation.service';
 export class CompensationController {
   constructor(private readonly service: CompensationService) {}
 
-  // ─── Allowances ───────────────────────────────────────────
+  // ─── Employee-Specific Allowances ─────────────────────────
 
-  @Get('allowances')
+  @Get('employee-specific-allowances')
   @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
-  getAllowances(
+  getEmployeeSpecificAllowances(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Query('employeeId') employeeId?: string,
-    @Query('type') type?: string,
+    @Query('name') name?: string,
     @Query('isActive') isActive?: string,
   ) {
-    return this.service.getAllowances(companyId, {
+    return this.service.getEmployeeSpecificAllowances(companyId, {
       ...(employeeId && { employeeId: parseInt(employeeId) }),
-      ...(type && { type }),
+      ...(name && { name }),
       ...(isActive !== undefined && { isActive }),
     });
   }
 
-  @Post('allowances')
+  @Post('employee-specific-allowances')
   @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
-  createAllowance(
+  createEmployeeSpecificAllowance(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Body()
     dto: {
       employeeId: number;
-      type: string;
+      name: string;
       amount: number;
       isTaxable?: boolean;
       reason?: string;
@@ -53,26 +53,26 @@ export class CompensationController {
       expiryDate?: string;
     },
   ) {
-    return this.service.createAllowance(companyId, dto);
+    return this.service.createEmployeeSpecificAllowance(companyId, dto);
   }
 
-  @Patch('allowances/:id')
+  @Patch('employee-specific-allowances/:id')
   @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
-  updateAllowance(
+  updateEmployeeSpecificAllowance(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: any,
   ) {
-    return this.service.updateAllowance(companyId, id, dto);
+    return this.service.updateEmployeeSpecificAllowance(companyId, id, dto);
   }
 
-  @Delete('allowances/:id')
+  @Delete('employee-specific-allowances/:id')
   @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
-  deleteAllowance(
+  deleteEmployeeSpecificAllowance(
     @Param('companyId', ParseIntPipe) companyId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.service.deleteAllowance(companyId, id);
+    return this.service.deleteEmployeeSpecificAllowance(companyId, id);
   }
 
   // ─── Bonuses ──────────────────────────────────────────────
@@ -156,7 +156,7 @@ export class CompensationController {
       employeeId: number;
       type: string;
       amount: number;
-      reason: string; // REQUIRED
+      reason: string;
       effectiveDate: string;
       expiryDate?: string;
     },

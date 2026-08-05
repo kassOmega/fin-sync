@@ -49,16 +49,34 @@ export class PayrollController {
     return this.service.generate(companyId, dto);
   }
 
+  @Patch(':id')
+  @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: { title?: string }) {
+    return this.service.update(id, dto);
+  }
+
   @Patch(':id/approve')
   @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
-  approve(@Param('id', ParseIntPipe) id: number) {
-    return this.service.approve(id);
+  approve(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number,
+  ) {
+    return this.service.approve(id, userId);
   }
 
   @Patch(':id/paid')
   @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
-  markPaid(@Param('id', ParseIntPipe) id: number) {
-    return this.service.markPaid(id);
+  markPaid(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number,
+  ) {
+    return this.service.markPaid(id, userId);
+  }
+
+  @Delete(':id')
+  @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.service.remove(id);
   }
 
   @Get('config/history')

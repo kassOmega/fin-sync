@@ -18,9 +18,11 @@ interface Employee {
   phone?: string;
   designation: string;
   employmentType: string;
+  payFrequency?: string;
   baseSalary?: number;
   hourlyRate?: number;
   dailyRate?: number;
+  weeklyRate?: number;
   isActive: boolean;
   joinedDate: string;
   role?: string;
@@ -77,6 +79,8 @@ export default function EmployeesPage() {
     designation: "",
     positionId: "",
     employmentType: "FULL_TIME",
+    payFrequency: "MONTHLY",
+    weeklyRate: "",
     hourlyRate: "",
     dailyRate: "",
     baseSalary: "",
@@ -173,6 +177,8 @@ export default function EmployeesPage() {
       designation: form.designation,
       ...(form.positionId && { positionId: Number(form.positionId) }),
       employmentType: form.employmentType,
+      payFrequency: form.payFrequency || "MONTHLY",
+      weeklyRate: form.weeklyRate ? parseFloat(form.weeklyRate) : undefined,
       hourlyRate: form.hourlyRate ? parseFloat(form.hourlyRate) : undefined,
       dailyRate: form.dailyRate ? parseFloat(form.dailyRate) : undefined,
       baseSalary: form.baseSalary ? parseFloat(form.baseSalary) : undefined,
@@ -201,6 +207,8 @@ export default function EmployeesPage() {
         designation: "",
         positionId: "",
         employmentType: "FULL_TIME",
+        payFrequency: "MONTHLY",
+        weeklyRate: "",
         hourlyRate: "",
         dailyRate: "",
         baseSalary: "",
@@ -265,7 +273,6 @@ export default function EmployeesPage() {
       FULL_TIME: "Full-Time",
       PART_TIME: "Part-Time",
       CONTRACT: "Contract",
-      DAILY_LABORER: "Daily",
     })[t] || t;
 
   if (loading) return <Loading />;
@@ -291,7 +298,6 @@ export default function EmployeesPage() {
             <option value="FULL_TIME">Full-Time</option>
             <option value="PART_TIME">Part-Time</option>
             <option value="CONTRACT">Contract</option>
-            <option value="DAILY_LABORER">Daily Laborer</option>
           </select>
           <select
             value={activeFilter}
@@ -456,6 +462,10 @@ export default function EmployeesPage() {
                                 ? String((e as any).position_id)
                                 : "",
                               employmentType: e.employmentType,
+                              payFrequency: e.payFrequency || "MONTHLY",
+                              weeklyRate: e.weeklyRate
+                                ? String(e.weeklyRate)
+                                : "",
                               hourlyRate: e.hourlyRate
                                 ? String(e.hourlyRate)
                                 : "",
@@ -522,7 +532,6 @@ export default function EmployeesPage() {
                     <option value="FULL_TIME">Full-Time</option>
                     <option value="PART_TIME">Part-Time</option>
                     <option value="CONTRACT">Contract</option>
-                    <option value="DAILY_LABORER">Daily Laborer</option>
                   </select>
                 </div>
               </div>
@@ -629,18 +638,54 @@ export default function EmployeesPage() {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Pay Frequency
+                </label>
+                <select
+                  value={form.payFrequency}
+                  onChange={(e) =>
+                    setForm({ ...form, payFrequency: e.target.value })
+                  }
+                  className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
+                >
+                  <option value="MONTHLY">Monthly</option>
+                  <option value="WEEKLY">Weekly</option>
+                  <option value="DAILY">Daily</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-4 gap-3">
                 <div>
                   <label className="block text-xs font-medium">
-                    Hourly Rate
+                    Monthly Rate
+                    <span className="text-gray-400 font-normal">
+                      {" "}
+                      (default)
+                    </span>
                   </label>
                   <input
                     type="number"
                     step="0.01"
-                    value={form.hourlyRate}
+                    value={form.baseSalary}
                     onChange={(e) =>
-                      setForm({ ...form, hourlyRate: e.target.value })
+                      setForm({ ...form, baseSalary: e.target.value })
                     }
+                    placeholder="e.g. 4200"
+                    className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium">
+                    Weekly Rate
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={form.weeklyRate}
+                    onChange={(e) =>
+                      setForm({ ...form, weeklyRate: e.target.value })
+                    }
+                    placeholder="e.g. 1145.45"
                     className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   />
                 </div>
@@ -655,24 +700,30 @@ export default function EmployeesPage() {
                     onChange={(e) =>
                       setForm({ ...form, dailyRate: e.target.value })
                     }
+                    placeholder="e.g. 190.91"
                     className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-medium">
-                    Base Salary
+                    Hourly Rate
                   </label>
                   <input
                     type="number"
                     step="0.01"
-                    value={form.baseSalary}
+                    value={form.hourlyRate}
                     onChange={(e) =>
-                      setForm({ ...form, baseSalary: e.target.value })
+                      setForm({ ...form, hourlyRate: e.target.value })
                     }
+                    placeholder="e.g. 23.86"
                     className="mt-1 w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900"
                   />
                 </div>
               </div>
+              <p className="text-xs text-gray-400">
+                Enter any one rate — the others are derived automatically
+                (monthly = daily × 22, weekly = daily × 6, hourly = daily ÷ 8).
+              </p>
               <div className="flex justify-end space-x-2 pt-3">
                 <button
                   type="button"

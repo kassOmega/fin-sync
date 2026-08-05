@@ -1,16 +1,22 @@
 import api from "../api";
 
-export interface PayrollAllowance {
+export interface EmployeeSpecificAllowance {
   id: number;
   companyId: number;
   employeeId: number;
-  type: string;
+  name: string;
   amount: number;
   isTaxable: boolean;
   reason?: string;
   effectiveDate: string;
   expiryDate?: string;
   isActive: boolean;
+  employee?: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    employeeCode: string;
+  };
 }
 
 export interface PayrollBonus {
@@ -41,36 +47,36 @@ export interface PayrollWithholding {
 }
 
 export const compensationService = {
-  // Allowances
-  getAllowances: async (
+  // Employee-Specific Allowances
+  getEmployeeSpecificAllowances: async (
     companyId: number,
     employeeId?: number,
-  ): Promise<PayrollAllowance[]> => {
-    const res = await api.get(`/companies/${companyId}/allowances`, {
+  ): Promise<EmployeeSpecificAllowance[]> => {
+    const res = await api.get(`/companies/${companyId}/employee-specific-allowances`, {
       params: employeeId ? { employeeId } : {},
     });
     return res.data;
   },
-  createAllowance: async (
+  createEmployeeSpecificAllowance: async (
     companyId: number,
     dto: any,
-  ): Promise<PayrollAllowance> => {
-    const res = await api.post(`/companies/${companyId}/allowances`, dto);
+  ): Promise<EmployeeSpecificAllowance> => {
+    const res = await api.post(`/companies/${companyId}/employee-specific-allowances`, dto);
     return res.data;
   },
-  updateAllowance: async (
+  updateEmployeeSpecificAllowance: async (
     companyId: number,
     id: number,
     dto: any,
-  ): Promise<PayrollAllowance> => {
+  ): Promise<EmployeeSpecificAllowance> => {
     const res = await api.patch(
-      `/companies/${companyId}/allowances/${id}`,
+      `/companies/${companyId}/employee-specific-allowances/${id}`,
       dto,
     );
     return res.data;
   },
-  deleteAllowance: async (companyId: number, id: number) => {
-    const res = await api.delete(`/companies/${companyId}/allowances/${id}`);
+  deleteEmployeeSpecificAllowance: async (companyId: number, id: number) => {
+    const res = await api.delete(`/companies/${companyId}/employee-specific-allowances/${id}`);
     return res.data;
   },
 

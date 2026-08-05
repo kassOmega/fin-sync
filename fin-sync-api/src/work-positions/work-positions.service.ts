@@ -7,13 +7,40 @@ export class WorkPositionsService {
 
   // ─── Positions ─────────────────────────────────────────────
 
-  async createPosition(companyId: number, name: string) {
+  async createPosition(
+    companyId: number,
+    name: string,
+    allowances?: Array<{
+      name: string;
+      amount: number;
+      isTaxable?: boolean;
+      effectiveFrom: string;
+      effectiveTo?: string;
+    }>,
+  ) {
     const rows: { id: number }[] = await this.prisma.$queryRawUnsafe(
       `INSERT INTO finsync.work_positions ("company_id", name, "isActive", "created_at", "updated_at")
        VALUES (${companyId}, '${name.replace(/'/g, "''")}', true, NOW(), NOW())
        RETURNING id`,
     );
-    return this.findOnePosition(companyId, rows[0].id);
+    const positionId = rows[0].id;
+
+    // Create multiple allowance options for the position in one go
+    if (allowances?.length) {
+      for (const a of allowances) {
+        if (!a.name?.trim() || !a.amount || a.amount <= 0) continue;
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO finsync.position_allowances
+             ("company_id", "position_id", name, amount, "isTaxable", "effectiveFrom", "effectiveTo", "isActive", "taxConfig", "created_at", "updated_at")
+           VALUES (${companyId}, ${positionId}, '${a.name.replace(/'/g, "''")}',
+             ${a.amount}, ${a.isTaxable ?? true}, '${a.effectiveFrom}',
+             ${a.effectiveTo ? `'${a.effectiveTo}'` : 'NULL'},
+             true, NULL, NOW(), NOW())`,
+        );
+      }
+    }
+
+    return this.findOnePosition(companyId, positionId);
   }
 
   async findAllPositions(companyId: number) {
@@ -28,6 +55,16 @@ export class WorkPositionsService {
        GROUP BY wp.id
        ORDER BY wp.name`,
     );
+  }
+
+  // Returns positions with nested allowances (avoids N+1)
+  async findAllPositionsWithAllowances(companyId: number) {
+    const positions = await (this.prisma as any).workPosition.findMany({
+      where: { companyId },
+      include: { allowances: true },
+      orderBy: { name: 'asc' },
+    });
+    return positions;
   }
 
   async findOnePosition(companyId: number, id: number) {
@@ -98,12 +135,20 @@ export class WorkPositionsService {
     );
   }
 
-  async findAllAllowances(companyId: number) {
+  async findAllAllowances(
+    companyId: number,
+    filters?: { positionId?: number; isActive?: boolean },
+  ) {
+    const conditions: string[] = [`pa."company_id" = ${companyId}`];
+    if (filters?.positionId)
+      conditions.push(`pa."position_id" = ${filters.positionId}`);
+    if (filters?.isActive !== undefined)
+      conditions.push(`pa."isActive" = ${filters.isActive}`);
     return this.prisma.$queryRawUnsafe(
-      `SELECT pa.*, wp.name AS "positionName"
+      `SELECT pa.*, wp.name AS "positionName", wp."isActive" AS "positionIsActive"
        FROM finsync.position_allowances pa
        JOIN finsync.work_positions wp ON wp.id = pa."position_id"
-       WHERE pa."company_id" = ${companyId}
+       WHERE ${conditions.join(' AND ')}
        ORDER BY wp.name, pa.name`,
     );
   }
@@ -115,6 +160,7 @@ export class WorkPositionsService {
       name: string;
       amount: number;
       isTaxable: boolean;
+      positionId: number;
       effectiveFrom: string;
       effectiveTo: string | null;
       isActive: boolean;
@@ -127,6 +173,8 @@ export class WorkPositionsService {
     if (dto.amount !== undefined) sets.push(`amount = ${dto.amount}`);
     if (dto.isTaxable !== undefined)
       sets.push(`"isTaxable" = ${dto.isTaxable}`);
+    if (dto.positionId !== undefined)
+      sets.push(`"position_id" = ${dto.positionId}`);
     if (dto.effectiveFrom !== undefined)
       sets.push(`"effectiveFrom" = '${dto.effectiveFrom}'`);
     if (dto.effectiveTo !== undefined)

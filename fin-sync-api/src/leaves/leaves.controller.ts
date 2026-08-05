@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -23,6 +24,16 @@ import { LeavesService } from './leaves.service';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class LeavesController {
   constructor(private readonly service: LeavesService) {}
+
+  /** Resolve the signed-in user's employee record, or reject with a clear message. */
+  private requireEmployee(employeeId: number | null): number {
+    if (!employeeId) {
+      throw new BadRequestException(
+        'Your user account is not linked to an employee record.',
+      );
+    }
+    return employeeId;
+  }
 
   // ─── Leave Types ──────────────────────────────────────────
 
@@ -58,11 +69,11 @@ export class LeavesController {
   // ─── Balances ─────────────────────────────────────────────
 
   @Get('balances')
-  @RequirePermissions(PermissionCode.LEAVE_BALANCE_VIEW)
   getMyBalances(
     @Param('companyId', ParseIntPipe) companyId: number,
     @CurrentUser('employeeId') employeeId: number,
   ) {
+    // Self-service: returns only the signed-in user's own balances.
     return this.service.getEmployeeBalances(employeeId);
   }
 
@@ -81,7 +92,11 @@ export class LeavesController {
     @CurrentUser('employeeId') employeeId: number,
     @Body() dto: CreateLeaveRequestDto,
   ) {
-    return this.service.submitRequest(employeeId, companyId, dto);
+    return this.service.submitRequest(
+      this.requireEmployee(employeeId),
+      companyId,
+      dto,
+    );
   }
 
   @Get('requests')
@@ -124,7 +139,7 @@ export class LeavesController {
     @Param('id', ParseIntPipe) requestId: number,
     @CurrentUser('employeeId') reviewerId: number,
   ) {
-    return this.service.approveRequest(requestId, reviewerId);
+    return this.service.approveRequest(requestId, this.requireEmployee(reviewerId));
   }
 
   @Post('requests/:id/reject')
@@ -134,7 +149,11 @@ export class LeavesController {
     @CurrentUser('employeeId') reviewerId: number,
     @Body('reason') reason?: string,
   ) {
-    return this.service.rejectRequest(requestId, reviewerId, reason);
+    return this.service.rejectRequest(
+      requestId,
+      this.requireEmployee(reviewerId),
+      reason,
+    );
   }
 
   @Post('requests/:id/cancel')

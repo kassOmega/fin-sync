@@ -34,6 +34,9 @@ export class DailyLaborersController {
       lastName: string;
       phone?: string;
       dailyRate: number;
+      hourlyRate?: number;
+      taxMethod?: string;
+      taxRate?: number;
     },
   ) {
     return this.service.create(companyId, dto);
@@ -57,6 +60,9 @@ export class DailyLaborersController {
       lastName?: string;
       phone?: string;
       dailyRate?: number;
+      hourlyRate?: number;
+      taxMethod?: string;
+      taxRate?: number;
       isActive?: boolean;
     },
   ) {
@@ -107,6 +113,51 @@ export class DailyLaborersController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.service.getTimesheetsByLaborer(companyId, id);
+  }
+
+  // ─── Attendance (attendance-mode) ──────────────────────────
+
+  @Post('attendance')
+  @RequirePermissions(PermissionCode.EMPLOYEES_MANAGE)
+  upsertAttendance(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Body()
+    dto: {
+      laborerId: number;
+      date: string;
+      status: string;
+      note?: string;
+    },
+  ) {
+    return this.service.upsertAttendance(companyId, dto);
+  }
+
+  @Get('attendance')
+  @RequirePermissions(PermissionCode.EMPLOYEES_MANAGE)
+  listAttendances(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.service.listAttendances(companyId, startDate, endDate);
+  }
+
+  @Get(':id/attendance')
+  @RequirePermissions(PermissionCode.EMPLOYEES_MANAGE)
+  attendanceByLaborer(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.service.getAttendancesByLaborer(companyId, id);
+  }
+
+  @Delete('attendance/:attendanceId')
+  @RequirePermissions(PermissionCode.EMPLOYEES_MANAGE)
+  deleteAttendance(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Param('attendanceId', ParseIntPipe) attendanceId: number,
+  ) {
+    return this.service.deleteAttendance(companyId, attendanceId);
   }
 
   // ─── Period Payroll Run ────────────────────────────────────

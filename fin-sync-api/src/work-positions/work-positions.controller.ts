@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { PermissionCode } from '../common/constants/permission-codes';
@@ -26,15 +27,21 @@ export class WorkPositionsController {
   @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
   createPosition(
     @Param('companyId', ParseIntPipe) companyId: number,
-    @Body() dto: { name: string },
+    @Body() dto: { name: string; allowances?: any[] },
   ) {
-    return this.service.createPosition(companyId, dto.name);
+    return this.service.createPosition(companyId, dto.name, dto.allowances);
   }
 
   @Get()
   @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
   findAll(@Param('companyId', ParseIntPipe) companyId: number) {
     return this.service.findAllPositions(companyId);
+  }
+
+  @Get('with-allowances')
+  @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
+  findAllWithAllowances(@Param('companyId', ParseIntPipe) companyId: number) {
+    return this.service.findAllPositionsWithAllowances(companyId);
   }
 
   @Patch(':id')
@@ -90,8 +97,15 @@ export class WorkPositionsController {
 
   @Get('allowances/all')
   @RequirePermissions(PermissionCode.PAYROLL_MANAGE)
-  findAllAllowances(@Param('companyId', ParseIntPipe) companyId: number) {
-    return this.service.findAllAllowances(companyId);
+  findAllAllowances(
+    @Param('companyId', ParseIntPipe) companyId: number,
+    @Query('positionId') positionId?: string,
+    @Query('isActive') isActive?: string,
+  ) {
+    return this.service.findAllAllowances(companyId, {
+      ...(positionId && { positionId: parseInt(positionId) }),
+      ...(isActive !== undefined && { isActive: isActive === 'true' }),
+    });
   }
 
   @Patch('allowances/:allowanceId')
@@ -104,6 +118,7 @@ export class WorkPositionsController {
       name: string;
       amount: number;
       isTaxable: boolean;
+      positionId: number;
       effectiveFrom: string;
       effectiveTo: string | null;
       isActive: boolean;

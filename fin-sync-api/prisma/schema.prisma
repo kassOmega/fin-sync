@@ -144,6 +144,11 @@ model Company {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
+  // Temporary worker settings (DailyLaborers registry)
+  tempWorkerTimeMode   String    @default("TIMESHEET") @map("temp_worker_time_mode") // ATTENDANCE | TIMESHEET
+  tempWorkerTaxEnabled Boolean   @default(false) @map("temp_worker_tax_enabled")
+  tempWorkerTaxRate    Decimal?  @db.Decimal(5, 2) @map("temp_worker_tax_rate") // default % for temp workers
+
   ownerId                Int                           @map("owner_id")
   owner                  User                          @relation("CompanyOwner", fields: [ownerId], references: [id])
   members                CompanyMember[]
@@ -175,6 +180,7 @@ model Company {
   payrollConfigVersions  CompanyPayrollConfigVersion[]
   dailyLaborers          DailyLaborer[]
   dailyLaborerTimesheets DailyLaborerTimesheet[]
+  dailyLaborerAttendances DailyLaborerAttendance[]
   workPositions          WorkPosition[]
 
   @@schema("finsync")
@@ -405,6 +411,7 @@ model Employee {
   baseSalary Decimal? @db.Decimal(12, 2)
   hourlyRate Decimal? @db.Decimal(10, 2)
   dailyRate  Decimal? @db.Decimal(10, 2)
+  weeklyRate Decimal? @db.Decimal(10, 2)
 
   isActive   Boolean  @default(true)
   joinedDate DateTime @default(now())
@@ -421,12 +428,12 @@ model Employee {
   leaveRequests       LeaveRequest[]
   reviewedLeaves      LeaveRequest[]         @relation("LeaveReviewer")
 
-  createdAt           DateTime             @default(now()) @map("created_at")
-  updatedAt           DateTime             @updatedAt @map("updated_at")
-  overtimeEntries     OvertimeEntry[]
-  payrollAllowances   PayrollAllowance[]
-  payrollBonuses      PayrollBonus[]
-  payrollWithholdings PayrollWithholding[]
+  createdAt                  DateTime                    @default(now()) @map("created_at")
+  updatedAt                  DateTime                    @updatedAt @map("updated_at")
+  overtimeEntries            OvertimeEntry[]
+  employeeSpecificAllowances EmployeeSpecificAllowance[]
+  payrollBonuses             PayrollBonus[]
+  payrollWithholdings        PayrollWithholding[]
 
   @@unique([companyId, employeeCode])
   @@index([companyId])
@@ -495,10 +502,14 @@ model DailyLaborer {
   lastName    String
   phone       String?
   dailyRate   Decimal  @db.Decimal(10, 2)
+  hourlyRate  Decimal? @db.Decimal(10, 2) @map("hourly_rate")
+  taxMethod   String   @default("GLOBAL") @map("tax_method") // GLOBAL | CUSTOM | EXEMPT
+  taxRate     Decimal? @db.Decimal(5, 2) @map("tax_rate") // override rate when taxMethod = CUSTOM
   isActive    Boolean  @default(true)
   joinedDate  DateTime @default(now())
 
   timesheets DailyLaborerTimesheet[]
+  attendances DailyLaborerAttendance[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -527,6 +538,27 @@ model DailyLaborerTimesheet {
   @@unique([laborerId, date])
   @@index([companyId, date])
   @@map("daily_laborer_timesheets")
+  @@schema("finsync")
+}
+
+// Attendance-mode records for temporary workers (when company uses ATTENDANCE mode).
+// Half-day / late workers are weighted in payroll: PRESENT=1.0, LATE=1.0, HALF_DAY=0.5, ABSENT=0.
+model DailyLaborerAttendance {
+  id        Int          @id @default(autoincrement())
+  companyId Int
+  company   Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  laborerId Int
+  laborer   DailyLaborer @relation(fields: [laborerId], references: [id], onDelete: Cascade)
+
+  date   DateTime @db.Date
+  status String   @default("PRESENT") // PRESENT | LATE | HALF_DAY | ABSENT
+  note   String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([laborerId, date])
+  @@index([companyId, date])
+  @@map("daily_laborer_attendances")
   @@schema("finsync")
 }
 
@@ -734,11 +766,11 @@ model PayrollItem {
   unpaidLeaveDeduction Decimal @default(0) @db.Decimal(10, 2)
   taxAmount            Decimal @default(0) @db.Decimal(10, 2)
 
-  deductionBreakdown PayrollItemDeduction[]
-  overtimeEntries    OvertimeEntry[]
-  allowances         PayrollAllowance[]
-  bonuses            PayrollBonus[]
-  withholdings       PayrollWithholding[]
+  deductionBreakdown         PayrollItemDeduction[]
+  overtimeEntries            OvertimeEntry[]
+  employeeSpecificAllowances EmployeeSpecificAllowance[]
+  bonuses                    PayrollBonus[]
+  withholdings               PayrollWithholding[]
 
   @@map("payroll_items")
   @@schema("finsync")
@@ -791,7 +823,9 @@ model OvertimeEntry {
 }
 
 // 8d. PAYROLL COMPENSATION
-model PayrollAllowance {
+// Employee-specific allowances — assigned to ONE employee directly.
+// Contrast with PositionAllowance (auto-applied to all employees in a work position).
+model EmployeeSpecificAllowance {
   id            Int          @id @default(autoincrement())
   companyId     Int          @map("company_id")
   employeeId    Int          @map("employee_id")
@@ -799,7 +833,7 @@ model PayrollAllowance {
   payrollItemId Int?         @map("payroll_item_id")
   payrollItem   PayrollItem? @relation(fields: [payrollItemId], references: [id], onDelete: SetNull)
 
-  type          String // HOUSING | TRANSPORT | HARDSHIP | COMMUNICATION
+  name          String // free-text allowance name, e.g. "Site Hazard Pay"
   amount        Decimal   @db.Decimal(12, 2)
   isTaxable     Boolean   @default(true)
   reason        String?   @db.Text
@@ -807,7 +841,12 @@ model PayrollAllowance {
   expiryDate    DateTime?
   isActive      Boolean   @default(true)
 
-  @@map("payroll_allowances")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@index([employeeId])
+  @@map("employee_specific_allowances")
   @@schema("finsync")
 }
 

@@ -106,7 +106,10 @@ export class LeavesService {
     return balance;
   }
 
-  async getEmployeeBalances(employeeId: number) {
+  async getEmployeeBalances(employeeId: number | null) {
+    // No employee linked to the account → no balances to show.
+    if (!employeeId) return [];
+
     const year = new Date().getFullYear();
     return this.prisma.leaveBalance.findMany({
       where: { employeeId, year },
@@ -347,6 +350,37 @@ export class LeavesService {
         });
       }
 
+      // Auto-mark the employee present in attendance for each approved leave date.
+      // Paid/special/sick → PRESENT (HALF_DAY for half-day requests); unpaid → ON_LEAVE.
+      const leaveType = await prisma.leaveType.findUnique({
+        where: { id: request.leaveTypeId },
+      });
+      const isPaid = leaveType?.isPaid ?? true;
+      const leaveStatus = request.isHalfDay
+        ? 'HALF_DAY'
+        : isPaid
+          ? 'PRESENT'
+          : 'ON_LEAVE';
+      const leaveRemark = `Approved leave: ${leaveType?.name || 'Leave'}`;
+      const leaveStart = new Date(request.startDate);
+      const leaveEnd = new Date(request.endDate);
+      for (let d = new Date(leaveStart); d <= leaveEnd; d.setDate(d.getDate() + 1)) {
+        const day = new Date(d);
+        await prisma.attendance.upsert({
+          where: {
+            employeeId_date: { employeeId: request.employeeId, date: day },
+          },
+          update: { status: leaveStatus, remarks: leaveRemark },
+          create: {
+            companyId: request.companyId,
+            employeeId: request.employeeId,
+            date: day,
+            status: leaveStatus,
+            remarks: leaveRemark,
+          },
+        });
+      }
+
       return { approved: true, id: requestId };
     });
   }
@@ -424,7 +458,10 @@ export class LeavesService {
     });
   }
 
-  async getEmployeeRequests(employeeId: number, status?: string) {
+  async getEmployeeRequests(employeeId: number | null, status?: string) {
+    // No employee linked to the account → no requests to show.
+    if (!employeeId) return [];
+
     const where: any = { employeeId };
     if (status) where.status = status;
 

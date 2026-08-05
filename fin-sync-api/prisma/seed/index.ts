@@ -46,7 +46,7 @@ async function clearDatabase(prisma: PrismaClient): Promise<void> {
       '"Account"',
       '"OvertimeEntry"',
       '"OvertimeRate"',
-      '"PayrollAllowance"',
+      '"EmployeeSpecificAllowance"',
       '"PayrollBonus"',
       '"PayrollWithholding"',
       '"CompanyRolePermission"',

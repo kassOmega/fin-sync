@@ -15,7 +15,7 @@ export class LedgerService {
    */
   private async getNextEntryNumber(companyId: number): Promise<string> {
     const rows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT COUNT(*) as cnt FROM finsync.journal_entries WHERE "companyId" = ${companyId}`,
+      `SELECT COUNT(*) as cnt FROM finsync.journal_entries WHERE company_id = ${companyId}`,
     );
     const count = parseInt(rows[0]?.cnt || '0', 10) + 1;
     return `JE-${companyId}-${String(count).padStart(6, '0')}`;
@@ -35,7 +35,7 @@ export class LedgerService {
     if (!category) return null;
     const rows: { id: number }[] = await this.prisma.$queryRawUnsafe(
       `SELECT id FROM finsync.accounts
-       WHERE "companyId" = ${companyId} AND category = '${String(category).replace(/'/g, "''")}'
+       WHERE company_id = ${companyId} AND category = '${String(category).replace(/'/g, "''")}'
        LIMIT 1`,
     );
     return rows[0]?.id ?? null;
@@ -467,7 +467,7 @@ export class LedgerService {
        LEFT JOIN finsync.journal_lines jl ON jl.account_id = a.id
        LEFT JOIN finsync.journal_entries je ON je.id = jl.entry_id AND je.status = 'POSTED'
          ${dateFilter}
-       WHERE a."companyId" = ${companyId} AND a."isActive" = true
+       WHERE a.company_id = ${companyId} AND a."isActive" = true
        GROUP BY a.id, a.code, a.name, a.type, a."normalSide"
        ORDER BY a.code ASC`,
     );
@@ -561,7 +561,7 @@ export class LedgerService {
          AND je.status = 'POSTED'
          AND je.date >= '${startDate}'
          AND je.date <= '${endDate}'
-       WHERE a."companyId" = ${companyId}
+       WHERE a.company_id = ${companyId}
          AND a."isActive" = true
          AND a.type IN ('INCOME', 'EXPENSE')
        GROUP BY a.id, a.code, a.name, a.type

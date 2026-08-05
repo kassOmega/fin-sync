@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { DailyLaborersModule } from '../daily-laboreers/daily-laboreers.module';
 import { LedgerModule } from '../ledger/ledger.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { DeductionsService } from './deductions.service';
@@ -9,7 +10,7 @@ import {
 import { PayrollService } from './payroll.service';
 
 @Module({
-  imports: [PrismaModule, LedgerModule],
+  imports: [PrismaModule, LedgerModule, DailyLaborersModule],
   controllers: [PayrollController, ProjectPayrollController],
   providers: [PayrollService, DeductionsService],
 })

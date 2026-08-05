@@ -137,8 +137,8 @@ export class EmployeesService {
         `INSERT INTO finsync.employees
            ("companyId", "employeeCode", "firstName", "lastName", email, phone,
             designation, "employmentType", "payFrequency", "position_id",
-            "baseSalary", "hourlyRate", "dailyRate",
-            "isActive", "joinedDate", "userId")
+            "baseSalary", "weeklyRate", "hourlyRate", "dailyRate",
+            "isActive", "joinedDate", "userId", "created_at", "updated_at")
          VALUES (${companyId}, '${dto.employeeCode.replace(/'/g, "''")}',
            '${dto.firstName.replace(/'/g, "''")}',
            '${dto.lastName.replace(/'/g, "''")}',
@@ -149,11 +149,13 @@ export class EmployeesService {
            '${dto.payFrequency || 'MONTHLY'}',
            ${dto.positionId ?? 'NULL'},
            ${salary.baseSalary ?? 'NULL'},
+           ${salary.weeklyRate ?? 'NULL'},
            ${salary.hourlyRate ?? 'NULL'},
            ${salary.dailyRate ?? 'NULL'},
            ${dto.isActive ?? true},
            ${dto.joinedDate ? `'${dto.joinedDate}'` : 'NOW()'},
-           ${userId ?? 'NULL'})
+           ${userId ?? 'NULL'},
+           NOW(), NOW())
          RETURNING id`,
       );
 
@@ -252,6 +254,7 @@ export class EmployeesService {
     dto: Partial<CreateEmployeeDto>,
   ): Promise<{
     baseSalary?: number;
+    weeklyRate?: number;
     dailyRate?: number;
     hourlyRate?: number;
   }> {
@@ -262,28 +265,41 @@ export class EmployeesService {
       ? parseFloat(String(dto.netSalary))
       : undefined;
 
+    // Resolve a daily rate from the most-specific provided rate:
+    //   monthly (baseSalary) → /22, weekly → /6, daily → as-is, hourly → ×8
+    let daily: number | undefined;
+    if (explicitGross) {
+      daily = explicitGross / 22;
+    } else if (dto.weeklyRate) {
+      daily = parseFloat(String(dto.weeklyRate)) / 6;
+    } else if (dto.dailyRate) {
+      daily = parseFloat(String(dto.dailyRate));
+    } else if (dto.hourlyRate) {
+      daily = parseFloat(String(dto.hourlyRate)) * 8;
+    }
+
     let gross = explicitGross;
-    if (!gross && explicitNet) {
+    if (!daily && explicitNet) {
       gross = await this.netToGrossMonthly(companyId, explicitNet);
+      daily = gross / 22;
     }
-    if (!gross && dto.dailyRate) {
-      gross = parseFloat(String(dto.dailyRate)) * 22;
-    }
-    if (!gross && dto.hourlyRate) {
-      gross = parseFloat(String(dto.hourlyRate)) * 22 * 8;
-    }
+    if (gross === undefined && daily) gross = daily * 22;
 
     const dailyRate = dto.dailyRate
       ? parseFloat(String(dto.dailyRate))
-      : gross
-        ? Math.round((gross / 22) * 100) / 100
+      : daily
+        ? Math.round(daily * 100) / 100
         : undefined;
-    const hourlyRate = gross
-      ? Math.round((gross / (22 * 8)) * 100) / 100
+    const weeklyRate = daily
+      ? Math.round(daily * 6 * 100) / 100
+      : undefined;
+    const hourlyRate = daily
+      ? Math.round((daily / 8) * 100) / 100
       : undefined;
 
     return {
       ...(gross !== undefined && { baseSalary: gross }),
+      ...(weeklyRate !== undefined && { weeklyRate }),
       ...(dailyRate !== undefined && { dailyRate }),
       ...(hourlyRate !== undefined && { hourlyRate }),
     };
@@ -366,6 +382,7 @@ export class EmployeesService {
             ...(dto.baseSalary !== undefined && { baseSalary: dto.baseSalary }),
             ...(dto.hourlyRate !== undefined && { hourlyRate: dto.hourlyRate }),
             ...(dto.dailyRate !== undefined && { dailyRate: dto.dailyRate }),
+            ...(dto.weeklyRate !== undefined && { weeklyRate: dto.weeklyRate }),
             ...(dto.isActive !== undefined && { isActive: dto.isActive }),
             ...(dto.joinedDate && { joinedDate: new Date(dto.joinedDate) }),
           },
@@ -391,6 +408,10 @@ export class EmployeesService {
         empSets.push(
           `"dailyRate" = ${salary.dailyRate ?? dto.dailyRate ?? 'NULL'}`,
         );
+      if (dto.weeklyRate !== undefined)
+        empSets.push(
+          `"weeklyRate" = ${salary.weeklyRate ?? dto.weeklyRate ?? 'NULL'}`,
+        );
       if (dto.hourlyRate !== undefined)
         empSets.push(
           `"hourlyRate" = ${salary.hourlyRate ?? dto.hourlyRate ?? 'NULL'}`,
@@ -399,6 +420,8 @@ export class EmployeesService {
         empSets.push(`"baseSalary" = ${salary.baseSalary ?? 'NULL'}`);
       if (dto.netSalary !== undefined)
         empSets.push(`"dailyRate" = ${salary.dailyRate ?? 'NULL'}`);
+      if (dto.netSalary !== undefined)
+        empSets.push(`"weeklyRate" = ${salary.weeklyRate ?? 'NULL'}`);
       if (dto.netSalary !== undefined)
         empSets.push(`"hourlyRate" = ${salary.hourlyRate ?? 'NULL'}`);
       if (dto.employeeCode)

@@ -29,6 +29,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User no longer exists');
     }
 
-    return user;
+    // Resolve the employee record linked to this account (Employee.userId).
+    // Leaf endpoints use @CurrentUser('employeeId') to scope leave balances,
+    // requests and submissions to the current employee.
+    const employee = await this.prisma.employee.findUnique({
+      where: { userId: user.id },
+      select: { id: true },
+    });
+
+    return { ...user, employeeId: employee?.id ?? null };
   }
 }

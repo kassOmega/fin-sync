@@ -44,6 +44,7 @@ export default function StaffPage() {
     role: SystemRole.Cashier,
     phone: "",
     employmentType: "FULL_TIME",
+    weeklyRate: "",
     hourlyRate: "",
     dailyRate: "",
     baseSalary: "",
@@ -102,6 +103,9 @@ export default function StaffPage() {
         role: formData.role,
         phone: formData.phone || undefined,
         employmentType: formData.employmentType,
+        weeklyRate: formData.weeklyRate
+          ? parseFloat(formData.weeklyRate)
+          : undefined,
         hourlyRate: formData.hourlyRate
           ? parseFloat(formData.hourlyRate)
           : undefined,
@@ -122,6 +126,7 @@ export default function StaffPage() {
         role: SystemRole.Cashier,
         phone: "",
         employmentType: "FULL_TIME",
+        weeklyRate: "",
         hourlyRate: "",
         dailyRate: "",
         baseSalary: "",
@@ -457,20 +462,37 @@ export default function StaffPage() {
                   <option value="FULL_TIME">Full-Time</option>
                   <option value="PART_TIME">Part-Time</option>
                   <option value="CONTRACT">Contract</option>
-                  <option value="DAILY_LABORER">Daily Laborer</option>
                 </select>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700">
-                    Hourly Rate
+                    Monthly Rate
+                    <span className="text-gray-400 font-normal">
+                      {" "}
+                      (default)
+                    </span>
                   </label>
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.hourlyRate}
+                    value={formData.baseSalary}
                     onChange={(e) =>
-                      setFormData({ ...formData, hourlyRate: e.target.value })
+                      setFormData({ ...formData, baseSalary: e.target.value })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    Weekly Rate
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.weeklyRate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, weeklyRate: e.target.value })
                     }
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900 bg-white"
                   />
@@ -491,19 +513,23 @@ export default function StaffPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700">
-                    Base Salary
+                    Hourly Rate
                   </label>
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.baseSalary}
+                    value={formData.hourlyRate}
                     onChange={(e) =>
-                      setFormData({ ...formData, baseSalary: e.target.value })
+                      setFormData({ ...formData, hourlyRate: e.target.value })
                     }
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900 bg-white"
                   />
                 </div>
               </div>
+              <p className="text-xs text-gray-400">
+                Enter any one rate — the others derive automatically (monthly =
+                daily × 22, weekly = daily × 6, hourly = daily ÷ 8).
+              </p>
               <div className="flex justify-end space-x-2 pt-4">
                 <button
                   type="button"
