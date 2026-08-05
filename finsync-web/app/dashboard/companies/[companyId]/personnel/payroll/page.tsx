@@ -370,6 +370,9 @@ export default function PayrollPage() {
                 loadAudit();
                 loadRegistry();
               }
+              if (key === "compensation") {
+                loadPositions();
+              }
               if (key === "settings") {
                 loadSettings();
                 loadGovDeductions();
@@ -441,6 +444,7 @@ export default function PayrollPage() {
           bonuses={bonuses}
           withholdings={withholdings}
           employees={employees}
+          positions={positions}
           setAllowances={setAllowances}
           setBonuses={setBonuses}
           setWithholdings={setWithholdings}
@@ -2296,6 +2300,7 @@ function CompensationTab({
   bonuses,
   withholdings,
   employees,
+  positions,
   setAllowances,
   setBonuses,
   setWithholdings,
@@ -2306,6 +2311,7 @@ function CompensationTab({
   bonuses: PayrollBonus[];
   withholdings: PayrollWithholding[];
   employees: any[];
+  positions: Array<Record<string, any>>;
   setAllowances: (a: PayrollAllowance[]) => void;
   setBonuses: (b: PayrollBonus[]) => void;
   setWithholdings: (w: PayrollWithholding[]) => void;
@@ -2323,9 +2329,34 @@ function CompensationTab({
     isGlobal: false,
     calcType: "FIXED" as "FIXED" | "PERCENTAGE",
     reason: "",
+    usePosition: false,
+    positionId: "",
     effectiveDate: new Date().toISOString().split("T")[0],
     expiryDate: "",
   });
+  const [positionAllowances, setPositionAllowances] = useState<
+    Record<number, Array<Record<string, any>>>
+  >({});
+
+  const loadPositionAllowances = async () => {
+    const map: Record<number, Array<Record<string, any>>> = {};
+    for (const p of positions) {
+      try {
+        const res = await api.get(
+          `/companies/${companyId}/work-positions/${p.id}/allowances`,
+        );
+        map[p.id] = res.data || [];
+      } catch {
+        map[p.id] = [];
+      }
+    }
+    setPositionAllowances(map);
+  };
+
+  useEffect(() => {
+    if (positions.length) loadPositionAllowances();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, positions]);
 
   const refresh = async () => {
     setAllowances(await compensationService.getAllowances(companyId));
@@ -2334,15 +2365,31 @@ function CompensationTab({
   };
 
   const saveAllowance = async () => {
-    await compensationService.createAllowance(companyId, {
-      employeeId: Number(form.employeeId),
-      type: form.type,
-      amount: Number(form.amount),
-      isTaxable: form.isTaxable,
-      reason: form.reason || undefined,
-      effectiveDate: form.effectiveDate,
-      ...(form.expiryDate && { expiryDate: form.expiryDate }),
-    });
+    if (form.usePosition) {
+      if (!form.positionId || !form.type.trim() || !form.amount) return;
+      await api.post(
+        `/companies/${companyId}/work-positions/${form.positionId}/allowances`,
+        {
+          name: form.type.trim(),
+          amount: Number(form.amount),
+          isTaxable: form.isTaxable,
+          effectiveFrom: form.effectiveDate,
+          ...(form.expiryDate && { effectiveTo: form.expiryDate }),
+        },
+      );
+      await loadPositionAllowances();
+    } else {
+      await compensationService.createAllowance(companyId, {
+        employeeId: Number(form.employeeId),
+        type: form.type,
+        amount: Number(form.amount),
+        isTaxable: form.isTaxable,
+        reason: form.reason || undefined,
+        effectiveDate: form.effectiveDate,
+        ...(form.expiryDate && { expiryDate: form.expiryDate }),
+      });
+      await refresh();
+    }
     setShowAllow(false);
     setForm({
       ...form,
@@ -2351,10 +2398,11 @@ function CompensationTab({
       amount: "",
       isTaxable: true,
       reason: "",
+      usePosition: false,
+      positionId: "",
       effectiveDate: new Date().toISOString().split("T")[0],
       expiryDate: "",
     });
-    await refresh();
   };
   const saveBonus = async () => {
     await compensationService.createBonus(companyId, {
@@ -2459,6 +2507,88 @@ function CompensationTab({
         </table>
       </div>
 
+      {/* Position-based allowances (auto-applied) */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+          <h3 className="font-semibold text-gray-900">
+            Position Allowances (auto-applied)
+          </h3>
+          <p className="text-xs text-gray-500">
+            Defined per work position — automatically added to every employee in
+            that position during payroll.
+          </p>
+        </div>
+        {positions.length === 0 ? (
+          <p className="px-4 py-4 text-sm text-gray-500">
+            No work positions yet. Create positions under HR / Personnel → Work
+            Positions.
+          </p>
+        ) : (
+          <div className="p-3 space-y-2">
+            {positions
+              .filter((p) => (positionAllowances[p.id] || []).length > 0)
+              .map((p) => {
+                const posAllowances = positionAllowances[p.id] || [];
+                return (
+                  <div key={p.id} className="border border-gray-200 rounded-md">
+                    <div className="px-3 py-2 bg-gray-50/50 border-b border-gray-200 flex items-center justify-between">
+                      <span className="font-medium text-gray-800 text-sm">
+                        {p.name}
+                        <span className="ml-2 text-xs text-gray-400">
+                          {posAllowances.length} allowance(s)
+                        </span>
+                      </span>
+                      <span className="text-[10px] uppercase tracking-wide text-indigo-500 font-semibold">
+                        Auto
+                      </span>
+                    </div>
+                    <table className="w-full text-sm">
+                      <tbody>
+                        {posAllowances.map((a) => (
+                          <tr key={a.id} className="border-b border-gray-100">
+                            <td className="px-3 py-2 font-medium text-gray-800">
+                              {a.name}
+                            </td>
+                            <td className="px-3 py-2 text-right text-gray-900">
+                              {money(Number(a.amount))}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-xs ${
+                                  a.isTaxable
+                                    ? "bg-red-100 text-red-700"
+                                    : "bg-green-100 text-green-700"
+                                }`}
+                              >
+                                {a.isTaxable ? "Taxable" : "Non-taxable"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-gray-500 text-xs">
+                              {new Date(a.effectiveFrom).toLocaleDateString()}
+                              {a.effectiveTo
+                                ? ` → ${new Date(
+                                    a.effectiveTo,
+                                  ).toLocaleDateString()}`
+                                : ""}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })}
+            {positions.every(
+              (p) => (positionAllowances[p.id] || []).length === 0,
+            ) && (
+              <p className="text-sm text-gray-500">
+                No position-based allowances configured yet.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
           <h3 className="font-semibold text-gray-900">Bonuses</h3>
@@ -2503,9 +2633,11 @@ function CompensationTab({
 
       {showAllow && (
         <CompensForm
-          title="Add Allowance"
+          title={form.usePosition ? "Add Position Allowance" : "Add Allowance"}
           types={["HOUSING", "TRANSPORT", "HARDSHIP", "COMMUNICATION"]}
           showTaxable
+          showPositionOption
+          positions={positions}
           employees={employees}
           form={form}
           setForm={setForm}
@@ -2772,6 +2904,8 @@ function CompensForm({
   showGlobal,
   showCalcType,
   showMultiSelect,
+  showPositionOption,
+  positions,
   employees,
   form,
   setForm,
@@ -2786,6 +2920,8 @@ function CompensForm({
   showGlobal?: boolean;
   showCalcType?: boolean;
   showMultiSelect?: boolean;
+  showPositionOption?: boolean;
+  positions?: Array<Record<string, any>>;
   employees: any[];
   form: any;
   setForm: (f: any) => void;
@@ -2836,6 +2972,23 @@ function CompensForm({
           </button>
         </div>
         <div className="space-y-4">
+          {showPositionOption && (
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Scope</label>
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={form.usePosition}
+                  onChange={(e) =>
+                    setForm({ ...form, usePosition: e.target.checked })
+                  }
+                  className="h-4 w-4"
+                />{" "}
+                Apply by work position (all employees in that position get it
+                automatically)
+              </label>
+            </div>
+          )}
           {showGlobal && (
             <div>
               <label className="block text-sm text-gray-600 mb-1">Scope</label>
@@ -2895,6 +3048,27 @@ function CompensForm({
               <p className="text-xs text-gray-500 mt-1">
                 {(form.employeeIds || []).length} employee(s) selected.
               </p>
+            </div>
+          ) : form.usePosition ? (
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">
+                Position
+                <InfoTag text="The allowance will apply automatically to every employee in this work position during payroll." />
+              </label>
+              <select
+                value={form.positionId}
+                onChange={(e) =>
+                  setForm({ ...form, positionId: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+              >
+                <option value="">Select position...</option>
+                {(positions || []).map((p: any) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
             </div>
           ) : (
             !showGlobal && (
