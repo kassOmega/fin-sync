@@ -1009,70 +1009,65 @@ export async function seedStoreInventory(
   }
 
   // Create a default store for each company (named after the company)
+  // Use raw SQL — production Prisma client may not have Store model types yet
   const companyKeys = ['buildco', 'horizon', 'greenvalley', 'urban_threads', 'tech_mfg'];
+  const companyNames: Record<string, string> = {
+    buildco: 'BuildCo Construction',
+    horizon: 'Horizon Logistics',
+    greenvalley: 'Green Valley Farms',
+    urban_threads: 'Urban Threads',
+    tech_mfg: 'TechMFG',
+  };
+  ctx.stores = ctx.stores || {};
   for (const ck of companyKeys) {
     const companyId = ctx.companies[ck];
     if (!companyId) continue;
-    const companyNames: Record<string, string> = {
-      buildco: 'BuildCo Construction',
-      horizon: 'Horizon Logistics',
-      greenvalley: 'Green Valley Farms',
-      urban_threads: 'Urban Threads',
-      tech_mfg: 'TechMFG',
-    };
+    const name = companyNames[ck] || ck;
+    const keeperId = ctx.users['sk_alex'] || null;
     try {
-      const store = await prisma.store.create({
-        data: {
-          name: companyNames[ck] || 'Main Store',
-          companyId,
-          description: 'Default company store',
-          storekeeperId: ctx.users['sk_alex'] || null,
-        },
-      });
-      ctx.stores = ctx.stores || {};
-      ctx.stores[`${ck}_main`] = store.id;
-    } catch {
-      // If store already exists (unique constraint), find it
-      try {
-        const rows: any[] = await prisma.$queryRawUnsafe(
-          `SELECT id FROM finsync."Store" WHERE company_id = ${companyId} AND project_id IS NULL LIMIT 1`,
-        );
-        ctx.stores = ctx.stores || {};
-        if (rows.length > 0) ctx.stores[`${ck}_main`] = rows[0].id;
-      } catch { /* ignore */ }
-    }
+      const rows: any[] = await prisma.$queryRawUnsafe(
+        `INSERT INTO finsync."Store" (name, company_id, description, storekeeper_id)
+         VALUES ('${name.replace(/'/g, "''")}', ${companyId}, 'Default company store', ${keeperId || 'NULL'})
+         ON CONFLICT DO NOTHING
+         RETURNING id`,
+      );
+      if (rows.length > 0) {
+        ctx.stores[`${ck}_main`] = rows[0].id;
+      }
+    } catch { /* will fallback below */ }
   }
 
   // Create project-scoped stores for any project that doesn't have one yet
   try {
-    const allProjects = await prisma.project.findMany({
-      select: { id: true, name: true, companyId: true },
-    });
+    const allProjects: any[] = await prisma.$queryRawUnsafe(
+      `SELECT id, name, "companyId" FROM finsync.projects`,
+    );
     for (const p of allProjects) {
       try {
-        const existing = await prisma.store.findFirst({ where: { projectId: p.id } });
-        if (!existing) {
-          await prisma.store.create({
-            data: { name: p.name, companyId: p.companyId, projectId: p.id },
-          });
+        const ex: any[] = await prisma.$queryRawUnsafe(
+          `SELECT id FROM finsync."Store" WHERE project_id = ${p.id} LIMIT 1`,
+        );
+        if (ex.length === 0) {
+          await prisma.$queryRawUnsafe(
+            `INSERT INTO finsync."Store" (name, company_id, project_id)
+             VALUES ('${p.name.replace(/'/g, "''")}', ${p.companyId}, ${p.id})`,
+          );
         }
-      } catch { /* ignore duplicates */ }
+      } catch { /* ignore */ }
     }
-  } catch { /* ignore if no projects */ }
+  } catch { /* ignore */ }
 
-  // Determine default storeId per company for item creation
-  const companyStoreMap: Record<string, number> = { ...ctx.stores };
+  // Ensure every company has a storeId resolved
   for (const ck of companyKeys) {
-    if (!companyStoreMap[`${ck}_main`]) {
+    if (!ctx.stores[`${ck}_main`]) {
       try {
-        const rows: any[] = await prisma.$queryRawUnsafe(
+        const r: any[] = await prisma.$queryRawUnsafe(
           `SELECT id FROM finsync."Store" WHERE company_id = ${ctx.companies[ck]} AND project_id IS NULL LIMIT 1`,
         );
-        if (rows.length > 0) companyStoreMap[`${ck}_main`] = rows[0].id;
+        if (r.length > 0) ctx.stores[`${ck}_main`] = r[0].id;
       } catch { }
     }
   }
-  ctx.stores = companyStoreMap;
 
   for (const cat of STORE_CATEGORIES) {
     const created = await prisma.storeCategory.create({
