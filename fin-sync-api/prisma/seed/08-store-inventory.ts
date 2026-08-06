@@ -964,12 +964,55 @@ export async function seedStoreInventory(
 ): Promise<void> {
   console.log('📦 Seeding Store Inventory...');
 
+  // Ensure Store & StoreTransfer tables exist (for production where migration may not have run)
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS finsync."Store" (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        company_id INTEGER NOT NULL REFERENCES finsync."Company"(id) ON DELETE CASCADE,
+        project_id INTEGER,
+        storekeeper_id INTEGER REFERENCES finsync."User"(id) ON DELETE SET NULL,
+        description TEXT,
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "Store_companyId_name_key" ON finsync."Store"(company_id, name)`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Store_companyId_idx" ON finsync."Store"(company_id)`);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS finsync."StoreTransfer" (
+        id SERIAL PRIMARY KEY,
+        from_store_id INTEGER NOT NULL REFERENCES finsync."Store"(id),
+        to_store_id INTEGER NOT NULL REFERENCES finsync."Store"(id),
+        item_id INTEGER NOT NULL REFERENCES finsync."StoreItem"(id),
+        quantity DOUBLE PRECISION NOT NULL,
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        requested_by_id INTEGER NOT NULL REFERENCES finsync."User"(id),
+        approved_by_id INTEGER REFERENCES finsync."User"(id),
+        completed_at TIMESTAMP(3),
+        note TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Ensure store_id columns exist on related tables
+    await prisma.$executeRawUnsafe(`ALTER TABLE finsync."StoreItem" ADD COLUMN IF NOT EXISTS store_id INTEGER`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE finsync."StoreTransaction" ADD COLUMN IF NOT EXISTS store_id INTEGER`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE finsync."StoreRequest" ADD COLUMN IF NOT EXISTS store_id INTEGER`);
+    console.log('   ✓ Store tables ensured');
+  } catch (e) {
+    console.warn('   ⚠ Could not ensure Store tables:', (e as any)?.message);
+  }
+
   // Create a default store for each company (named after the company)
   const companyKeys = ['buildco', 'horizon', 'greenvalley', 'urban_threads', 'tech_mfg'];
   for (const ck of companyKeys) {
     const companyId = ctx.companies[ck];
     if (!companyId) continue;
-    // Use company name from seed data
     const companyNames: Record<string, string> = {
       buildco: 'BuildCo Construction',
       horizon: 'Horizon Logistics',
@@ -977,33 +1020,59 @@ export async function seedStoreInventory(
       urban_threads: 'Urban Threads',
       tech_mfg: 'TechMFG',
     };
-    const store = await prisma.store.create({
-      data: {
-        name: companyNames[ck] || 'Main Store',
-        companyId,
-        description: 'Default company store',
-        storekeeperId: ctx.users['sk_alex'] || null,
-      },
-    });
-    ctx.stores = ctx.stores || {};
-    ctx.stores[`${ck}_main`] = store.id;
+    try {
+      const store = await prisma.store.create({
+        data: {
+          name: companyNames[ck] || 'Main Store',
+          companyId,
+          description: 'Default company store',
+          storekeeperId: ctx.users['sk_alex'] || null,
+        },
+      });
+      ctx.stores = ctx.stores || {};
+      ctx.stores[`${ck}_main`] = store.id;
+    } catch {
+      // If store already exists (unique constraint), find it
+      try {
+        const rows: any[] = await prisma.$queryRawUnsafe(
+          `SELECT id FROM finsync."Store" WHERE company_id = ${companyId} AND project_id IS NULL LIMIT 1`,
+        );
+        ctx.stores = ctx.stores || {};
+        if (rows.length > 0) ctx.stores[`${ck}_main`] = rows[0].id;
+      } catch { /* ignore */ }
+    }
   }
 
   // Create project-scoped stores for any project that doesn't have one yet
-  const allProjects = await prisma.project.findMany({
-    select: { id: true, name: true, companyId: true },
-  });
-  for (const p of allProjects) {
-    const existing = await prisma.store.findFirst({
-      where: { projectId: p.id },
+  try {
+    const allProjects = await prisma.project.findMany({
+      select: { id: true, name: true, companyId: true },
     });
-    if (!existing) {
-      await prisma.store.create({
-        data: { name: p.name, companyId: p.companyId, projectId: p.id },
-      });
+    for (const p of allProjects) {
+      try {
+        const existing = await prisma.store.findFirst({ where: { projectId: p.id } });
+        if (!existing) {
+          await prisma.store.create({
+            data: { name: p.name, companyId: p.companyId, projectId: p.id },
+          });
+        }
+      } catch { /* ignore duplicates */ }
+    }
+  } catch { /* ignore if no projects */ }
+
+  // Determine default storeId per company for item creation
+  const companyStoreMap: Record<string, number> = { ...ctx.stores };
+  for (const ck of companyKeys) {
+    if (!companyStoreMap[`${ck}_main`]) {
+      try {
+        const rows: any[] = await prisma.$queryRawUnsafe(
+          `SELECT id FROM finsync."Store" WHERE company_id = ${ctx.companies[ck]} AND project_id IS NULL LIMIT 1`,
+        );
+        if (rows.length > 0) companyStoreMap[`${ck}_main`] = rows[0].id;
+      } catch { }
     }
   }
-  console.log(`   ✅ Created stores for ${allProjects.length} projects`);
+  ctx.stores = companyStoreMap;
 
   for (const cat of STORE_CATEGORIES) {
     const created = await prisma.storeCategory.create({
@@ -1013,10 +1082,11 @@ export async function seedStoreInventory(
   }
 
   for (const item of STORE_ITEMS) {
+    const defaultStoreId = ctx.stores[`${item.companyKey}_main`];
     const created = await prisma.storeItem.create({
       data: {
         companyId: ctx.companies[item.companyKey],
-        storeId: ctx.stores[`${item.companyKey}_main`],
+        storeId: defaultStoreId || 1, // fallback to 1 if none found
         name: item.name,
         categoryId: ctx.storeCategories[item.categoryKey],
         quantity: item.quantity,
