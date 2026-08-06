@@ -490,8 +490,8 @@ export default function MachineriesPage() {
           {/* Timesheets table */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="w-full text-xs sm:text-sm">
+                <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Date
@@ -516,12 +516,12 @@ export default function MachineriesPage() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-100">
                   {logsLoading ? (
                     <tr>
                       <td
                         colSpan={7}
-                        className="px-6 py-8 text-center text-gray-500"
+                        className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm"
                       >
                         Loading...
                       </td>
@@ -530,7 +530,7 @@ export default function MachineriesPage() {
                     <tr>
                       <td
                         colSpan={7}
-                        className="px-6 py-8 text-center text-gray-500"
+                        className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm"
                       >
                         No equipment usage logs yet. Click "Log Usage" to record
                         operating hours.
@@ -538,7 +538,7 @@ export default function MachineriesPage() {
                     </tr>
                   ) : (
                     logs.map((log) => (
-                      <tr key={log.id} className="hover:bg-gray-50">
+                      <tr key={log.id} className="hover:bg-gray-50 text-gray-900">
                         <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
                           {new Date(log.date).toLocaleString()}
                         </td>
@@ -624,8 +624,8 @@ export default function MachineriesPage() {
           {/* Table view */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="w-full text-xs sm:text-sm">
+                <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Name
@@ -653,19 +653,19 @@ export default function MachineriesPage() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-100">
                   {filteredMachines.length === 0 ? (
                     <tr>
                       <td
                         colSpan={8}
-                        className="px-6 py-8 text-center text-gray-500"
+                        className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm"
                       >
                         No machinery found matching your filters.
                       </td>
                     </tr>
                   ) : (
                     filteredMachines.map((machine) => (
-                      <tr key={machine.id} className="hover:bg-gray-50">
+                      <tr key={machine.id} className="hover:bg-gray-50 text-gray-900">
                         <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">
                           {machine.name}
                         </td>

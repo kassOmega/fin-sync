@@ -337,62 +337,56 @@ export default function SalesPage() {
         </div>
       </div>
 
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Date
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Customer
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Items
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Amount
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                By
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {sales.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                  No sales recorded yet.
-                </td>
-              </tr>
-            ) : (
-              sales.map((sale) => (
-                <tr key={sale.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(sale.date).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {sale.customer?.name || "Walk-in"}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {sale.items?.length || 0} item(s)
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                    ${sale.totalAmount.toLocaleString()}
-                    {sale.discount > 0 && (
-                      <span className="text-xs text-gray-400 ml-1">
-                        (-${sale.discount})
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {sale.user?.name}
-                  </td>
+      <div className="bg-white rounded-lg shadow">
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-xs sm:text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                  <th className="text-left px-4 py-3 font-medium">Date</th>
+                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">Customer</th>
+                  <th className="text-left px-4 py-3 font-medium">Items</th>
+                  <th className="text-left px-4 py-3 font-medium">Amount</th>
+                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">By</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {sales.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm">
+                      No sales recorded yet.
+                    </td>
+                  </tr>
+                ) : (
+                  sales.map((sale) => (
+                    <tr key={sale.id} className="hover:bg-gray-50 text-gray-900">
+                      <td className="px-4 py-3 text-xs sm:text-sm">
+                        {new Date(sale.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-xs sm:text-sm text-gray-500 hidden sm:table-cell">
+                        {sale.customer?.name || "Walk-in"}
+                      </td>
+                      <td className="px-4 py-3 text-xs sm:text-sm text-gray-500">
+                        {sale.items?.length || 0} item(s)
+                      </td>
+                      <td className="px-4 py-3 text-xs sm:text-sm font-medium text-green-600">
+                        ${sale.totalAmount.toLocaleString()}
+                        {sale.discount > 0 && (
+                          <span className="text-xs text-gray-400 ml-1">
+                            (-${sale.discount})
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs sm:text-sm text-gray-500 hidden sm:table-cell">
+                        {sale.user?.name}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">

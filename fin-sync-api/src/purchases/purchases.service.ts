@@ -19,6 +19,7 @@ export class PurchasesService {
       note?: string;
       accountId?: number;
       category?: string;
+      projectId?: number;
       items: {
         itemId?: number;
         name?: string;
@@ -39,6 +40,7 @@ export class PurchasesService {
           registeredBy: registeredById,
           totalAmount: dto.amount,
           note: dto.note,
+          projectId: dto.projectId ?? null,
         },
       });
 
@@ -116,6 +118,7 @@ export class PurchasesService {
             sourceId: result.purchase.id,
             description: `Purchase #${result.purchase.id} - ${dto.note || 'Inventory purchase'}`,
             date: result.purchase.date,
+            projectId: dto.projectId ?? undefined,
             lines: [
               {
                 ...(dto.accountId
@@ -172,6 +175,7 @@ export class PurchasesService {
           sourceId: id,
           description: `Purchase #${id} - ${updated.note || 'Inventory purchase'}`,
           date: updated.date,
+          projectId: updated.projectId ?? undefined,
           lines: [
             {
               accountCode: '1201',
@@ -210,9 +214,21 @@ export class PurchasesService {
     return this.prisma.purchase.delete({ where: { id } });
   }
 
-  async findAll(companyId: number) {
+  async findAll(companyId: number, projectId?: number) {
     return this.prisma.purchase.findMany({
-      where: { companyId },
+      where: { companyId, ...(projectId !== undefined && { projectId }) },
+      include: {
+        supplier: true,
+        user: { select: { id: true, name: true } },
+        items: { include: { storeItem: true } },
+      },
+      orderBy: { date: 'desc' },
+    });
+  }
+
+  async findByProject(projectId: number) {
+    return this.prisma.purchase.findMany({
+      where: { projectId },
       include: {
         supplier: true,
         user: { select: { id: true, name: true } },

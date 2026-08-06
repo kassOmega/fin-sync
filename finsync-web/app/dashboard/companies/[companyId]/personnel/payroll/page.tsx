@@ -16,8 +16,8 @@ import type {
   PayrollSourceType,
   Payslip,
 } from "@/lib/services/types";
-import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -296,9 +296,7 @@ export default function PayrollPage() {
 
   // Deep-link tab support (e.g. ?tab=compensation from Work Positions → Manage Allowances)
   useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get(
-      "tab",
-    ) as TabType;
+    const t = new URLSearchParams(window.location.search).get("tab") as TabType;
     if (
       t &&
       ["runs", "overtime", "compensation", "audit", "settings"].includes(t)
@@ -365,9 +363,7 @@ export default function PayrollPage() {
       setShowGenerate(false);
       await loadPayrolls();
     } catch (err: any) {
-      toast.error(
-        err?.response?.data?.message || "Failed to generate payroll",
-      );
+      toast.error(err?.response?.data?.message || "Failed to generate payroll");
     }
   };
 
@@ -475,29 +471,32 @@ export default function PayrollPage() {
 
       {tab === "runs" && (
         <>
-          <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 mb-4">
             <select
               value={payrollStatus}
               onChange={(e) => setPayrollStatus(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-md"
+              className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-900 whitespace-nowrap"
             >
               <option value="">All Status</option>
               <option value="DRAFT">DRAFT</option>
               <option value="APPROVED">APPROVED</option>
               <option value="PAID">PAID</option>
             </select>
-            <input
-              type="date"
-              value={payrollStart}
-              onChange={(e) => setPayrollStart(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-md"
-            />
-            <input
-              type="date"
-              value={payrollEnd}
-              onChange={(e) => setPayrollEnd(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-md"
-            />
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <input
+                type="date"
+                value={payrollStart}
+                onChange={(e) => setPayrollStart(e.target.value)}
+                className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-900"
+              />
+              <input
+                type="date"
+                value={payrollEnd}
+                onChange={(e) => setPayrollEnd(e.target.value)}
+                className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-900"
+              />
+            </div>
           </div>
           <PayrollRunsTab
             payrolls={payrolls}
@@ -1728,110 +1727,112 @@ function PayrollRunsTab({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-      <div className={selectedPayroll ? "lg:col-span-1" : "lg:col-span-3"}>
+      {/* Left Panel: Table List (Hidden on mobile when a payroll is selected so detail view takes full screen) */}
+      <div
+        className={`lg:col-span-1 ${selectedPayroll ? "hidden lg:block" : "col-span-full"}`}
+      >
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-gray-500 text-xs uppercase border-b">
-                <th className="text-left px-4 py-2">Title</th>
-                <th className="text-left px-4 py-2">Period</th>
-                <th className="text-left px-4 py-2">Type</th>
-                <th className="text-right px-4 py-2">Items</th>
-                <th className="text-right px-4 py-2">Total</th>
-                <th className="text-left px-4 py-2">Status</th>
-                <th className="text-right px-4 py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payrolls.map((p) => (
-                <tr
-                  key={p.id}
-                  className={`border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${selectedPayroll?.id === p.id ? "bg-indigo-50" : ""}`}
-                  onClick={() => onSelect(p)}
-                >
-                  <td className="px-4 py-2 font-medium text-gray-800">
-                    {p.title}
-                  </td>
-                  <td className="px-4 py-2 text-gray-900 whitespace-nowrap">
-                    {new Date(p.startDate).toLocaleDateString()} →{" "}
-                    {new Date(p.endDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-2">{sourceBadge(p.sourceType)}</td>
-                  <td className="px-4 py-2 text-right text-gray-500">
-                    {p.itemsGenerated ?? "—"}
-                  </td>
-                  <td className="px-4 py-2 text-right font-medium text-gray-900">
-                    {money(Number(p.totalAmount || 0))}
-                  </td>
-                  <td className="px-4 py-2">{statusBadge(p.status)}</td>
-                  <td className="px-4 py-2 text-right whitespace-nowrap">
-                    {p.status === "DRAFT" && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onApprove(p.id);
-                        }}
-                        className="text-xs text-green-600 hover:text-green-800"
-                      >
-                        Approve
-                      </button>
-                    )}
-                    {p.status === "APPROVED" && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onMarkPaid(p.id);
-                        }}
-                        className="text-xs text-emerald-600 hover:text-emerald-800"
-                      >
-                        Mark Paid
-                      </button>
-                    )}
-                    {p.status === "DRAFT" && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRename(p.id, p.title);
-                        }}
-                        className="text-xs text-indigo-600 hover:text-indigo-800 ml-2"
-                      >
-                        Rename
-                      </button>
-                    )}
-                    {p.status === "DRAFT" && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (
-                            window.confirm(
-                              `Delete "${p.title}"? This removes its items and can't be undone.`,
-                            )
-                          ) {
-                            onDelete(p.id);
-                          }
-                        }}
-                        className="text-xs text-red-600 hover:text-red-800 ml-2"
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
+              <thead>
+                <tr className="text-gray-500 text-xs uppercase border-b bg-gray-50/50">
+                  <th className="text-left px-4 py-3">Title</th>
+                  <th className="text-left px-4 py-3">Period</th>
+                  <th className="text-left px-4 py-3">Type</th>
+                  <th className="text-right px-4 py-3">Items</th>
+                  <th className="text-right px-4 py-3">Total</th>
+                  <th className="text-left px-4 py-3">Status</th>
+                  <th className="text-right px-4 py-3">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {payrolls.map((p) => (
+                  <tr
+                    key={p.id}
+                    className={`border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${selectedPayroll?.id === p.id ? "bg-indigo-50" : ""}`}
+                    onClick={() => onSelect(p)}
+                  >
+                    <td className="px-4 py-3 font-medium text-gray-800">
+                      {p.title}
+                    </td>
+                    <td className="px-4 py-3 text-gray-900 whitespace-nowrap">
+                      {new Date(p.startDate).toLocaleDateString()} →{" "}
+                      {new Date(p.endDate).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {sourceBadge(p.sourceType)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-500">
+                      {p.itemsGenerated ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-gray-950 whitespace-nowrap">
+                      {money(Number(p.totalAmount || 0))}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {statusBadge(p.status)}
+                    </td>
+                    <td
+                      className="px-4 py-3 text-right whitespace-nowrap"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {p.status === "DRAFT" && (
+                        <button
+                          onClick={() => onApprove(p.id)}
+                          className="text-xs font-medium text-green-600 hover:text-green-800"
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {p.status === "APPROVED" && (
+                        <button
+                          onClick={() => onMarkPaid(p.id)}
+                          className="text-xs font-medium text-emerald-600 hover:text-emerald-800"
+                        >
+                          Mark Paid
+                        </button>
+                      )}
+                      {p.status === "DRAFT" && (
+                        <button
+                          onClick={() => onRename(p.id, p.title)}
+                          className="text-xs font-medium text-indigo-600 hover:text-indigo-800 ml-2"
+                        >
+                          Rename
+                        </button>
+                      )}
+                      {p.status === "DRAFT" && (
+                        <button
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `Delete "${p.title}"? This removes its items and can't be undone.`,
+                              )
+                            ) {
+                              onDelete(p.id);
+                            }
+                          }}
+                          className="text-xs font-medium text-red-600 hover:text-red-800 ml-2"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-
+      {/* Right Panel: Selected Payroll Detail View */}
       {selectedPayroll && (
-        <div className="lg:col-span-2">
+        <div className="col-span-full lg:col-span-2">
           <div className="bg-white rounded-lg shadow overflow-hidden">
             {/* Header */}
             <div className="px-5 py-4 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="font-semibold text-gray-900">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="font-semibold text-gray-900 text-base">
                     {selectedPayroll.title}
                   </h2>
                   {statusBadge(selectedPayroll.status)}
@@ -1844,9 +1845,9 @@ function PayrollRunsTab({
                 <button
                   onClick={onClose}
                   title="Close detail"
-                  className="p-1.5 text-gray-400 hover:text-gray-700 rounded-md hover:bg-gray-200"
+                  className="px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 flex items-center gap-1"
                 >
-                  ✕
+                  ← Back to list
                 </button>
                 {selectedPayroll.status === "DRAFT" && (
                   <button
@@ -1883,7 +1884,11 @@ function PayrollRunsTab({
                     label="Deductions"
                     value={money(totals.deductions)}
                   />
-                  <SummaryStat label="Net Pay" value={money(totals.net)} accent />
+                  <SummaryStat
+                    label="Net Pay"
+                    value={money(totals.net)}
+                    accent
+                  />
                 </div>
 
                 {items.length === 0 ? (
@@ -1898,28 +1903,28 @@ function PayrollRunsTab({
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                  <div className="w-full overflow-x-auto">
+                    <table className="w-full text-sm min-w-[650px]">
                       <thead>
-                        <tr className="text-gray-500 text-xs uppercase border-b">
-                          <th className="text-left px-4 py-2">Worker</th>
-                          <th className="text-left px-4 py-2">Type</th>
-                          <th className="text-right px-4 py-2">Gross</th>
-                          <th className="text-right px-4 py-2">Deductions</th>
-                          <th className="text-right px-4 py-2">Tax</th>
-                          <th className="text-right px-4 py-2">Net</th>
-                          <th className="text-right px-4 py-2">Actions</th>
+                        <tr className="text-gray-500 text-xs uppercase border-b bg-gray-50/50">
+                          <th className="text-left px-4 py-3">Worker</th>
+                          <th className="text-left px-4 py-3">Type</th>
+                          <th className="text-right px-4 py-3">Gross</th>
+                          <th className="text-right px-4 py-3">Deductions</th>
+                          <th className="text-right px-4 py-3">Tax</th>
+                          <th className="text-right px-4 py-3">Net</th>
+                          <th className="text-right px-4 py-3">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {items.map((item) => (
                           <Fragment key={item.id}>
                             <tr className="border-b border-gray-100">
-                              <td className="px-4 py-2 font-medium text-gray-800">
+                              <td className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">
                                 {item.employee?.firstName}{" "}
                                 {item.employee?.lastName}
                               </td>
-                              <td className="px-4 py-2">
+                              <td className="px-4 py-3 whitespace-nowrap">
                                 {item.workerType === "TEMPORARY_WORKER" ? (
                                   <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full">
                                     Temporary
@@ -1930,26 +1935,26 @@ function PayrollRunsTab({
                                   </span>
                                 )}
                               </td>
-                              <td className="px-4 py-2 text-right text-gray-900">
+                              <td className="px-4 py-3 text-right text-gray-900 whitespace-nowrap">
                                 {money(Number(item.grossPay))}
                               </td>
-                              <td className="px-4 py-2 text-right text-red-600">
+                              <td className="px-4 py-3 text-right text-red-600 whitespace-nowrap">
                                 {money(Number(item.totalDeductions || 0))}
                               </td>
-                              <td className="px-4 py-2 text-right text-gray-600">
+                              <td className="px-4 py-3 text-right text-gray-600 whitespace-nowrap">
                                 {money(Number(item.taxAmount || 0))}
                               </td>
-                              <td className="px-4 py-2 text-right font-bold text-green-700">
+                              <td className="px-4 py-3 text-right font-bold text-green-700 whitespace-nowrap">
                                 {money(Number(item.netPay))}
                               </td>
-                              <td className="px-4 py-2 text-right whitespace-nowrap">
+                              <td className="px-4 py-3 text-right whitespace-nowrap">
                                 <button
                                   onClick={() =>
                                     setExpandedItem(
                                       expandedItem === item.id ? null : item.id,
                                     )
                                   }
-                                  className="text-xs text-indigo-600 hover:text-indigo-800 mr-2"
+                                  className="text-xs font-medium text-indigo-600 hover:text-indigo-800 mr-2"
                                 >
                                   {expandedItem === item.id
                                     ? "Hide"
@@ -1957,7 +1962,7 @@ function PayrollRunsTab({
                                 </button>
                                 <button
                                   onClick={() => onViewPayslip(item.id)}
-                                  className="text-xs text-indigo-600 hover:text-indigo-800"
+                                  className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
                                 >
                                   Payslip
                                 </button>
@@ -1965,8 +1970,8 @@ function PayrollRunsTab({
                             </tr>
                             {expandedItem === item.id && (
                               <tr className="bg-gray-50">
-                                <td colSpan={7} className="px-6 py-4">
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                                <td colSpan={7} className="px-4 sm:px-6 py-4">
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm">
                                     <div>
                                       <h4 className="font-semibold text-gray-800 mb-2">
                                         Earnings
@@ -2032,9 +2037,7 @@ function PayrollRunsTab({
                                           Total Deductions
                                         </Label>
                                         <Value red strong>
-                                          {money(
-                                            Number(item.totalDeductions),
-                                          )}
+                                          {money(Number(item.totalDeductions))}
                                         </Value>
                                       </Space>
                                     </div>
@@ -2791,14 +2794,17 @@ function CompensationTab({
               },
             );
           } else {
-            await compensationService.createEmployeeSpecificAllowance(companyId, {
-              employeeId: Number(allowEmployeeId),
-              name: r.name.trim(),
-              amount: parseFloat(r.amount),
-              isTaxable: r.isTaxable,
-              effectiveDate: r.effectiveFrom,
-              ...(r.effectiveTo && { expiryDate: r.effectiveTo }),
-            });
+            await compensationService.createEmployeeSpecificAllowance(
+              companyId,
+              {
+                employeeId: Number(allowEmployeeId),
+                name: r.name.trim(),
+                amount: parseFloat(r.amount),
+                isTaxable: r.isTaxable,
+                effectiveDate: r.effectiveFrom,
+                ...(r.effectiveTo && { expiryDate: r.effectiveTo }),
+              },
+            );
           }
         }
         toast.success("Allowances added");
@@ -2830,7 +2836,10 @@ function CompensationTab({
   const removeEmployeeAllowance = async (a: EmployeeSpecificAllowance) => {
     if (!confirm(`Delete employee allowance "${a.name}"?`)) return;
     try {
-      await compensationService.deleteEmployeeSpecificAllowance(companyId, a.id);
+      await compensationService.deleteEmployeeSpecificAllowance(
+        companyId,
+        a.id,
+      );
       toast.success("Employee allowance deleted");
       await refresh();
     } catch {
@@ -4001,9 +4010,8 @@ function GeneratePayrollModal({
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [sourceType, setSourceType] = useState<
-    Exclude<PayrollSourceType, "DAILY_LABORERS">
-  >("ALL");
+  const [sourceType, setSourceType] =
+    useState<Exclude<PayrollSourceType, "DAILY_LABORERS">>("ALL");
   const [saving, setSaving] = useState(false);
 
   const submit = async (e: React.FormEvent) => {

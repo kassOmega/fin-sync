@@ -123,73 +123,67 @@ export default function ProjectPurchasesPage() {
           <Plus className="h-4 w-4 mr-1" /> Record Purchase
         </button>
       </div>
-      <div className="bg-white shadow-sm rounded-lg border overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Date
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Supplier
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Items
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Amount
-              </th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {purchases.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                  No purchases recorded.
-                </td>
-              </tr>
-            ) : (
-              purchases.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm">
-                    {new Date(p.date).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
-                    {p.supplier?.name || "—"}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
-                    {p.items?.length || 0} item(s)
-                  </td>
-                  <td className="px-4 py-3 text-sm font-medium text-red-600">
-                    ${p.totalAmount.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={async () => {
-                        if (!confirm("Delete?")) return;
-                        try {
-                          await api.delete(
-                            `/companies/${companyId}/projects/${projectId}/purchases/${p.id}`,
-                          );
-                          toast.success("Deleted");
-                          fetchAll();
-                        } catch {
-                          toast.error("Failed");
-                        }
-                      }}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </td>
+      <div className="bg-white rounded-lg shadow">
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-xs sm:text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                  <th className="text-left px-4 py-3 font-medium">Date</th>
+                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">Supplier</th>
+                  <th className="text-left px-4 py-3 font-medium">Items</th>
+                  <th className="text-left px-4 py-3 font-medium">Amount</th>
+                  <th className="text-right px-4 py-3 font-medium">Actions</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {purchases.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm">
+                      No purchases recorded.
+                    </td>
+                  </tr>
+                ) : (
+                  purchases.map((p) => (
+                    <tr key={p.id} className="hover:bg-gray-50 text-gray-900">
+                      <td className="px-4 py-3 text-xs sm:text-sm">
+                        {new Date(p.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-xs sm:text-sm text-gray-500 hidden sm:table-cell">
+                        {p.supplier?.name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-xs sm:text-sm text-gray-500">
+                        {p.items?.length || 0} item(s)
+                      </td>
+                      <td className="px-4 py-3 text-xs sm:text-sm font-medium text-red-600">
+                        ${p.totalAmount.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={async () => {
+                            if (!confirm("Delete?")) return;
+                            try {
+                              await api.delete(
+                                `/companies/${companyId}/projects/${projectId}/purchases/${p.id}`,
+                              );
+                              toast.success("Deleted");
+                              fetchAll();
+                            } catch {
+                              toast.error("Failed");
+                            }
+                          }}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {modalOpen && (

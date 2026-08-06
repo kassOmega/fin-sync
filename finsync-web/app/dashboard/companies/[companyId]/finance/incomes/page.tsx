@@ -84,6 +84,11 @@ export default function CompanyIncomesPage() {
     }
   };
 
+  const [projectFilter, setProjectFilter] = useState("");
+  const filteredIncomes = projectFilter
+    ? incomes.filter((inc) => String(inc.projectId) === projectFilter)
+    : incomes;
+
   useEffect(() => {
     if (!companyId) {
       router.push("/dashboard/companies");
@@ -198,84 +203,72 @@ export default function CompanyIncomesPage() {
         </button>
       </div>
 
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Date
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Category
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Project
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Amount
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {incomes.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                  No incomes recorded yet.
-                </td>
-              </tr>
-            ) : (
-              incomes.map((inc) => (
-                <tr key={inc.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(inc.date).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {inc.category}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {inc.project?.name || "General"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                    ${inc.amount}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => setViewingIncome(inc)}
-                      className="text-gray-400 hover:text-gray-600 mx-1"
-                    >
-                      <Eye className="h-5 w-5" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEditingIncome(inc);
-                        setFormData({
-                          amount: String(inc.amount),
-                          category: inc.category,
-                          note: inc.note || "",
-                          projectId: inc.projectId ? String(inc.projectId) : "",
-                          accountId: "",
-                        });
-                        setIsModalOpen(true);
-                      }}
-                      className="text-indigo-600 hover:text-indigo-900 mx-1"
-                    >
-                      <Pencil className="h-5 w-5" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(inc.id)}
-                      className="text-red-500 hover:text-red-700 mx-1"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-                  </td>
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <select
+          value={projectFilter}
+          onChange={(e) => setProjectFilter(e.target.value)}
+          className="px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-md bg-white text-gray-900"
+        >
+          <option value="">All Projects</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="bg-white rounded-lg shadow">
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-xs sm:text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                  <th className="text-left px-4 py-3 font-medium">Date</th>
+                  <th className="text-left px-4 py-3 font-medium">Category</th>
+                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">Project</th>
+                  <th className="text-left px-4 py-3 font-medium">Amount</th>
+                  <th className="text-right px-4 py-3 font-medium">Actions</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredIncomes.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm">
+                      No incomes recorded yet.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredIncomes.map((inc) => (
+                    <tr key={inc.id} className="hover:bg-gray-50 text-gray-900">
+                      <td className="px-4 py-3 text-xs sm:text-sm">
+                        {new Date(inc.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-xs sm:text-sm">
+                        {inc.category}
+                      </td>
+                      <td className="px-4 py-3 text-xs sm:text-sm text-gray-500 hidden sm:table-cell">
+                        {inc.project?.name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-xs sm:text-sm font-medium text-green-600">
+                        ${inc.amount}
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <button onClick={() => setViewingIncome(inc)} className="text-gray-400 hover:text-gray-600 mx-1">
+                          <Eye className="h-5 w-5" />
+                        </button>
+                        <button onClick={() => { setEditingIncome(inc); setFormData({ amount: String(inc.amount), category: inc.category, note: inc.note || "", projectId: inc.projectId ? String(inc.projectId) : "", accountId: "" }); setIsModalOpen(true); }} className="text-indigo-600 hover:text-indigo-900 mx-1">
+                          <Pencil className="h-5 w-5" />
+                        </button>
+                        <button onClick={() => handleDelete(inc.id)} className="text-red-500 hover:text-red-700 mx-1">
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {viewingIncome && (

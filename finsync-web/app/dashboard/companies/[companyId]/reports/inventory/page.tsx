@@ -178,10 +178,10 @@ export default function InventoryReportPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg shadow">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="w-full text-xs sm:text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
               <tr>
                 {[
                   { key: "name", label: "Item" },
@@ -208,19 +208,19 @@ export default function InventoryReportPage() {
                 ))}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
                 <tr>
                   <td
                     colSpan={8}
-                    className="px-6 py-8 text-center text-gray-500"
+                    className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm"
                   >
                     No inventory data.
                   </td>
                 </tr>
               ) : (
                 filtered.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
+                  <tr key={item.id} className="hover:bg-gray-50 text-gray-900">
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">
                       {item.name}
                     </td>

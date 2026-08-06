@@ -114,7 +114,7 @@ export default function PurchasesReportPage() {
       <div className="flex items-center space-x-4">
         <Link
           href={`/dashboard/companies/${companyId}/reports`}
-          className="p-2 bg-white rounded-md border border-gray-200 hover:bg-gray-50"
+          className="p-2 bg-white rounded-md border border-gray-200 hover:bg-gray-50 text-gray-900 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200"
         >
           <ArrowLeft className="h-5 w-5 text-gray-600" />
         </Link>
@@ -233,13 +233,13 @@ export default function PurchasesReportPage() {
       </div>
 
       {/* Purchases Table */}
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg shadow">
         <h3 className="text-lg font-medium text-gray-800 p-4 border-b">
           All Purchases
         </h3>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="w-full text-xs sm:text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Date
@@ -261,12 +261,12 @@ export default function PurchasesReportPage() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100">
               {report.purchases.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
-                    className="px-6 py-8 text-center text-gray-500"
+                    className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm"
                   >
                     No purchase data.
                   </td>
@@ -274,7 +274,7 @@ export default function PurchasesReportPage() {
               ) : (
                 report.purchases.map((purchase) => (
                   <>
-                    <tr key={purchase.id} className="hover:bg-gray-50">
+                    <tr key={purchase.id} className="hover:bg-gray-50 text-gray-900 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200 text-gray-900">
                       <td className="px-4 py-3 text-sm text-gray-900">
                         {new Date(purchase.date).toLocaleDateString()}
                       </td>
@@ -308,7 +308,7 @@ export default function PurchasesReportPage() {
                     </tr>
                     {expandedPurchase === purchase.id && (
                       <tr key={`${purchase.id}-items`}>
-                        <td colSpan={6} className="px-4 py-3 bg-gray-50">
+                        <td colSpan={6} className="px-4 py-3 bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
                           <table className="min-w-full text-sm">
                             <thead>
                               <tr className="text-xs text-gray-500">

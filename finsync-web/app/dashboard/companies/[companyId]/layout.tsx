@@ -145,7 +145,7 @@ export default function CompanyLayout({
           roles: adminRoles,
         },
         {
-          name: "Temporary Workers",
+          name: "Daily Laborers",
           href: "/daily-laboreers",
           roles: adminRoles,
         },
@@ -288,7 +288,7 @@ export default function CompanyLayout({
           {/* Secondary navigation — sub-items of the active group */}
           {activeGroup && activeSubItems.length > 0 && (
             <nav className="flex items-center px-4 lg:px-8 py-2 bg-gray-50 border-t border-gray-100 overflow-x-auto">
-              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mr-4 whitespace-nowrap">
+              <span className="hidden sm:inline-block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mr-4 whitespace-nowrap">
                 {activeGroup.name}
               </span>
               <div className="flex items-center gap-1">

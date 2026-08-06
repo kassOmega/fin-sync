@@ -134,8 +134,10 @@ export default function ProjectTimesheetsPage() {
         </button>
       </div>
       <div className="bg-white shadow-sm rounded-lg border overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-xs sm:text-sm">
+          <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 Employee
@@ -157,7 +159,7 @@ export default function ProjectTimesheetsPage() {
           <tbody>
             {entries.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={5} className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm">
                   No timesheets yet.
                 </td>
               </tr>
@@ -195,6 +197,8 @@ export default function ProjectTimesheetsPage() {
             )}
           </tbody>
         </table>
+          </div>
+        </div>
       </div>
       {modalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">

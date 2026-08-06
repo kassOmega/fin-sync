@@ -22,7 +22,7 @@ export class ProjectPurchasesController {
   @Get()
   @RequirePermissions(PermissionCode.PURCHASES_READ)
   findAll(@Param('projectId', ParseIntPipe) projectId: number) {
-    return this.service.findAll(projectId);
+    return this.service.findByProject(projectId);
   }
 
   @Post()

@@ -346,102 +346,102 @@ export default function PurchasesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-800">Purchases</h1>
-        <div className="flex items-center space-x-3">
+
+        <div className="flex items-center justify-end space-x-2 sm:space-x-3">
           {hasRole([SystemRole.Owner, SystemRole.Storekeeper]) && (
             <>
               <button
                 onClick={() => setIsCategoryOpen(true)}
-                className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                className="flex items-center px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200 whitespace-nowrap"
               >
                 + Category
               </button>
               <button
                 onClick={() => setIsSupplierOpen(true)}
-                className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                className="flex items-center px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200 whitespace-nowrap"
               >
                 + Supplier
               </button>
               <button
                 onClick={() => setIsPurchaseOpen(true)}
-                className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                className="flex items-center px-3 sm:px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 whitespace-nowrap"
               >
-                <Truck className="h-5 w-5 mr-1" /> New Purchase
+                <Truck className="h-4 w-4 mr-1 shrink-0" /> New Purchase
               </button>
             </>
           )}
         </div>
       </div>
 
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Date
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Supplier
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Items
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Amount
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                By
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {purchases.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                  No purchases recorded yet.
-                </td>
-              </tr>
-            ) : (
-              purchases.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(p.date).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {p.supplier?.name || "—"}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {p.items?.length || 0} item(s)
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
-                    ${p.totalAmount.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {p.user?.name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => openEdit(p)}
-                      className="text-indigo-600 hover:text-indigo-900 mx-1"
-                    >
-                      <Pencil className="h-5 w-5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeletePurchase(p.id)}
-                      className="text-red-500 hover:text-red-700 mx-1"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-                  </td>
+      <div className="bg-white rounded-lg shadow">
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-xs sm:text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                  <th className="text-left px-4 py-3 font-medium">Date</th>
+                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">
+                    Supplier
+                  </th>
+                  <th className="text-left px-4 py-3 font-medium">Items</th>
+                  <th className="text-left px-4 py-3 font-medium">Amount</th>
+                  <th className="text-left px-4 py-3 font-medium ">By</th>
+                  <th className="text-right px-4 py-3 font-medium">Actions</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {purchases.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm"
+                    >
+                      No purchases recorded yet.
+                    </td>
+                  </tr>
+                ) : (
+                  purchases.map((p) => (
+                    <tr key={p.id} className="hover:bg-gray-50 text-gray-900">
+                      <td className="px-4 py-3 text-xs sm:text-sm">
+                        {new Date(p.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-xs sm:text-sm text-gray-500 hidden sm:table-cell">
+                        {p.supplier?.name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-xs sm:text-sm text-gray-500">
+                        {p.items && p.items.length > 0
+                          ? `${p.items[0].storeItem?.name || "Item"}${p.items.length > 1 ? " +" + (p.items.length - 1) + " more" : ""}`
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-xs sm:text-sm font-medium text-red-600">
+                        ${p.totalAmount.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-xs sm:text-sm text-gray-500 ">
+                        {p.user?.name}
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => openEdit(p)}
+                          className="text-indigo-600 hover:text-indigo-900 mx-1"
+                        >
+                          <Pencil className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePurchase(p.id)}
+                          className="text-red-500 hover:text-red-700 mx-1"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">

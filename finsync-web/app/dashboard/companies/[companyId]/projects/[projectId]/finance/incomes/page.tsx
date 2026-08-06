@@ -119,31 +119,33 @@ export default function ProjectIncomesPage() {
           <Plus className="h-4 w-4 mr-1" /> Add Income
         </button>
       </div>
-      <div className="bg-white shadow-sm rounded-lg border overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+      <div className="bg-white rounded-lg shadow">
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-xs sm:text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+              <th className="text-left px-4 py-3 font-medium">
                 Date
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="text-left px-4 py-3 font-medium">
                 Category
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+              <th className="text-right px-4 py-3 font-medium">
                 Qty
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="text-left px-4 py-3 font-medium">
                 Unit
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+              <th className="text-right px-4 py-3 font-medium">
                 Amount
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+              <th className="text-right px-4 py-3 font-medium">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-100">
             {incomes.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
@@ -152,20 +154,20 @@ export default function ProjectIncomesPage() {
               </tr>
             ) : (
               incomes.map((inc) => (
-                <tr key={inc.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                <tr key={inc.id} className="hover:bg-gray-50 text-gray-900">
+                  <td className="px-4 py-3 text-xs sm:text-sm font-medium text-gray-900">
                     {new Date(inc.date).toLocaleDateString()}
                   </td>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                  <td className="px-4 py-3 text-xs sm:text-sm font-medium text-gray-900">
                     {inc.category}
                   </td>
-                  <td className="px-4 py-3 text-sm font-medium text-right text-gray-900">
+                  <td className="px-4 py-3 text-xs sm:text-sm font-medium text-right text-gray-900">
                     {inc.quantity || 1}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
+                  <td className="px-4 py-3 text-xs sm:text-sm text-gray-600">
                     {inc.unit || "—"}
                   </td>
-                  <td className="px-4 py-3 text-sm text-right font-medium text-green-600">
+                  <td className="px-4 py-3 text-xs sm:text-sm text-right font-medium text-green-600">
                     ${inc.amount}
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -181,10 +183,12 @@ export default function ProjectIncomesPage() {
             )}
           </tbody>
         </table>
+          </div>
+        </div>
       </div>
       {modalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg sm:max-w-xl shadow-xl">
             <h2 className="text-lg font-bold text-gray-900 mb-4">Add Income</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>

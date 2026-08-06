@@ -196,10 +196,10 @@ export default function StaffPage() {
       </div>
 
       {/* Staff Table */}
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg shadow">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="w-full text-xs sm:text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Name
@@ -218,12 +218,12 @@ export default function StaffPage() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100">
               {staff.length === 0 ? (
                 <tr>
                   <td
                     colSpan={5}
-                    className="px-6 py-8 text-center text-gray-500"
+                    className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm"
                   >
                     No staff members yet.
                   </td>
@@ -232,7 +232,7 @@ export default function StaffPage() {
                 staff.map((member) => {
                   const role = roles.find((r) => r.id === member.companyRoleId);
                   return (
-                    <tr key={member.id} className="hover:bg-gray-50">
+                    <tr key={member.id} className="hover:bg-gray-50 text-gray-900">
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">
                         {member.user.name}
                       </td>

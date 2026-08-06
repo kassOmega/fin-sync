@@ -303,8 +303,8 @@ export default function DepreciationsPage() {
             </button>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="w-full text-xs sm:text-sm">
+              <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Machinery
@@ -329,12 +329,12 @@ export default function DepreciationsPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-100">
                 {nbvItems.length === 0 ? (
                   <tr>
                     <td
                       colSpan={7}
-                      className="px-6 py-8 text-center text-gray-500"
+                      className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm"
                     >
                       No depreciation-enabled machinery yet. Enable depreciation
                       from the Machinery tab.
@@ -342,7 +342,7 @@ export default function DepreciationsPage() {
                   </tr>
                 ) : (
                   nbvItems.map((n) => (
-                    <tr key={n.id} className="hover:bg-gray-50">
+                    <tr key={n.id} className="hover:bg-gray-50 text-gray-900">
                       <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">
                         {n.name}
                       </td>
@@ -401,8 +401,8 @@ export default function DepreciationsPage() {
           </div>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="w-full text-xs sm:text-sm">
+                <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Period
@@ -427,12 +427,12 @@ export default function DepreciationsPage() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-100">
                   {schedules.length === 0 ? (
                     <tr>
                       <td
                         colSpan={7}
-                        className="px-6 py-8 text-center text-gray-500"
+                        className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm"
                       >
                         No depreciation schedules yet. Click "Generate Month" to
                         create PLANNED schedules.
@@ -440,7 +440,7 @@ export default function DepreciationsPage() {
                     </tr>
                   ) : (
                     schedules.map((s) => (
-                      <tr key={s.id} className="hover:bg-gray-50">
+                      <tr key={s.id} className="hover:bg-gray-50 text-gray-900">
                         <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
                           {new Date(s.startDate).toLocaleDateString()} →{" "}
                           {new Date(s.endDate).toLocaleDateString()}
@@ -504,8 +504,8 @@ export default function DepreciationsPage() {
           </div>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="w-full text-xs sm:text-sm">
+                <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Name
@@ -524,19 +524,19 @@ export default function DepreciationsPage() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-100">
                   {methods.length === 0 ? (
                     <tr>
                       <td
                         colSpan={5}
-                        className="px-6 py-8 text-center text-gray-500"
+                        className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm"
                       >
                         No depreciation methods yet.
                       </td>
                     </tr>
                   ) : (
                     methods.map((m) => (
-                      <tr key={m.id} className="hover:bg-gray-50">
+                      <tr key={m.id} className="hover:bg-gray-50 text-gray-900">
                         <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">
                           {m.name}
                         </td>
@@ -580,8 +580,8 @@ export default function DepreciationsPage() {
           </div>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="w-full text-xs sm:text-sm">
+                <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Machinery
@@ -603,19 +603,19 @@ export default function DepreciationsPage() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-100">
                   {machines.length === 0 ? (
                     <tr>
                       <td
                         colSpan={6}
-                        className="px-6 py-8 text-center text-gray-500"
+                        className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm"
                       >
                         No machinery registered for this company.
                       </td>
                     </tr>
                   ) : (
                     machines.map((m) => (
-                      <tr key={m.id} className="hover:bg-gray-50">
+                      <tr key={m.id} className="hover:bg-gray-50 text-gray-900">
                         <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">
                           {m.name}
                         </td>

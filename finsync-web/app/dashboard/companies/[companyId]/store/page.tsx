@@ -186,13 +186,14 @@ export default function StorePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-800">Store Inventory</h1>
-        <div className="flex items-center space-x-3">
+
+        <div className="flex items-center justify-end space-x-2 sm:space-x-3">
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="border border-gray-300 rounded-md p-2 bg-white text-sm"
+            className="border border-gray-300 rounded-md py-2 px-2 sm:px-3 bg-white text-sm whitespace-nowrap"
           >
             <option value="">All Categories</option>
             {categories.map((cat) => (
@@ -201,27 +202,29 @@ export default function StorePage() {
               </option>
             ))}
           </select>
+
           <Link
             href={`/dashboard/companies/${companyId}/store/requests`}
-            className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+            className="flex items-center px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200 whitespace-nowrap"
           >
-            <ClipboardList className="h-5 w-5 mr-1" /> Requests
+            <ClipboardList className="h-4 w-4 mr-1 shrink-0" /> Requests
           </Link>
+
           {hasRole([SystemRole.Owner, SystemRole.Storekeeper]) && (
             <button
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+              className="flex items-center px-3 sm:px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 whitespace-nowrap"
             >
-              <Plus className="h-5 w-5 mr-1" /> Add Item
+              <Plus className="h-4 w-4 mr-1 shrink-0" /> Add Item
             </button>
           )}
         </div>
       </div>
 
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg shadow">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="w-full text-xs sm:text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Item
@@ -248,7 +251,7 @@ export default function StorePage() {
                 )}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100">
               {items.length === 0 ? (
                 <tr>
                   <td
@@ -257,7 +260,7 @@ export default function StorePage() {
                         ? 7
                         : 6
                     }
-                    className="px-6 py-8 text-center text-gray-500"
+                    className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm"
                   >
                     <Package className="h-8 w-8 mx-auto mb-2 text-gray-300" />
                     No items in inventory yet.
@@ -269,7 +272,10 @@ export default function StorePage() {
                     !item.isTool &&
                     item.quantity <= (item.lowStockThreshold || 0);
                   return (
-                    <tr key={item.id} className="hover:bg-gray-50">
+                    <tr
+                      key={item.id}
+                      className="hover:bg-gray-50 text-gray-900"
+                    >
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">
                         {item.name}
                       </td>

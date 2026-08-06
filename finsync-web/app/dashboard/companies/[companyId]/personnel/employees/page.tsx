@@ -320,10 +320,10 @@ export default function EmployeesPage() {
         </div>
       </div>
 
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg shadow">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="w-full text-xs sm:text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
               <tr>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Code
@@ -354,19 +354,19 @@ export default function EmployeesPage() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100">
               {employees.length === 0 ? (
                 <tr>
                   <td
                     colSpan={9}
-                    className="px-6 py-8 text-center text-gray-500"
+                    className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm"
                   >
                     No employees yet.
                   </td>
                 </tr>
               ) : (
                 employees.map((e) => (
-                  <tr key={e.id} className="hover:bg-gray-50">
+                  <tr key={e.id} className="hover:bg-gray-50 text-gray-900">
                     <td className="px-3 py-3 text-sm font-mono text-gray-900 whitespace-nowrap">
                       {e.employeeCode}
                     </td>

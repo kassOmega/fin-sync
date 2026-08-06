@@ -111,9 +111,11 @@ export default function AttendancePage() {
         />
       </div>
 
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="bg-white rounded-lg shadow">
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-xs sm:text-sm">
+          <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 Code
@@ -129,11 +131,11 @@ export default function AttendancePage() {
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="divide-y divide-gray-100">
             {employees.map((emp) => {
               const rec = getRecord(emp.id);
               return (
-                <tr key={emp.id} className="hover:bg-gray-50">
+                <tr key={emp.id} className="hover:bg-gray-50 text-gray-900">
                   <td className="px-4 py-3 text-sm font-mono text-gray-900">
                     {emp.employeeCode}
                   </td>
@@ -167,6 +169,8 @@ export default function AttendancePage() {
             })}
           </tbody>
         </table>
+          </div>
+        </div>
       </div>
     </div>
   );

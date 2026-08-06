@@ -312,10 +312,10 @@ export default function RequisitionsPage() {
       )}
 
       {/* Requests table */}
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg shadow">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="w-full text-xs sm:text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Date
@@ -346,12 +346,12 @@ export default function RequisitionsPage() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100">
               {requests.length === 0 ? (
                 <tr>
                   <td
                     colSpan={hasRole([SystemRole.Owner]) ? 8 : 7}
-                    className="px-6 py-8 text-center text-gray-500"
+                    className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm"
                   >
                     <Package className="h-8 w-8 mx-auto mb-2 text-gray-300" />
                     No requests yet.
@@ -361,7 +361,7 @@ export default function RequisitionsPage() {
                 </tr>
               ) : (
                 requests.map((req) => (
-                  <tr key={req.id} className="hover:bg-gray-50">
+                  <tr key={req.id} className="hover:bg-gray-50 text-gray-900">
                     <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
                       {new Date(req.createdAt).toLocaleDateString()}
                     </td>

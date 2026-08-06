@@ -127,8 +127,10 @@ export default function ProjectStorePage() {
             </select>
           </div>
           <div className="bg-white shadow-sm rounded-lg border overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-xs sm:text-sm">
+              <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Item
@@ -153,12 +155,12 @@ export default function ProjectStorePage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-100">
                 {filtered.length === 0 ? (
                   <tr>
                     <td
                       colSpan={7}
-                      className="px-6 py-8 text-center text-gray-500"
+                      className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm"
                     >
                       <Package className="h-8 w-8 mx-auto mb-2 text-gray-300" />
                       No items.
@@ -170,7 +172,7 @@ export default function ProjectStorePage() {
                       !item.isTool &&
                       item.quantity <= (item.lowStockThreshold || 0);
                     return (
-                      <tr key={item.id} className="hover:bg-gray-50">
+                      <tr key={item.id} className="hover:bg-gray-50 text-gray-900">
                         <td className="px-4 py-3 text-sm font-medium text-gray-900">
                           {item.name}
                         </td>
@@ -226,13 +228,17 @@ export default function ProjectStorePage() {
               </tbody>
             </table>
           </div>
+        </div>
+          </div>
         </>
       )}
 
       {tab === "requests" && (
         <div className="bg-white shadow-sm rounded-lg border overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-xs sm:text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Item
@@ -248,19 +254,19 @@ export default function ProjectStorePage() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100">
               {requests.length === 0 ? (
                 <tr>
                   <td
                     colSpan={4}
-                    className="px-6 py-8 text-center text-gray-500"
+                    className="px-6 py-8 text-center text-gray-500 text-xs sm:text-sm"
                   >
                     No requests.
                   </td>
                 </tr>
               ) : (
                 requests.map((r) => (
-                  <tr key={r.id} className="hover:bg-gray-50">
+                  <tr key={r.id} className="hover:bg-gray-50 text-gray-900">
                     <td className="px-4 py-3 text-sm">{r.item?.name}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {r.user?.name}
@@ -278,6 +284,8 @@ export default function ProjectStorePage() {
               )}
             </tbody>
           </table>
+          </div>
+        </div>
         </div>
       )}
 

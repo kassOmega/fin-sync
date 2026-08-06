@@ -348,13 +348,18 @@ export class PayrollService {
     startDate: string,
     endDate: string,
     excludeId?: number,
+    projectId?: number,
   ) {
+    const scopeFilter = projectId
+      ? `AND "projectId" = ${projectId}`
+      : 'AND "projectId" IS NULL';
     const overlap: { cnt: string }[] = await this.prisma.$queryRawUnsafe(
       `SELECT COUNT(*) AS cnt
        FROM finsync.payrolls
        WHERE "companyId" = ${companyId}
          AND status <> 'VOIDED'
          AND "sourceType" IN ('ALL', 'ATTENDANCE', 'TIMESHEETS')
+         ${scopeFilter}
          AND "startDate" <= '${endDate}'
          AND "endDate" >= '${startDate}'
          AND id <> ${excludeId ?? 0}`,
@@ -362,7 +367,7 @@ export class PayrollService {
     const count = parseInt(overlap[0]?.cnt || '0', 10);
     if (count > 0) {
       throw new BadRequestException(
-        `Payroll overlap detected: a payroll already covers this date range (${startDate} → ${endDate}) for this company. ` +
+        `Payroll overlap detected: a payroll already covers this date range (${startDate} → ${endDate}) for this ${projectId ? 'project' : 'company'}. ` +
           `Regenerating would double-pay employees. Void or delete the overlapping payroll first.`,
       );
     }
@@ -370,9 +375,10 @@ export class PayrollService {
 
   async generate(companyId: number, dto: any) {
     // Reject overlapping payroll runs before doing any work
-    await this.assertNoOverlap(companyId, dto.startDate, dto.endDate);
+    await this.assertNoOverlap(companyId, dto.startDate, dto.endDate, undefined, dto.projectId);
 
     const pid = dto.projectId ?? 'NULL';
+    const isProjectScope = dto.projectId != null;
     const sourceType = dto.sourceType || 'ALL'; // ATTENDANCE | TIMESHEETS | ALL
 
     await this.prisma.$executeRawUnsafe(
@@ -389,17 +395,23 @@ export class PayrollService {
     let itemsGenerated = 0;
 
     // ── 1. Attendance-based pay for FULL_TIME employees (skip if sourceType = TIMESHEETS) ──
+    const projectMemberFilter = isProjectScope
+      ? `AND id IN (SELECT "employeeId" FROM finsync."project_members" WHERE "projectId" = ${dto.projectId})`
+      : '';
     const fullTimeEmployees: any[] =
       sourceType === 'TIMESHEETS'
         ? []
         : await this.prisma.$queryRawUnsafe(
             `SELECT * FROM finsync.employees
-             WHERE "companyId" = ${companyId} AND "employmentType" = 'FULL_TIME' AND "isActive" = true`,
+             WHERE "companyId" = ${companyId} AND "employmentType" = 'FULL_TIME' AND "isActive" = true ${projectMemberFilter}`,
           );
 
     for (const e of fullTimeEmployees) {
-      // Attendance is the source of truth for worked + leave days:
-      // PRESENT = 1.0, HALF_DAY = 0.5 (approved paid leave is auto-marked PRESENT).
+      // Attendance — scoped: project only counts days assigned to that project;
+      // company only counts unassigned days (projectId IS NULL).
+      const scopeAttFilter = isProjectScope
+        ? `AND "projectId" = ${dto.projectId}`
+        : `AND "projectId" IS NULL`;
       const attRows: any[] = await this.prisma.$queryRawUnsafe(
         `SELECT COALESCE(SUM(CASE WHEN status = 'PRESENT' THEN 1.0
                                   WHEN status = 'HALF_DAY' THEN 0.5
@@ -409,22 +421,11 @@ export class PayrollService {
            AND "companyId" = ${companyId}
            AND status IN ('PRESENT', 'HALF_DAY')
            AND DATE(date) >= DATE('${dto.startDate}')
-           AND DATE(date) <= DATE('${dto.endDate}')`,
+           AND DATE(date) <= DATE('${dto.endDate}')
+           ${scopeAttFilter}`,
       );
       const presentDays = parseFloat(attRows[0]?.present_days || '0');
-
-      // Leave breakdown: used only for the sick-50% half-rate adjustment.
-      // Paid/special/sick leave is already counted as PRESENT attendance;
-      // unpaid leave is ON_LEAVE (excluded) and deducted via computeUnpaidLeave.
-      const leave = await this.getApprovedLeaveBreakdown(
-        companyId,
-        e.id,
-        dto.startDate,
-        dto.endDate,
-        e.joinedDate,
-      );
-      const workingDays = presentDays;
-      if (workingDays <= 0) continue;
+      if (presentDays <= 0) continue;
 
       // Rate fallback chain: dailyRate → weeklyRate/6 → baseSalary/22 → hourlyRate×8
       let dailyRate = parseFloat(String(e.dailyRate || 0));
@@ -437,14 +438,22 @@ export class PayrollService {
       if (!dailyRate && e.hourlyRate) {
         dailyRate = parseFloat(String(e.hourlyRate)) * 8;
       }
-      if (!dailyRate) continue; // no resolvable rate — skip with reason
+      if (!dailyRate) continue;
 
-      // Half-rate for the sick-50% band (those days are PRESENT at full weight);
-      // unpaid/sick-unpaid days are excluded from workingDays, so no subtraction here.
-      const basePay = this.roundMoney(
-        dailyRate * (workingDays - leave.sickPaid50) +
-          (dailyRate / 2) * leave.sickPaid50,
-      );
+      // For project scope: pay dailyRate × project days (leave is company-level,
+      // so the sick half-rate adjustment only applies to company-scope runs).
+      let basePay: number;
+      if (isProjectScope) {
+        basePay = this.roundMoney(dailyRate * presentDays);
+      } else {
+        const leave = await this.getApprovedLeaveBreakdown(
+          companyId, e.id, dto.startDate, dto.endDate, e.joinedDate,
+        );
+        basePay = this.roundMoney(
+          dailyRate * (presentDays - leave.sickPaid50) +
+            (dailyRate / 2) * leave.sickPaid50,
+        );
+      }
       const overtimePay = 0; // Full-time OT comes from OvertimeEntry table
 
       // ── Consolidated Overtime Earnings (approved OvertimeEntry in period) ──
@@ -640,7 +649,9 @@ export class PayrollService {
     }
 
     // ── 2. Hourly/daily workers from APPROVED timesheets (skip if sourceType = ATTENDANCE) ──
-    const pf = dto.projectId ? `AND t."projectId" = ${dto.projectId}` : '';
+    const tsScopeFilter = isProjectScope
+      ? `AND t."projectId" = ${dto.projectId}`
+      : `AND t."projectId" IS NULL`;
     const timesheets: any[] =
       sourceType === 'ATTENDANCE'
         ? []
@@ -650,7 +661,7 @@ export class PayrollService {
              JOIN finsync.employees e ON e.id = t."employeeId"
              WHERE t."companyId" = ${companyId} AND t.status = 'APPROVED'
                AND e."employmentType" != 'FULL_TIME'
-               AND t.date >= '${dto.startDate}' AND t.date <= '${dto.endDate}' ${pf}
+               AND t.date >= '${dto.startDate}' AND t.date <= '${dto.endDate}' ${tsScopeFilter}
              GROUP BY t."employeeId"`,
           );
 
