@@ -1003,71 +1003,53 @@ export async function seedStoreInventory(
     await prisma.$executeRawUnsafe(`ALTER TABLE finsync."StoreItem" ADD COLUMN IF NOT EXISTS store_id INTEGER`);
     await prisma.$executeRawUnsafe(`ALTER TABLE finsync."StoreTransaction" ADD COLUMN IF NOT EXISTS store_id INTEGER`);
     await prisma.$executeRawUnsafe(`ALTER TABLE finsync."StoreRequest" ADD COLUMN IF NOT EXISTS store_id INTEGER`);
-    console.log('   ✓ Store tables ensured');
+
+    // Drop FK constraint on store_id temporarily so we can insert items before stores exist
+    await prisma.$executeRawUnsafe(`ALTER TABLE finsync."StoreItem" DROP CONSTRAINT IF EXISTS "StoreItem_store_id_fkey"`);
+    console.log('   ✓ Store tables ensured, FK dropped for seeding');
   } catch (e) {
     console.warn('   ⚠ Could not ensure Store tables:', (e as any)?.message);
   }
 
-  // Create a default store for each company (named after the company)
-  // Use raw SQL — production Prisma client may not have Store model types yet
+  // Create a default store for each company — raw SQL, reliable
   const companyKeys = ['buildco', 'horizon', 'greenvalley', 'urban_threads', 'tech_mfg'];
   const companyNames: Record<string, string> = {
-    buildco: 'BuildCo Construction',
-    horizon: 'Horizon Logistics',
-    greenvalley: 'Green Valley Farms',
-    urban_threads: 'Urban Threads',
-    tech_mfg: 'TechMFG',
+    buildco: 'BuildCo Construction', horizon: 'Horizon Logistics',
+    greenvalley: 'Green Valley Farms', urban_threads: 'Urban Threads', tech_mfg: 'TechMFG',
   };
   ctx.stores = ctx.stores || {};
   for (const ck of companyKeys) {
-    const companyId = ctx.companies[ck];
-    if (!companyId) continue;
-    const name = companyNames[ck] || ck;
-    const keeperId = ctx.users['sk_alex'] || null;
-    try {
-      const rows: any[] = await prisma.$queryRawUnsafe(
-        `INSERT INTO finsync."Store" (name, company_id, description, storekeeper_id)
-         VALUES ('${name.replace(/'/g, "''")}', ${companyId}, 'Default company store', ${keeperId || 'NULL'})
-         ON CONFLICT DO NOTHING
+    const cid = ctx.companies[ck];
+    if (!cid) continue;
+    const name = companyNames[ck];
+    // Try to find existing store first
+    let rows: any[] = await prisma.$queryRawUnsafe(
+      `SELECT id FROM finsync."Store" WHERE company_id = ${cid} AND project_id IS NULL LIMIT 1`,
+    );
+    if (rows.length === 0) {
+      // Create new store
+      rows = await prisma.$queryRawUnsafe(
+        `INSERT INTO finsync."Store" (name, company_id, description)
+         VALUES ('${name.replace(/'/g, "''")}', ${cid}, 'Default company store')
          RETURNING id`,
       );
-      if (rows.length > 0) {
-        ctx.stores[`${ck}_main`] = rows[0].id;
-      }
-    } catch { /* will fallback below */ }
+    }
+    ctx.stores[`${ck}_main`] = rows[0].id;
   }
 
-  // Create project-scoped stores for any project that doesn't have one yet
+  // Create project-scoped stores
   try {
-    const allProjects: any[] = await prisma.$queryRawUnsafe(
-      `SELECT id, name, "companyId" FROM finsync.projects`,
-    );
+    const allProjects: any[] = await prisma.$queryRawUnsafe(`SELECT id, name, "companyId" FROM finsync.projects`);
     for (const p of allProjects) {
-      try {
-        const ex: any[] = await prisma.$queryRawUnsafe(
-          `SELECT id FROM finsync."Store" WHERE project_id = ${p.id} LIMIT 1`,
+      const ex: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM finsync."Store" WHERE project_id = ${p.id} LIMIT 1`);
+      if (ex.length === 0) {
+        await prisma.$queryRawUnsafe(
+          `INSERT INTO finsync."Store" (name, company_id, project_id)
+           VALUES ('${(p.name as string).replace(/'/g, "''")}', ${p.companyId}, ${p.id})`,
         );
-        if (ex.length === 0) {
-          await prisma.$queryRawUnsafe(
-            `INSERT INTO finsync."Store" (name, company_id, project_id)
-             VALUES ('${p.name.replace(/'/g, "''")}', ${p.companyId}, ${p.id})`,
-          );
-        }
-      } catch { /* ignore */ }
+      }
     }
-  } catch { /* ignore */ }
-
-  // Ensure every company has a storeId resolved
-  for (const ck of companyKeys) {
-    if (!ctx.stores[`${ck}_main`]) {
-      try {
-        const r: any[] = await prisma.$queryRawUnsafe(
-          `SELECT id FROM finsync."Store" WHERE company_id = ${ctx.companies[ck]} AND project_id IS NULL LIMIT 1`,
-        );
-        if (r.length > 0) ctx.stores[`${ck}_main`] = r[0].id;
-      } catch { }
-    }
-  }
+  } catch { }
 
   for (const cat of STORE_CATEGORIES) {
     const created = await prisma.storeCategory.create({
