@@ -88,6 +88,13 @@ const BUILTIN_ROLES: { name: string; permissions: string[] }[] = [
   },
 ];
 
+// CompanyRole display name → SystemRole enum value used on CompanyMember.
+// Only needed where the display name differs from the SystemRole
+// (e.g. the role is shown as "Operator" but memberships use OperatorDriver).
+const ROLE_NAME_TO_SYSTEM_ROLE: Record<string, string> = {
+  Operator: 'OperatorDriver',
+};
+
 export async function seedRoles(
   prisma: PrismaClient,
   ctx: SeedContext,
@@ -153,8 +160,9 @@ export async function seedRoles(
       // Memberships are seeded (02-companies.ts) before roles exist, so their
       // company_role_id is null. Link every membership whose SystemRole matches
       // this CompanyRole so the PermissionsGuard can resolve their permissions.
+      const systemRole = ROLE_NAME_TO_SYSTEM_ROLE[role.name] ?? role.name;
       await (prisma as any).companyMember.updateMany({
-        where: { companyId, role: role.name, companyRoleId: null },
+        where: { companyId, role: systemRole, companyRoleId: null },
         data: { companyRoleId: companyRole.id },
       });
     }
