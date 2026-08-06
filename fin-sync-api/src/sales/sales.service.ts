@@ -35,9 +35,20 @@ export class SalesService {
             throw new Error('Item name is required for new items');
           if (!item.categoryId)
             throw new Error('Category is required for new items');
+          // Find or create a default company store
+          let defaultStore = await prisma.store.findFirst({
+            where: { companyId, projectId: null },
+          });
+          if (!defaultStore) {
+            defaultStore = await prisma.store.create({
+              data: { name: 'Main Store', companyId },
+            });
+          }
+
           const newItem = await prisma.storeItem.create({
             data: {
               companyId,
+              storeId: defaultStore.id,
               name: item.name,
               categoryId: item.categoryId,
               quantity: 0,

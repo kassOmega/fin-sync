@@ -7,12 +7,14 @@ import {
 import { SystemRole } from '@prisma/client';
 import { LedgerService } from '../ledger/ledger.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { StoresService } from '../stores/stores.service';
 
 @Injectable()
 export class StoreWorkflowService {
   constructor(
     private prisma: PrismaService,
     private ledger: LedgerService,
+    private storesService: StoresService,
   ) {}
 
   // Get requests for a specific company
@@ -85,6 +87,7 @@ export class StoreWorkflowService {
   ) {
     const item = await this.prisma.storeItem.findFirst({
       where: { id: itemId, companyId },
+      select: { id: true, unit: true, quantity: true, reservedQuantity: true, storeId: true },
     });
     if (!item) throw new NotFoundException('Item not found');
 
@@ -110,6 +113,7 @@ export class StoreWorkflowService {
           quantity,
           status: 'PENDING',
           projectId: projectId ?? null,
+          storeId: item.storeId,
         },
       });
 
@@ -125,14 +129,28 @@ export class StoreWorkflowService {
     return request;
   }
 
-  // 2. Approve the request (permission-guard enforced — no hardcoded Owner role)
-  async approveRequest(requestId: number) {
+  // 2. Approve the request (Owner always; project manager for project-scoped stores)
+  async approveRequest(requestId: number, user?: any) {
     const request = await this.prisma.storeRequest.findUnique({
       where: { id: requestId },
+      include: { item: { select: { storeId: true } } },
     });
     if (!request) throw new NotFoundException('Request not found');
     if (request.status !== 'PENDING')
       throw new BadRequestException('Request is already processed');
+
+    // If user provided, check if they can approve for this store
+    if (user && user.role !== 'Owner' && request.item?.storeId) {
+      const canApprove = await this.storesService.canApproveForStore(
+        request.item.storeId,
+        user.id,
+        user.role,
+      );
+      if (!canApprove)
+        throw new ForbiddenException(
+          'Only company owner or project manager can approve requests for this store',
+        );
+    }
 
     return this.prisma.storeRequest.update({
       where: { id: requestId },
@@ -140,8 +158,8 @@ export class StoreWorkflowService {
     });
   }
 
-  // 3. Reject the request (permission-guard enforced — no hardcoded Owner role)
-  async rejectRequest(requestId: number) {
+  // 3. Reject the request
+  async rejectRequest(requestId: number, user?: any) {
     const request = await this.prisma.storeRequest.findUnique({
       where: { id: requestId },
     });
@@ -163,22 +181,30 @@ export class StoreWorkflowService {
     });
   }
 
-  // 4. Storekeeper issues the item (with ledger integration + partial fulfillment)
+  // 4. Storekeeper issues the item (must be assigned storekeeper for this store)
   async issueItem(requestId: number, user: any, quantity?: number) {
-    if (
-      user.role !== SystemRole.Storekeeper &&
-      user.role !== SystemRole.Owner
-    ) {
-      throw new ForbiddenException('Only storekeepers can issue items');
-    }
-
     const request = await this.prisma.storeRequest.findUnique({
       where: { id: requestId },
-      include: { item: true, project: true },
+      include: { item: { select: { storeId: true } }, project: true },
     });
     if (!request) throw new NotFoundException('Request not found');
     if (request.status !== 'APPROVED')
       throw new BadRequestException('Request must be approved first');
+
+    // Verify storekeeper per store
+    if (request.item?.storeId) {
+      await this.storesService.assertStorekeeper(
+        request.item.storeId,
+        user.id,
+        user.role,
+      );
+    } else if (
+      user.role !== SystemRole.Storekeeper &&
+      user.role !== SystemRole.Owner
+    ) {
+      // Fallback for items without store assignment
+      throw new ForbiddenException('Only storekeepers can issue items');
+    }
 
     // Determine issue quantity (partial or full)
     const issueQty = quantity ?? request.quantity;

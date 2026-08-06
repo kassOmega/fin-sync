@@ -1,20 +1,39 @@
 import api from "../api";
 import type {
+  Store,
   StoreCategory,
   StoreItem,
   StoreRequest,
   StoreTransaction,
+  StoreTransfer,
 } from "./types";
 
 export interface CreateStoreItemDto {
   name: string;
   categoryId: number;
+  storeId: number;
   quantity?: number;
   lowStockThreshold?: number;
   unit?: string;
   sellingPrice?: number;
   costPrice?: number;
   isTool?: boolean;
+}
+
+export interface CreateStoreDto {
+  name: string;
+  projectId?: number;
+  storekeeperId?: number;
+  description?: string;
+  isActive?: boolean;
+}
+
+export interface CreateTransferDto {
+  fromStoreId: number;
+  toStoreId: number;
+  itemId: number;
+  quantity: number;
+  note?: string;
 }
 
 export interface StoreTransactionDto {
@@ -37,10 +56,12 @@ export const storeService = {
   listItems: async (
     companyId: number,
     categoryId?: number,
+    storeId?: number,
   ): Promise<StoreItem[]> => {
-    const res = await api.get(`/companies/${companyId}/store-items`, {
-      params: categoryId ? { categoryId } : {},
-    });
+    const params: Record<string, string> = {};
+    if (categoryId) params.categoryId = String(categoryId);
+    if (storeId) params.storeId = String(storeId);
+    const res = await api.get(`/companies/${companyId}/store-items`, { params });
     return res.data;
   },
 
@@ -159,6 +180,124 @@ export const storeService = {
         params: itemId ? { itemId } : {},
       },
     );
+    return res.data;
+  },
+
+  // ── Store Management ──
+  listStores: async (
+    companyId: number,
+    projectId?: number,
+  ): Promise<Store[]> => {
+    const params: Record<string, string> = {};
+    if (projectId) params.projectId = String(projectId);
+    const res = await api.get(`/companies/${companyId}/stores`, { params });
+    return res.data;
+  },
+
+  // Fetch stores from multiple companies the user owns (for cross-company transfers)
+  listAllAccessibleStores: async (companyIds: number[]): Promise<Store[]> => {
+    const results = await Promise.all(
+      companyIds.map((cid) =>
+        api
+          .get(`/companies/${cid}/stores`)
+          .then((r) => r.data as Store[])
+          .catch(() => [] as Store[]),
+      ),
+    );
+    return results.flat();
+  },
+
+  getStore: async (companyId: number, storeId: number): Promise<Store> => {
+    const res = await api.get(`/companies/${companyId}/stores/${storeId}`);
+    return res.data;
+  },
+
+  createStore: async (
+    companyId: number,
+    dto: CreateStoreDto,
+  ): Promise<Store> => {
+    const res = await api.post(`/companies/${companyId}/stores`, dto);
+    return res.data;
+  },
+
+  updateStore: async (
+    companyId: number,
+    storeId: number,
+    dto: Partial<CreateStoreDto>,
+  ): Promise<Store> => {
+    const res = await api.patch(
+      `/companies/${companyId}/stores/${storeId}`,
+      dto,
+    );
+    return res.data;
+  },
+
+  deleteStore: async (companyId: number, storeId: number) => {
+    const res = await api.delete(`/companies/${companyId}/stores/${storeId}`);
+    return res.data;
+  },
+
+  // ── Project Store Management ──
+  listProjectStores: async (
+    companyId: number,
+    projectId: number,
+  ): Promise<Store[]> => {
+    const res = await api.get(
+      `/companies/${companyId}/projects/${projectId}/stores`,
+    );
+    return res.data;
+  },
+
+  createProjectStore: async (
+    companyId: number,
+    projectId: number,
+    dto: CreateStoreDto,
+  ): Promise<Store> => {
+    const res = await api.post(
+      `/companies/${companyId}/projects/${projectId}/stores`,
+      dto,
+    );
+    return res.data;
+  },
+
+  // ── Store Transfers ──
+  listTransfers: async (filters?: {
+    fromStoreId?: number;
+    toStoreId?: number;
+    status?: string;
+  }): Promise<StoreTransfer[]> => {
+    const params: Record<string, string> = {};
+    if (filters?.fromStoreId) params.fromStoreId = String(filters.fromStoreId);
+    if (filters?.toStoreId) params.toStoreId = String(filters.toStoreId);
+    if (filters?.status) params.status = filters.status;
+    const res = await api.get("/stores/transfers", { params });
+    return res.data;
+  },
+
+  getTransfer: async (id: number): Promise<StoreTransfer> => {
+    const res = await api.get(`/stores/transfers/${id}`);
+    return res.data;
+  },
+
+  requestTransfer: async (
+    dto: CreateTransferDto,
+  ): Promise<StoreTransfer> => {
+    const res = await api.post("/stores/transfers", dto);
+    return res.data;
+  },
+
+  approveTransfer: async (id: number): Promise<StoreTransfer> => {
+    const res = await api.patch(`/stores/transfers/${id}/approve`);
+    return res.data;
+  },
+
+  rejectTransfer: async (id: number): Promise<StoreTransfer> => {
+    const res = await api.patch(`/stores/transfers/${id}/reject`);
+    return res.data;
+  },
+
+  completeTransfer: async (id: number): Promise<StoreTransfer> => {
+    const res = await api.patch(`/stores/transfers/${id}/complete`);
     return res.data;
   },
 };

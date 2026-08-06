@@ -80,14 +80,20 @@ export class StoreItemsController {
 
   @Patch('requests/:id/approve')
   @RequirePermissions(PermissionCode.STORE_REQUEST_APPROVE)
-  approveRequest(@Param('id', ParseIntPipe) id: number) {
-    return this.workflowService.approveRequest(id);
+  approveRequest(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+  ) {
+    return this.workflowService.approveRequest(id, user);
   }
 
   @Patch('requests/:id/reject')
   @RequirePermissions(PermissionCode.STORE_REQUEST_APPROVE)
-  rejectRequest(@Param('id', ParseIntPipe) id: number) {
-    return this.workflowService.rejectRequest(id);
+  rejectRequest(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+  ) {
+    return this.workflowService.rejectRequest(id, user);
   }
 
   @Patch('requests/:id/issue')
@@ -116,10 +122,12 @@ export class StoreItemsController {
   @RequirePermissions(PermissionCode.STORE_READ)
   findAll(
     @Param('companyId', ParseIntPipe) companyId: number,
+    @Query('storeId') storeId?: string,
     @Query('categoryId') categoryId?: string,
   ) {
     return this.service.findAll(
       companyId,
+      storeId ? parseInt(storeId) : undefined,
       categoryId ? parseInt(categoryId) : undefined,
     );
   }

@@ -63,6 +63,26 @@ const SYSTEM_PERMISSIONS = [
     name: 'Issue Stock for Approved Requests',
     module: 'Inventory',
   },
+  {
+    code: 'STORE_MANAGE',
+    name: 'Create & Manage Stores (Assign Storekeepers)',
+    module: 'Inventory',
+  },
+  {
+    code: 'STORE_TRANSFER_REQUEST',
+    name: 'Request Stock Transfers Between Stores',
+    module: 'Inventory',
+  },
+  {
+    code: 'STORE_TRANSFER_APPROVE',
+    name: 'Approve or Reject Store Transfers',
+    module: 'Inventory',
+  },
+  {
+    code: 'STORE_TRANSFER_COMPLETE',
+    name: 'Complete (Execute) Approved Transfers',
+    module: 'Inventory',
+  },
 
   // Sales
   { code: 'SALES_READ', name: 'View Sales & Transactions', module: 'Sales' },

@@ -293,6 +293,8 @@ export type StoreItemType = "CONSUMABLE" | "TOOL";
 export interface StoreItem {
   id: number;
   companyId: number;
+  storeId: number;
+  store?: { id: number; name: string };
   name: string;
   categoryId: number;
   category?: StoreCategory;
@@ -304,6 +306,41 @@ export interface StoreItem {
   isTool: boolean;
   createdAt: string;
   unit: string;
+}
+
+export interface Store {
+  id: number;
+  companyId: number;
+  name: string;
+  projectId?: number;
+  project?: { id: number; name: string };
+  storekeeperId?: number;
+  storekeeper?: { id: number; name: string; email: string };
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { items: number };
+}
+
+export interface StoreTransfer {
+  id: number;
+  fromStoreId: number;
+  fromStore: { id: number; name: string; companyId?: number };
+  toStoreId: number;
+  toStore: { id: number; name: string; companyId?: number };
+  itemId: number;
+  item: { id: number; name: string; unit: string; quantity?: number };
+  quantity: number;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "COMPLETED";
+  requestedById: number;
+  requestedBy: { id: number; name: string };
+  approvedById?: number;
+  approvedBy?: { id: number; name: string };
+  completedAt?: string;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface StoreRequest {

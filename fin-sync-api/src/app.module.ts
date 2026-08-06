@@ -38,6 +38,7 @@ import { RolesModule } from './roles/roles.module';
 import { SalesModule } from './sales/sales.module';
 import { SavingsModule } from './savings/savings.module';
 import { StoreItemsModule } from './store-items/store-items.module';
+import { StoresModule } from './stores/stores.module';
 import { TimesheetsModule } from './timesheets/timesheets.module';
 import { UsersModule } from './users/users.module';
 import { WorkPositionsModule } from './work-positions/work-positions.module';
@@ -65,6 +66,7 @@ import { WorkPositionsModule } from './work-positions/work-positions.module';
     LedgerModule,
     MachineriesModule,
     StoreItemsModule,
+    StoresModule,
     TimesheetsModule,
     ProjectsModule,
     NotificationsModule,

@@ -964,6 +964,23 @@ export async function seedStoreInventory(
 ): Promise<void> {
   console.log('📦 Seeding Store Inventory...');
 
+  // Create default stores for each company
+  const companyKeys = ['buildco', 'horizon', 'greenvalley', 'urban_threads', 'tech_mfg'];
+  for (const ck of companyKeys) {
+    const companyId = ctx.companies[ck];
+    if (!companyId) continue;
+    const store = await prisma.store.create({
+      data: {
+        name: 'Main Store',
+        companyId,
+        description: 'Default company store',
+        storekeeperId: ctx.users['sk_alex'] || null,
+      },
+    });
+    ctx.stores = ctx.stores || {};
+    ctx.stores[`${ck}_main`] = store.id;
+  }
+
   for (const cat of STORE_CATEGORIES) {
     const created = await prisma.storeCategory.create({
       data: { companyId: ctx.companies[cat.companyKey], name: cat.name },
@@ -975,6 +992,7 @@ export async function seedStoreInventory(
     const created = await prisma.storeItem.create({
       data: {
         companyId: ctx.companies[item.companyKey],
+        storeId: ctx.stores[`${item.companyKey}_main`],
         name: item.name,
         categoryId: ctx.storeCategories[item.categoryKey],
         quantity: item.quantity,

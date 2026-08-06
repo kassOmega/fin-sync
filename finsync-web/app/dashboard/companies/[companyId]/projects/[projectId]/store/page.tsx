@@ -3,12 +3,14 @@
 import Loading from "@/components/Loading";
 
 import api from "@/lib/api";
+import { storeService } from "@/lib/services/store";
+import type { Store } from "@/lib/services/types";
 import { Package, Plus, Wrench } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
-interface StoreItem {
+interface StoreItemLocal {
   id: number;
   name: string;
   quantity: number;
@@ -27,28 +29,38 @@ export default function ProjectStorePage() {
   const companyId = params.companyId as string;
   const projectId = params.projectId as string;
   const router = useRouter();
-  const [items, setItems] = useState<StoreItem[]>([]);
+  const [items, setItems] = useState<StoreItemLocal[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [reqModal, setReqModal] = useState(false);
-  const [reqItem, setReqItem] = useState<StoreItem | null>(null);
+  const [reqItem, setReqItem] = useState<StoreItemLocal | null>(null);
   const [reqQty, setReqQty] = useState(0);
   const [filter, setFilter] = useState("");
   const [tab, setTab] = useState<"inventory" | "requests">("inventory");
 
   const fetchAll = async () => {
     try {
-      const [iRes, cRes, rRes] = await Promise.all([
-        api.get(`/companies/${companyId}/projects/${projectId}/store`),
-        api.get(
-          `/companies/${companyId}/projects/${projectId}/store/categories`,
-        ),
-        api.get(`/companies/${companyId}/store-items/requests`),
+      const cid = Number(companyId);
+      const pid = Number(projectId);
+      const [s, iRes, cRes] = await Promise.all([
+        storeService.listStores(cid, pid),
+        storeService.listItems(cid, undefined, selectedStoreId ? Number(selectedStoreId) : undefined),
+        storeService.listCategories(cid),
       ]);
-      setItems(iRes.data);
-      setCategories(cRes.data);
-      setRequests(rRes.data || []);
+      setStores(s);
+      setItems(iRes as any);
+      setCategories(cRes);
+      if (s.length > 0 && !selectedStoreId) {
+        setSelectedStoreId(String(s[0].id));
+      }
+      // Fetch requests for this company
+      try {
+        const rRes = await storeService.getCompanyRequests(cid);
+        setRequests(rRes || []);
+      } catch { /* may fail for some roles */ }
     } catch {
       toast.error("Failed to load");
     } finally {

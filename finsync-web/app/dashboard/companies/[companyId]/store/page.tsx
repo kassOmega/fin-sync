@@ -3,6 +3,7 @@
 import Loading from "@/components/Loading";
 
 import api from "@/lib/api";
+import { storeService } from "@/lib/services/store";
 import { SystemRole } from "@/lib/types";
 import { useAuthStore } from "@/store/authStore";
 import {
@@ -41,6 +42,8 @@ export default function StorePage() {
   const [categories, setCategories] = useState<{ id: number; name: string }[]>(
     [],
   );
+  const [stores, setStores] = useState<{ id: number; name: string }[]>([]);
+  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
   const [units, setUnits] = useState<Unit[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -71,6 +74,7 @@ export default function StorePage() {
     try {
       const p = new URLSearchParams();
       if (categoryFilter) p.append("categoryId", categoryFilter);
+      if (selectedStoreId) p.append("storeId", selectedStoreId);
       const qs = p.toString();
       const res = await api.get(
         `/companies/${companyId}/store-items${qs ? `?${qs}` : ""}`,
@@ -90,6 +94,16 @@ export default function StorePage() {
     }
   };
 
+  const fetchStores = async () => {
+    try {
+      const s = await storeService.listStores(Number(companyId));
+      setStores(s);
+      if (s.length > 0 && !selectedStoreId) {
+        setSelectedStoreId(String(s[0].id));
+      }
+    } catch { /* silent */ }
+  };
+
   useEffect(() => {
     if (!companyId) {
       router.push("/dashboard/companies");
@@ -97,7 +111,7 @@ export default function StorePage() {
     }
     const load = async () => {
       setPageLoading(true);
-      await Promise.all([fetchCategories(), fetchItems(), fetchUnits()]);
+      await Promise.all([fetchCategories(), fetchItems(), fetchUnits(), fetchStores()]);
       setPageLoading(false);
     };
     load();
@@ -107,7 +121,7 @@ export default function StorePage() {
     if (companyId) {
       fetchItems();
     }
-  }, [categoryFilter]);
+  }, [categoryFilter, selectedStoreId]);
 
   if (!companyId) {
     return null;
@@ -119,10 +133,15 @@ export default function StorePage() {
       toast.error("Please select a category");
       return;
     }
+    if (!selectedStoreId) {
+      toast.error("Please select a store first");
+      return;
+    }
     try {
       const payload: Record<string, unknown> = {
         name: itemData.name,
         categoryId: itemData.categoryId,
+        storeId: Number(selectedStoreId),
         quantity: itemData.quantity,
         unit: itemData.unit,
       };
@@ -191,6 +210,17 @@ export default function StorePage() {
 
         <div className="flex items-center justify-end space-x-2 sm:space-x-3">
           <select
+            value={selectedStoreId}
+            onChange={(e) => setSelectedStoreId(e.target.value)}
+            className="border border-gray-300 rounded-md py-2 px-2 sm:px-3 bg-white text-sm whitespace-nowrap"
+          >
+            <option value="">All Stores</option>
+            {stores.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+
+          <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="border border-gray-300 rounded-md py-2 px-2 sm:px-3 bg-white text-sm whitespace-nowrap"
@@ -204,10 +234,24 @@ export default function StorePage() {
           </select>
 
           <Link
+            href={`/dashboard/companies/${companyId}/store/stores`}
+            className="flex items-center px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200 whitespace-nowrap"
+          >
+            Stores
+          </Link>
+
+          <Link
             href={`/dashboard/companies/${companyId}/store/requests`}
             className="flex items-center px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200 whitespace-nowrap"
           >
             <ClipboardList className="h-4 w-4 mr-1 shrink-0" /> Requests
+          </Link>
+
+          <Link
+            href={`/dashboard/companies/${companyId}/store/transfers`}
+            className="flex items-center px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200 whitespace-nowrap"
+          >
+            Transfers
           </Link>
 
           {hasRole([SystemRole.Owner, SystemRole.Storekeeper]) && (

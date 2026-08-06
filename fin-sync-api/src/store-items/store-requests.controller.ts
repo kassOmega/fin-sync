@@ -63,15 +63,21 @@ export class StoreRequestsController {
   // Owner: approve a request (permission-guard enforced)
   @Patch(':id/approve')
   @RequirePermissions(PermissionCode.STORE_REQUEST_APPROVE)
-  approveRequest(@Param('id', ParseIntPipe) id: number) {
-    return this.workflowService.approveRequest(id);
+  approveRequest(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+  ) {
+    return this.workflowService.approveRequest(id, user);
   }
 
   // Owner: reject a request (permission-guard enforced)
   @Patch(':id/reject')
   @RequirePermissions(PermissionCode.STORE_REQUEST_APPROVE)
-  rejectRequest(@Param('id', ParseIntPipe) id: number) {
-    return this.workflowService.rejectRequest(id);
+  rejectRequest(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+  ) {
+    return this.workflowService.rejectRequest(id, user);
   }
 
   // Storekeeper/Owner: issue an approved request (partial or full)

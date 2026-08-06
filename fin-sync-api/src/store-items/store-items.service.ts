@@ -7,6 +7,7 @@ import { StoreTxType } from '@prisma/client';
 import { LedgerService } from '../ledger/ledger.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { StoresService } from '../stores/stores.service';
 import { CreateStoreItemDto } from './dto/create-store-item.dto';
 import { StoreTransactionDto } from './dto/store-transaction.dto';
 import { UpdateStoreItemDto } from './dto/update-store-item.dto';
@@ -17,15 +18,30 @@ export class StoreItemsService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private ledger: LedgerService,
+    private storesService: StoresService,
   ) {}
 
   async create(companyId: number, dto: CreateStoreItemDto) {
+    const storeId = dto.storeId;
+    if (!storeId) throw new BadRequestException('storeId is required');
+
+    // Verify store belongs to company
+    const store = await this.prisma.store.findFirst({
+      where: { id: storeId, companyId },
+    });
+    if (!store) throw new NotFoundException('Store not found in this company');
+
     const item = await this.prisma.storeItem.create({
       data: {
-        ...dto,
+        name: dto.name,
+        categoryId: dto.categoryId,
         companyId,
+        storeId,
         quantity: dto.quantity || 0,
         lowStockThreshold: dto.lowStockThreshold || 5,
+        costPrice: dto.costPrice || 0,
+        sellingPrice: dto.sellingPrice || 0,
+        unit: dto.unit || 'pcs',
       },
     });
 
@@ -38,13 +54,14 @@ export class StoreItemsService {
     return item;
   }
 
-  async findAll(companyId: number, categoryId?: number) {
+  async findAll(companyId: number, storeId?: number, categoryId?: number) {
     const where: any = { companyId };
+    if (storeId) where.storeId = storeId;
     if (categoryId) where.categoryId = categoryId;
 
     return this.prisma.storeItem.findMany({
       where,
-      include: { category: true },
+      include: { category: true, store: { select: { id: true, name: true } } },
     });
   }
 
@@ -75,21 +92,25 @@ export class StoreItemsService {
   }
 
   // 5. Storekeeper marks issued tool as returned (restores stock)
-  //    Only tools can be returned; consumables are permanently issued.
   async returnItem(requestId: number, user: any, companyId: number) {
-    if (
-      (user as { role: string }).role !== 'Storekeeper' &&
-      (user as { role: string }).role !== 'Owner'
-    ) {
-      throw new BadRequestException('Only storekeepers can return items');
-    }
-
     const request = await this.prisma.storeRequest.findUnique({
       where: { id: requestId },
+      include: { item: { select: { storeId: true } } },
     });
     if (!request) throw new NotFoundException('Request not found');
     if (request.status !== 'ISSUED')
       throw new BadRequestException('Only issued items can be returned');
+
+    // Check storekeeper per store
+    if (request.item?.storeId) {
+      await this.storesService.assertStorekeeper(
+        request.item.storeId,
+        user.id,
+        user.role,
+      );
+    } else if (user.role !== 'Storekeeper' && user.role !== 'Owner') {
+      throw new BadRequestException('Only storekeepers can return items');
+    }
 
     // Only tools can be returned — consumables stay issued
     const item = await this.prisma.storeItem.findUnique({
@@ -120,6 +141,7 @@ export class StoreItemsService {
         data: {
           itemId: request.itemId,
           companyId,
+          storeId: fullItem.storeId,
           type: 'RETURN',
           quantity: request.quantity,
           issuedToUserId: request.userId,
@@ -196,6 +218,7 @@ export class StoreItemsService {
         data: {
           itemId,
           companyId,
+          storeId: item.storeId,
           type: dto.type,
           quantity: dto.quantity,
           issuedToUserId: dto.issuedToUserId,

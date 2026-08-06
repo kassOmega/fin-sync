@@ -115,6 +115,9 @@ model User {
   employee        Employee?
   storeIssuedBy   StoreTransaction[] @relation("StoreIssuedBy")
   requestIssuedBy StoreRequest[]     @relation("RequestIssuedBy")
+  keeperOf        Store[]           @relation("StoreKeeper")
+  transferRequests StoreTransfer[]  @relation("TransferRequestedBy")
+  transferApprovals StoreTransfer[] @relation("TransferApprovedBy")
 
   @@schema("finsync")
 }
@@ -165,6 +168,7 @@ model Company {
   customers              Customer[]
   suppliers              Supplier[]
   storeCategories        StoreCategory[]
+  stores                 Store[]
   companyRoles           CompanyRole[]
   attendances            Attendance[]
   timesheets             Timesheet[]
@@ -602,6 +606,7 @@ model Project {
   payrolls          Payroll[]
   journalEntries    JournalEntry[]
   storeTransactions StoreTransaction[]
+  stores            Store[]
 
   @@index([companyId])
   @@map("projects")
@@ -1109,10 +1114,69 @@ model MachineryMaintenance {
 // 10. STORE & INVENTORY
 // ==========================================
 
+model Store {
+  id        Int      @id @default(autoincrement())
+  name      String
+  companyId Int      @map("company_id")
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Scope: company-level or project-level store
+  projectId Int?     @map("project_id")
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  // Assigned storekeeper — only this user can issue items from this store
+  storekeeperId Int?  @map("storekeeper_id")
+  storekeeper   User? @relation("StoreKeeper", fields: [storekeeperId], references: [id], onDelete: SetNull)
+
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items           StoreItem[]
+  transactions    StoreTransaction[]
+  requests        StoreRequest[]
+  categories      StoreCategory[]
+  transfersFrom   StoreTransfer[] @relation("ToStore")
+  transfersTo     StoreTransfer[] @relation("FromStore")
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@index([projectId])
+  @@schema("finsync")
+}
+
+model StoreTransfer {
+  id          Int      @id @default(autoincrement())
+  fromStoreId Int      @map("from_store_id")
+  fromStore   Store    @relation("FromStore", fields: [fromStoreId], references: [id])
+  toStoreId   Int      @map("to_store_id")
+  toStore     Store    @relation("ToStore", fields: [toStoreId], references: [id])
+  itemId      Int      @map("item_id")
+  item        StoreItem @relation(fields: [itemId], references: [id])
+  quantity    Float
+  status      String   @default("PENDING") // PENDING | APPROVED | REJECTED | COMPLETED
+  requestedById Int    @map("requested_by_id")
+  requestedBy   User   @relation("TransferRequestedBy", fields: [requestedById], references: [id])
+  approvedById  Int?   @map("approved_by_id")
+  approvedBy    User?  @relation("TransferApprovedBy", fields: [approvedById], references: [id])
+  completedAt   DateTime? @map("completed_at")
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([fromStoreId])
+  @@index([toStoreId])
+  @@index([status])
+  @@schema("finsync")
+}
+
 model StoreCategory {
   id        Int      @id @default(autoincrement())
   name      String
   companyId Int      @map("company_id")
+  storeId   Int?     @map("store_id")
+  store     Store?   @relation(fields: [storeId], references: [id])
   createdAt DateTime @default(now())
 
   company Company     @relation(fields: [companyId], references: [id])
@@ -1125,6 +1189,8 @@ model StoreCategory {
 model StoreItem {
   id                Int      @id @default(autoincrement())
   companyId         Int      @map("company_id")
+  storeId           Int      @map("store_id")
+  store             Store    @relation(fields: [storeId], references: [id])
   name              String
   categoryId        Int      @map("category_id")
   quantity          Float    @default(0)
@@ -1140,11 +1206,13 @@ model StoreItem {
   category        StoreCategory      @relation(fields: [categoryId], references: [id])
   transactions    StoreTransaction[]
   storeRequests   StoreRequest[]
+  transferItems   StoreTransfer[]
   measuringUnit   MeasuringUnit?     @relation(fields: [measuringUnitId], references: [id])
   measuringUnitId Int?
   saleItems       SaleItem[]
   purchaseItems   PurchaseItem[]
 
+  @@index([storeId])
   @@schema("finsync")
 }
 
@@ -1152,6 +1220,8 @@ model StoreTransaction {
   id             Int         @id @default(autoincrement())
   itemId         Int         @map("item_id")
   companyId      Int         @map("company_id")
+  storeId        Int?        @map("store_id")
+  store          Store?      @relation(fields: [storeId], references: [id])
   type           StoreTxType
   quantity       Float
   issuedToUserId Int?        @map("issued_to_user_id")
@@ -1175,6 +1245,7 @@ model StoreTransaction {
   @@index([companyId, date])
   @@index([itemId])
   @@index([projectId])
+  @@index([storeId])
   @@schema("finsync")
 }
 
@@ -1182,6 +1253,8 @@ model StoreRequest {
   id        Int      @id @default(autoincrement())
   itemId    Int      @map("item_id")
   companyId Int      @map("company_id")
+  storeId   Int?     @map("store_id")
+  store     Store?   @relation(fields: [storeId], references: [id])
   userId    Int      @map("user_id")
   quantity  Float
   status    String   @default("PENDING")
