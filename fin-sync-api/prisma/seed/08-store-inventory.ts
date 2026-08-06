@@ -1082,22 +1082,14 @@ export async function seedStoreInventory(
   }
 
   for (const item of STORE_ITEMS) {
-    const defaultStoreId = ctx.stores[`${item.companyKey}_main`];
-    const created = await prisma.storeItem.create({
-      data: {
-        companyId: ctx.companies[item.companyKey],
-        storeId: defaultStoreId || 1, // fallback to 1 if none found
-        name: item.name,
-        categoryId: ctx.storeCategories[item.categoryKey],
-        quantity: item.quantity,
-        lowStockThreshold: item.lowStockThreshold,
-        unit: item.unit,
-        sellingPrice: item.sellingPrice || 0,
-        costPrice: item.costPrice || 0,
-        isTool: item.isTool || false,
-      },
-    });
-    ctx.storeItems[item.key] = created.id;
+    const defaultStoreId = ctx.stores[`${item.companyKey}_main`] || 1;
+    // Use raw SQL because production Prisma client may not have storeId in its types yet
+    const rows: any[] = await prisma.$queryRawUnsafe(
+      `INSERT INTO finsync."StoreItem" (name, company_id, store_id, category_id, quantity, low_stock_threshold, unit, selling_price, cost_price, is_tool)
+       VALUES ('${item.name.replace(/'/g, "''")}', ${ctx.companies[item.companyKey]}, ${defaultStoreId}, ${ctx.storeCategories[item.categoryKey]}, ${item.quantity}, ${item.lowStockThreshold}, '${item.unit}', ${item.sellingPrice || 0}, ${item.costPrice || 0}, ${item.isTool || false})
+       RETURNING id`,
+    );
+    ctx.storeItems[item.key] = rows[0].id;
   }
 
   await prisma.storeTransaction.createMany({
