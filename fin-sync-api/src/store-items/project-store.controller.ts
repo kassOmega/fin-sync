@@ -14,6 +14,7 @@ import { RequirePermissions } from '../common/decorators/permission.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { StoresService } from '../stores/stores.service';
+import { StoreTransfersService } from '../stores/store-transfers.service';
 import { StoreItemsService } from './store-items.service';
 import { StoreWorkflowService } from './store-workflow.service';
 
@@ -24,6 +25,7 @@ export class ProjectStoreController {
     private readonly service: StoreItemsService,
     private readonly workflowService: StoreWorkflowService,
     private readonly storesService: StoresService,
+    private readonly transfersService: StoreTransfersService,
   ) {}
 
   @Get()
@@ -32,12 +34,16 @@ export class ProjectStoreController {
     @Param('companyId', ParseIntPipe) companyId: number,
     @Param('projectId', ParseIntPipe) projectId: number,
   ) {
-    // Get all stores for this project, then get items
     const stores = await this.storesService.findAll(companyId, projectId);
     const storeIds = stores.map((s) => s.id);
-    if (storeIds.length === 0) return [];
-
-    return this.service.findAll(companyId);
+    // Also include company-level stores (no project) so projects can see
+    // company inventory to make requests
+    const companyStores = await this.storesService.findAll(companyId, undefined);
+    const companyStoreIds = companyStores
+      .filter((s) => !s.projectId)
+      .map((s) => s.id);
+    const allIds = [...new Set([...storeIds, ...companyStoreIds])];
+    return allIds.length > 0 ? this.service.findByStoreIds(allIds) : [];
   }
 
   @Get('stores')
@@ -52,7 +58,6 @@ export class ProjectStoreController {
   @Get('categories')
   getCategories(
     @Param('companyId', ParseIntPipe) companyId: number,
-    @Param('projectId', ParseIntPipe) projectId: number,
   ) {
     return this.service.getCategories(companyId);
   }
@@ -66,8 +71,16 @@ export class ProjectStoreController {
     const stores = await this.storesService.findAll(companyId, projectId);
     const storeIds = stores.map((s) => s.id);
     if (storeIds.length === 0) return [];
+    return this.workflowService.getRequestsByStoreIds(storeIds);
+  }
 
-    return this.workflowService.getRequests(companyId);
+  @Get('transfers')
+  @RequirePermissions(PermissionCode.STORE_READ)
+  getTransfers(
+    @Param('projectId', ParseIntPipe) projectId: number,
+    @Query('status') status?: string,
+  ) {
+    return this.transfersService.findByProject(projectId, status);
   }
 
   @Post('requests')

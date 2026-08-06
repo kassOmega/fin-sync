@@ -964,14 +964,22 @@ export async function seedStoreInventory(
 ): Promise<void> {
   console.log('📦 Seeding Store Inventory...');
 
-  // Create default stores for each company
+  // Create a default store for each company (named after the company)
   const companyKeys = ['buildco', 'horizon', 'greenvalley', 'urban_threads', 'tech_mfg'];
   for (const ck of companyKeys) {
     const companyId = ctx.companies[ck];
     if (!companyId) continue;
+    // Use company name from seed data
+    const companyNames: Record<string, string> = {
+      buildco: 'BuildCo Construction',
+      horizon: 'Horizon Logistics',
+      greenvalley: 'Green Valley Farms',
+      urban_threads: 'Urban Threads',
+      tech_mfg: 'TechMFG',
+    };
     const store = await prisma.store.create({
       data: {
-        name: 'Main Store',
+        name: companyNames[ck] || 'Main Store',
         companyId,
         description: 'Default company store',
         storekeeperId: ctx.users['sk_alex'] || null,
@@ -980,6 +988,22 @@ export async function seedStoreInventory(
     ctx.stores = ctx.stores || {};
     ctx.stores[`${ck}_main`] = store.id;
   }
+
+  // Create project-scoped stores for any project that doesn't have one yet
+  const allProjects = await prisma.project.findMany({
+    select: { id: true, name: true, companyId: true },
+  });
+  for (const p of allProjects) {
+    const existing = await prisma.store.findFirst({
+      where: { projectId: p.id },
+    });
+    if (!existing) {
+      await prisma.store.create({
+        data: { name: p.name, companyId: p.companyId, projectId: p.id },
+      });
+    }
+  }
+  console.log(`   ✅ Created stores for ${allProjects.length} projects`);
 
   for (const cat of STORE_CATEGORIES) {
     const created = await prisma.storeCategory.create({

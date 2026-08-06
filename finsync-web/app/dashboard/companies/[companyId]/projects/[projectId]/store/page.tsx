@@ -5,7 +5,8 @@ import Loading from "@/components/Loading";
 import api from "@/lib/api";
 import { storeService } from "@/lib/services/store";
 import type { Store } from "@/lib/services/types";
-import { Package, Plus, Wrench } from "lucide-react";
+import { ArrowRightLeft, Package, Plus, Wrench } from "lucide-react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -45,22 +46,19 @@ export default function ProjectStorePage() {
     try {
       const cid = Number(companyId);
       const pid = Number(projectId);
-      const [s, iRes, cRes] = await Promise.all([
-        storeService.listStores(cid, pid),
-        storeService.listItems(cid, undefined, selectedStoreId ? Number(selectedStoreId) : undefined),
+      const [s, iRes, cRes, rRes] = await Promise.all([
+        storeService.listProjectStores(cid, pid),
+        storeService.listProjectItems(cid, pid),
         storeService.listCategories(cid),
+        storeService.getProjectRequests(cid, pid),
       ]);
       setStores(s);
       setItems(iRes as any);
       setCategories(cRes);
+      setRequests(rRes || []);
       if (s.length > 0 && !selectedStoreId) {
         setSelectedStoreId(String(s[0].id));
       }
-      // Fetch requests for this company
-      try {
-        const rRes = await storeService.getCompanyRequests(cid);
-        setRequests(rRes || []);
-      } catch { /* may fail for some roles */ }
     } catch {
       toast.error("Failed to load");
     } finally {
@@ -119,6 +117,12 @@ export default function ProjectStorePage() {
           >
             Requests ({requests.length})
           </button>
+          <Link
+            href={`/dashboard/companies/${companyId}/projects/${projectId}/store/transfers`}
+            className="px-3 py-1.5 text-sm rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center gap-1"
+          >
+            <ArrowRightLeft className="h-3.5 w-3.5" /> Transfers
+          </Link>
         </div>
       </div>
 

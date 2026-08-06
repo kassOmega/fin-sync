@@ -37,6 +37,27 @@ export class StoreWorkflowService {
     });
   }
 
+  /** Get requests scoped to specific stores (e.g. project's stores) */
+  async getRequestsByStoreIds(storeIds: number[]) {
+    if (storeIds.length === 0) return [];
+    return this.prisma.storeRequest.findMany({
+      where: { storeId: { in: storeIds } },
+      include: {
+        item: {
+          select: {
+            id: true,
+            name: true,
+            quantity: true,
+            unit: true,
+            isTool: true,
+          },
+        },
+        user: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   // Get all requests across ALL companies (Owner view for /dashboard/requisitions)
   async getAllRequests() {
     return this.prisma.storeRequest.findMany({

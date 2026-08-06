@@ -44,18 +44,7 @@ export default function StoreTransfersPage() {
 
   const fetchStores = useCallback(async () => {
     try {
-      let s = await storeService.listStores(companyId);
-      // Auto-create a default store if none exist
-      if (s.length === 0) {
-        try {
-          const created = await storeService.createStore(companyId, {
-            name: "Main Store",
-            description: "Default store — created automatically",
-          });
-          s = [created];
-        } catch { /* creation may fail if no permission */ }
-      }
-      return s;
+      return await storeService.listStores(companyId);
     } catch {
       toast.error("Failed to load stores");
       return [];
@@ -157,8 +146,6 @@ export default function StoreTransfersPage() {
   const toStoreOptions = availableStores.filter(
     (s) => s.id !== Number(form.fromStoreId),
   );
-
-  if (loading) return <div className="p-8 text-gray-500">Loading transfers...</div>;
 
   if (loading) return <div className="p-8 text-gray-500">Loading transfers...</div>;
 

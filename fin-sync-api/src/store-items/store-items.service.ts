@@ -65,6 +65,15 @@ export class StoreItemsService {
     });
   }
 
+  /** Find items belonging to specific stores (for project-scoped views) */
+  async findByStoreIds(storeIds: number[]) {
+    if (storeIds.length === 0) return [];
+    return this.prisma.storeItem.findMany({
+      where: { storeId: { in: storeIds } },
+      include: { category: true, store: { select: { id: true, name: true } } },
+    });
+  }
+
   async getCategories(companyId: number) {
     return this.prisma.storeCategory.findMany({
       where: { companyId },

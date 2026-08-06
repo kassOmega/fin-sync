@@ -12,8 +12,15 @@ export class CompaniesService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateCompanyDto, ownerId: number) {
-    return this.prisma.company.create({
-      data: { ...dto, currency: dto.currency || 'USD', ownerId },
+    return this.prisma.$transaction(async (tx) => {
+      const company = await tx.company.create({
+        data: { ...dto, currency: dto.currency || 'USD', ownerId },
+      });
+      // Auto-create a default store for this company
+      await tx.store.create({
+        data: { name: company.name, companyId: company.id },
+      });
+      return company;
     });
   }
 

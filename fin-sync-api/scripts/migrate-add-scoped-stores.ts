@@ -83,7 +83,9 @@ async function main() {
   console.log('  ✓ StoreCategory.store_id');
 
   // Create default stores for existing companies and backfill storeId
-  const companies = await prisma.$queryRawUnsafe<{ id: number }[]>(`SELECT id FROM finsync."Company"`);
+  const companies = await prisma.$queryRawUnsafe<{ id: number; name: string }[]>(
+    `SELECT id, name FROM finsync."Company"`
+  );
   for (const c of companies) {
     const existing = await prisma.$queryRawUnsafe<{ id: number }[]>(
       `SELECT id FROM finsync."Store" WHERE company_id = ${c.id} AND project_id IS NULL LIMIT 1`
@@ -91,7 +93,7 @@ async function main() {
     let storeId: number;
     if (existing.length === 0) {
       const result = await prisma.$queryRawUnsafe<{ id: number }[]>(
-        `INSERT INTO finsync."Store" (name, company_id, description) VALUES ('Main Store', ${c.id}, 'Default company store') RETURNING id`
+        `INSERT INTO finsync."Store" (name, company_id, description) VALUES ('${c.name}', ${c.id}, 'Default company store') RETURNING id`
       );
       storeId = result[0].id;
     } else {
@@ -101,8 +103,14 @@ async function main() {
     await prisma.$executeRawUnsafe(
       `UPDATE finsync."StoreItem" SET store_id = ${storeId} WHERE company_id = ${c.id} AND store_id IS NULL`
     );
-    console.log(`  ✓ Company #${c.id}: backfilled items to store #${storeId}`);
+    console.log(`  ✓ Company #${c.id} (${c.name}): backfilled items → store #${storeId}`);
   }
+
+  // Rename any leftover "Main Store" entries to match company names
+  await prisma.$executeRawUnsafe(
+    `UPDATE finsync."Store" SET name = c.name FROM finsync."Company" c WHERE finsync."Store".company_id = c.id AND finsync."Store".name = 'Main Store'`
+  );
+  console.log('  ✓ Renamed Main Store → company names');
 
   // Make store_id NOT NULL after backfill
   await prisma.$executeRawUnsafe(`ALTER TABLE finsync."StoreItem" ALTER COLUMN store_id SET NOT NULL`);

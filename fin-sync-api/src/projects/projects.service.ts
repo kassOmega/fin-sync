@@ -8,12 +8,23 @@ export class ProjectsService {
   constructor(private prisma: PrismaService) {}
 
   async create(companyId: number, dto: CreateProjectDto) {
-    return this.prisma.project.create({
-      data: {
-        ...dto,
-        companyId,
-        progress: dto.progress || 0,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const project = await tx.project.create({
+        data: {
+          ...dto,
+          companyId,
+          progress: dto.progress || 0,
+        },
+      });
+      // Auto-create a project-scoped store
+      await tx.store.create({
+        data: {
+          name: project.name,
+          companyId,
+          projectId: project.id,
+        },
+      });
+      return project;
     });
   }
 

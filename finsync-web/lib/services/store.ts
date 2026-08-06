@@ -248,6 +248,40 @@ export const storeService = {
     return res.data;
   },
 
+  listProjectItems: async (
+    companyId: number,
+    projectId: number,
+  ): Promise<StoreItem[]> => {
+    const res = await api.get(
+      `/companies/${companyId}/projects/${projectId}/store`,
+    );
+    return res.data;
+  },
+
+  getProjectRequests: async (
+    companyId: number,
+    projectId: number,
+  ): Promise<StoreRequest[]> => {
+    const res = await api.get(
+      `/companies/${companyId}/projects/${projectId}/store/requests`,
+    );
+    return res.data;
+  },
+
+  listProjectTransfers: async (
+    companyId: number,
+    projectId: number,
+    status?: string,
+  ): Promise<StoreTransfer[]> => {
+    const params: Record<string, string> = {};
+    if (status) params.status = status;
+    const res = await api.get(
+      `/companies/${companyId}/projects/${projectId}/store/transfers`,
+      { params },
+    );
+    return res.data;
+  },
+
   createProjectStore: async (
     companyId: number,
     projectId: number,

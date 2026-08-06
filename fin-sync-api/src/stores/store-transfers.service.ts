@@ -129,6 +129,37 @@ export class StoreTransfersService {
     return transfer;
   }
 
+  /** List transfers for a specific project */
+  async findByProject(projectId: number, status?: string) {
+    // Find all store IDs belonging to this project
+    const stores = await this.prisma.store.findMany({
+      where: { projectId },
+      select: { id: true },
+    });
+    const storeIds = stores.map((s) => s.id);
+    if (storeIds.length === 0) return [];
+
+    const where: any = {
+      OR: [
+        { fromStoreId: { in: storeIds } },
+        { toStoreId: { in: storeIds } },
+      ],
+    };
+    if (status) where.status = status;
+
+    return this.prisma.storeTransfer.findMany({
+      where,
+      include: {
+        fromStore: { select: { id: true, name: true, companyId: true } },
+        toStore: { select: { id: true, name: true, companyId: true } },
+        item: { select: { id: true, name: true, unit: true } },
+        requestedBy: { select: { id: true, name: true } },
+        approvedBy: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   /**
    * Approve a transfer. Owner or project manager can approve.
    */
