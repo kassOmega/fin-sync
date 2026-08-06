@@ -1029,8 +1029,8 @@ export async function seedStoreInventory(
     if (rows.length === 0) {
       // Create new store
       rows = await prisma.$queryRawUnsafe(
-        `INSERT INTO finsync."Store" (name, company_id, description)
-         VALUES ('${name.replace(/'/g, "''")}', ${cid}, 'Default company store')
+        `INSERT INTO finsync."Store" (name, company_id, description, "createdAt", "updatedAt")
+         VALUES ('${name.replace(/'/g, "''")}', ${cid}, 'Default company store', NOW(), NOW())
          RETURNING id`,
       );
     }
@@ -1044,8 +1044,8 @@ export async function seedStoreInventory(
       const ex: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM finsync."Store" WHERE project_id = ${p.id} LIMIT 1`);
       if (ex.length === 0) {
         await prisma.$queryRawUnsafe(
-          `INSERT INTO finsync."Store" (name, company_id, project_id)
-           VALUES ('${(p.name as string).replace(/'/g, "''")}', ${p.companyId}, ${p.id})`,
+          `INSERT INTO finsync."Store" (name, company_id, project_id, "createdAt", "updatedAt")
+           VALUES ('${(p.name as string).replace(/'/g, "''")}', ${p.companyId}, ${p.id}, NOW(), NOW())`,
         );
       }
     }
